@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
-import { cents, formatDateTime, formatMoney } from '../lib/utils'
+import { cents, formatDateTime, formatMoney, splitEvenly } from '../lib/utils'
 
 export function MoneyPage() {
   const {
@@ -24,6 +24,7 @@ export function MoneyPage() {
     confirmSettlement,
     proposeFundPayment,
     confirmFundPayment,
+    openReceipt,
   } = useAppData()
   const [expenseModal, setExpenseModal] = useState(false)
   const [settleModal, setSettleModal] = useState(false)
@@ -33,6 +34,12 @@ export function MoneyPage() {
   const [beneficiaries, setBeneficiaries] = useState(
     () => new Set(data.members.map((member) => member.id)),
   )
+  const [payers, setPayers] = useState(
+    () => new Set([data.household.currentMemberId]),
+  )
+  const [customShares, setCustomShares] = useState(false)
+  const [payerAmounts, setPayerAmounts] = useState<Record<string, string>>({})
+  const [shareAmounts, setShareAmounts] = useState<Record<string, string>>({})
   const [settleTo, setSettleTo] = useState(
     data.members.find((member) => member.id !== data.household.currentMemberId)?.id ?? '',
   )
@@ -46,11 +53,28 @@ export function MoneyPage() {
     event.preventDefault()
     const amountCents = Math.round(Number(amount) * 100)
     if (!title.trim() || amountCents <= 0 || !beneficiaries.size) return
+    const payerSplit = Object.keys(payerAmounts).length
+      ? [...payers].map((memberId) => ({
+          memberId,
+          amountCents: cents(Math.round(Number(payerAmounts[memberId] ?? 0) * 100)),
+        }))
+      : splitEvenly(amountCents, [...payers])
+    const beneficiarySplit = customShares
+      ? [...beneficiaries].map((memberId) => ({
+          memberId,
+          amountCents: cents(Math.round(Number(shareAmounts[memberId] ?? 0) * 100)),
+        }))
+      : splitEvenly(amountCents, [...beneficiaries])
+    if (
+      !payers.size
+      || payerSplit.reduce((sum, item) => sum + item.amountCents, 0) !== amountCents
+      || beneficiarySplit.reduce((sum, item) => sum + item.amountCents, 0) !== amountCents
+    ) return
     await addExpense({
       title: title.trim(),
       amountCents: cents(amountCents),
-      payerIds: [currentMemberId],
-      beneficiaryIds: [...beneficiaries],
+      payers: payerSplit,
+      beneficiaries: beneficiarySplit,
       receipt,
     })
     setTitle('')
@@ -129,6 +153,15 @@ export function MoneyPage() {
                       })}
                       <span>sharing</span>
                     </div>
+                    {expense.receiptPath && (
+                      <button
+                        className="inline-link"
+                        type="button"
+                        onClick={() => openReceipt(expense.receiptPath!)}
+                      >
+                        <Camera size={14} /> View private receipt
+                      </button>
+                    )}
                   </div>
                   <div className="expense-amount">
                     <strong>{formatMoney(expense.amountCents)}</strong>
@@ -195,50 +228,52 @@ export function MoneyPage() {
             })}
           </div>
 
-          <SectionHeader eyebrow="HOUSEHOLD FUND" title="Penalty account" />
-          <Card className="fund-card">
-            <div className="fund-icon"><ArrowDownLeft /></div>
-            <div>
-              <strong>{formatMoney(data.balances.reduce((sum, item) => sum + item.fundOwedCents, 0))} outstanding</strong>
-              <span>Kept separate from shared purchase balances</span>
-            </div>
-            {(data.balances.find((item) => item.memberId === currentMemberId)?.fundOwedCents ?? 0) > 0 && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  const amount = window.prompt('How much did you pay into the household fund?')
-                  const amountCents = Math.round(Number(amount) * 100)
-                  if (amountCents > 0) proposeFundPayment(amountCents)
-                }}
-              >
-                Record payment
-              </Button>
-            )}
-          </Card>
-          {data.fundPayments.map((payment) => {
-            const member = data.members.find((item) => item.id === payment.memberId)!
-            const canConfirm = payment.memberId !== currentMemberId && payment.status === 'pending'
-            return (
-              <Card className="fund-payment-row" key={payment.id}>
-                <Avatar initials={member.initials} color={member.color} size="sm" />
-                <div>
-                  <strong>{member.displayName} paid {formatMoney(payment.amountCents)}</strong>
-                  <span>{formatDateTime(payment.createdAt)}</span>
-                </div>
-                {canConfirm ? (
-                  <div className="button-row">
-                    <Button size="sm" variant="ghost" onClick={() => confirmFundPayment(payment.id, false)}>Reject</Button>
-                    <Button size="sm" onClick={() => confirmFundPayment(payment.id, true)}>Confirm</Button>
+          <div className="fund-section">
+            <SectionHeader eyebrow="HOUSEHOLD FUND" title="Penalty account" />
+            <Card className="fund-card">
+              <div className="fund-icon"><ArrowDownLeft /></div>
+              <div>
+                <strong>{formatMoney(data.balances.reduce((sum, item) => sum + item.fundOwedCents, 0))} outstanding</strong>
+                <span>Kept separate from shared purchase balances</span>
+              </div>
+              {(data.balances.find((item) => item.memberId === currentMemberId)?.fundOwedCents ?? 0) > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    const amount = window.prompt('How much did you pay into the household fund?')
+                    const amountCents = Math.round(Number(amount) * 100)
+                    if (amountCents > 0) proposeFundPayment(amountCents)
+                  }}
+                >
+                  Record payment
+                </Button>
+              )}
+            </Card>
+            {data.fundPayments.map((payment) => {
+              const member = data.members.find((item) => item.id === payment.memberId)!
+              const canConfirm = payment.memberId !== currentMemberId && payment.status === 'pending'
+              return (
+                <Card className="fund-payment-row" key={payment.id}>
+                  <Avatar initials={member.initials} color={member.color} size="sm" />
+                  <div>
+                    <strong>{member.displayName} paid {formatMoney(payment.amountCents)}</strong>
+                    <span>{formatDateTime(payment.createdAt)}</span>
                   </div>
-                ) : (
-                  <Badge tone={payment.status === 'confirmed' ? 'green' : payment.status === 'rejected' ? 'red' : 'amber'}>
-                    {payment.status}
-                  </Badge>
-                )}
-              </Card>
-            )
-          })}
+                  {canConfirm ? (
+                    <div className="button-row">
+                      <Button size="sm" variant="ghost" onClick={() => confirmFundPayment(payment.id, false)}>Reject</Button>
+                      <Button size="sm" onClick={() => confirmFundPayment(payment.id, true)}>Confirm</Button>
+                    </div>
+                  ) : (
+                    <Badge tone={payment.status === 'confirmed' ? 'green' : payment.status === 'rejected' ? 'red' : 'amber'}>
+                      {payment.status}
+                    </Badge>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
         </section>
       </div>
 
@@ -259,7 +294,59 @@ export function MoneyPage() {
             <input type="file" accept="image/*" onChange={(event) => setReceipt(event.target.files?.[0])} />
           </label>
           <fieldset className="field-span-2">
+            <legend>Who paid?</legend>
+            <div className="member-amount-list">
+              {data.members.map((member) => {
+                const selected = payers.has(member.id)
+                return (
+                  <div className="member-amount-row" key={member.id}>
+                    <label className="member-check">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(event) => setPayers((current) => {
+                          const next = new Set(current)
+                          if (event.target.checked) next.add(member.id)
+                          else next.delete(member.id)
+                          setPayerAmounts({})
+                          return next
+                        })}
+                      />
+                      <Avatar initials={member.initials} color={member.color} size="sm" />
+                      {member.displayName}
+                    </label>
+                    {selected && (
+                      <input
+                        aria-label={`${member.displayName} paid amount`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Equal"
+                        value={payerAmounts[member.id] ?? ''}
+                        onChange={(event) => setPayerAmounts((current) => ({
+                          ...current,
+                          [member.id]: event.target.value,
+                        }))}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <button type="button" className="inline-link" onClick={() => setPayerAmounts({})}>
+              Use an equal payer split
+            </button>
+          </fieldset>
+          <fieldset className="field-span-2">
             <legend>Who used it?</legend>
+            <label className="compact-toggle">
+              <input
+                type="checkbox"
+                checked={customShares}
+                onChange={(event) => setCustomShares(event.target.checked)}
+              />
+              Enter custom shares
+            </label>
             <div className="member-check-grid">
               {data.members.map((member) => (
                 <label className="member-check" key={member.id}>
@@ -277,15 +364,35 @@ export function MoneyPage() {
                   />
                   <Avatar initials={member.initials} color={member.color} size="sm" />
                   {member.displayName}
+                  {customShares && beneficiaries.has(member.id) && (
+                    <input
+                      aria-label={`${member.displayName} share amount`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={shareAmounts[member.id] ?? ''}
+                      onChange={(event) => setShareAmounts((current) => ({
+                        ...current,
+                        [member.id]: event.target.value,
+                      }))}
+                    />
+                  )}
                 </label>
               ))}
             </div>
           </fieldset>
           <div className="split-preview field-span-2">
-            <span>Equal split preview</span>
+            <span>{customShares ? 'Custom share total' : 'Deterministic split preview'}</span>
             <strong>
               {beneficiaries.size && amount
-                ? `${formatMoney(Math.round(Number(amount) * 100 / beneficiaries.size))} each`
+                ? customShares
+                  ? `${formatMoney(Object.values(shareAmounts).reduce(
+                      (sum, value) => sum + Math.round(Number(value || 0) * 100),
+                      0,
+                    ))} of ${formatMoney(Math.round(Number(amount) * 100))}`
+                  : splitEvenly(Math.round(Number(amount) * 100), [...beneficiaries])
+                      .map((share) => `${data.members.find((member) => member.id === share.memberId)?.displayName}: ${formatMoney(share.amountCents)}`)
+                      .join(' · ')
                 : '—'}
             </strong>
           </div>

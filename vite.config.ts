@@ -12,14 +12,17 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'og.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
         name: 'HowseHowld',
         short_name: 'HowseHowld',
         description: 'A calmer way to run the house together.',
-        theme_color: '#203f36',
+        theme_color: '#1d2e18',
         background_color: '#f4f1e8',
         display: 'standalone',
         orientation: 'portrait',
@@ -30,19 +33,9 @@ export default defineConfig({
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        navigateFallback: '/index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\//i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'howsehowld-api',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 80, maxAgeSeconds: 86_400 },
-            },
-          },
-        ],
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
+        globIgnores: ['og.png'],
       },
     }),
   ],

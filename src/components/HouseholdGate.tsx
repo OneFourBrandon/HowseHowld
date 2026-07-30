@@ -1,7 +1,10 @@
 import { type FormEvent, type PropsWithChildren, useState } from 'react'
-import { Home, Link2, Plus, Users } from 'lucide-react'
+import { Home, Plus } from 'lucide-react'
+import { HOUSEHOLD_FEATURES, type HouseholdFeature } from '../types'
+import { signOut } from '../lib/api'
 import { useAppData } from '../state/AppDataContext'
 import { Button, Card } from './ui'
+import { FeatureChecklist } from './FeatureChecklist'
 
 export function HouseholdGate({ children }: PropsWithChildren) {
   const {
@@ -11,18 +14,20 @@ export function HouseholdGate({ children }: PropsWithChildren) {
     bootstrapError,
     busy,
     createHousehold,
-    acceptInvite,
   } = useAppData()
-  const [mode, setMode] = useState<'create' | 'join'>(
-    new URLSearchParams(window.location.search).has('invite') ? 'join' : 'create',
-  )
   const [name, setName] = useState('')
-  const [token, setToken] = useState(
-    new URLSearchParams(window.location.search).get('invite') ?? '',
+  const [addressLine1, setAddressLine1] = useState('')
+  const [addressLine2, setAddressLine2] = useState('')
+  const [city, setCity] = useState('')
+  const [region, setRegion] = useState('ON')
+  const [postalCode, setPostalCode] = useState('')
+  const [enabledFeatures, setEnabledFeatures] = useState<HouseholdFeature[]>(
+    [...HOUSEHOLD_FEATURES],
   )
+  const [error, setError] = useState('')
 
   if (demoMode) return children
-  if (initializing) return <div className="app-loading">Opening the house…</div>
+  if (initializing) return <div className="app-loading">Opening your house…</div>
   if (bootstrapError) {
     return (
       <div className="gate-page">
@@ -36,45 +41,135 @@ export function HouseholdGate({ children }: PropsWithChildren) {
   }
   if (!needsHousehold) return children
 
+  const toggleFeature = (feature: HouseholdFeature) => {
+    setEnabledFeatures((current) =>
+      current.includes(feature)
+        ? current.filter((item) => item !== feature)
+        : [...current, feature],
+    )
+  }
+
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (mode === 'create') await createHousehold(name.trim())
-    else await acceptInvite(token.trim())
+    setError('')
+    if (!enabledFeatures.length) {
+      setError('Choose at least one household feature.')
+      return
+    }
+    try {
+      await createHousehold({
+        name: name.trim(),
+        addressLine1: addressLine1.trim(),
+        addressLine2: addressLine2.trim() || undefined,
+        city: city.trim(),
+        region: region.trim(),
+        postalCode: postalCode.trim(),
+        countryCode: 'CA',
+        enabledFeatures,
+      })
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not create the household.')
+    }
   }
 
   return (
-    <div className="gate-page">
-      <Card className="gate-card">
-        <div className="brand gate-brand">
-          <div className="brand-mark">H</div>
-          <strong>HowseHowld</strong>
-        </div>
-        <div className="gate-icon">{mode === 'create' ? <Home /> : <Users />}</div>
-        <p className="eyebrow">{mode === 'create' ? 'START A HOUSE' : 'JOIN YOUR ROOMMATES'}</p>
-        <h2>{mode === 'create' ? 'Give the household a name.' : 'Use your private invite.'}</h2>
-        <p className="muted">
-          {mode === 'create'
-            ? 'You’ll become the owner for invitations and household settings.'
-            : 'The invite must match the email address you used to sign in.'}
-        </p>
-        <form onSubmit={submit}>
-          {mode === 'create' ? (
-            <label>Household name
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="The Maple House" minLength={2} required />
+    <div className="gate-page household-setup-page">
+      <main className="household-setup-shell">
+        <header className="household-setup-header">
+          <div className="brand gate-brand">
+            <div className="brand-mark">H</div>
+            <strong>HowseHowld</strong>
+          </div>
+          <div className="setup-intro">
+            <div className="gate-icon" aria-hidden="true"><Home /></div>
+            <div>
+              <p className="eyebrow">SET UP YOUR HOUSE</p>
+              <h1>Create your private household.</h1>
+              <p className="muted">
+                You’ll be the admin. After setup, share the generated house code with
+                everyone who lives here.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <form className="household-setup-form" onSubmit={submit}>
+          <div className="form-section">
+            <h2>House details</h2>
+            <label>
+              Household name
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="The Maple House"
+                minLength={2}
+                maxLength={100}
+                required
+              />
             </label>
-          ) : (
-            <label>Invite token
-              <input value={token} onChange={(event) => setToken(event.target.value)} placeholder="Paste your invite token" required />
+            <label>
+              Street address
+              <input
+                value={addressLine1}
+                onChange={(event) => setAddressLine1(event.target.value)}
+                placeholder="42 Maple Street"
+                required
+              />
             </label>
-          )}
-          <Button type="submit" size="lg" disabled={Boolean(busy)}>
-            {mode === 'create' ? <><Plus size={18} /> Create household</> : <><Link2 size={18} /> Join household</>}
-          </Button>
+            <label>
+              Unit or apartment <span className="optional-label">Optional</span>
+              <input
+                value={addressLine2}
+                onChange={(event) => setAddressLine2(event.target.value)}
+                placeholder="Unit 2"
+              />
+            </label>
+            <div className="form-grid-three">
+              <label>
+                City
+                <input value={city} onChange={(event) => setCity(event.target.value)} required />
+              </label>
+              <label>
+                Province
+                <input
+                  value={region}
+                  onChange={(event) => setRegion(event.target.value.toUpperCase())}
+                  maxLength={2}
+                  required
+                />
+              </label>
+              <label>
+                Postal code
+                <input
+                  value={postalCode}
+                  onChange={(event) => setPostalCode(event.target.value.toUpperCase())}
+                  placeholder="M4B 1B3"
+                  required
+                />
+              </label>
+            </div>
+          </div>
+
+          <fieldset className="feature-picker">
+            <legend>Choose your features</legend>
+            <p>Today and Settings are always included.</p>
+            <FeatureChecklist
+              enabledFeatures={enabledFeatures}
+              onToggle={toggleFeature}
+            />
+          </fieldset>
+
+          <div className="setup-actions">
+            {error && <p className="form-error">{error}</p>}
+            <Button type="submit" size="lg" disabled={Boolean(busy)}>
+              <Plus size={18} /> Create household
+            </Button>
+            <button className="gate-switch" type="button" onClick={() => signOut()}>
+              Sign out and use another account
+            </button>
+          </div>
         </form>
-        <button className="gate-switch" onClick={() => setMode(mode === 'create' ? 'join' : 'create')}>
-          {mode === 'create' ? 'I already have an invite' : 'Create a new household instead'}
-        </button>
-      </Card>
+      </main>
     </div>
   )
 }

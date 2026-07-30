@@ -20,8 +20,10 @@ import {
   CarFront,
   Clock3,
   GripVertical,
+  Pencil,
   Plus,
   Route,
+  Trash2,
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
@@ -29,11 +31,18 @@ import { formatDateTime, timeUntil, toIso } from '../lib/utils'
 import type { Vehicle } from '../types'
 
 export function DrivewayPage() {
-  const { data, busy, reorderVehicles, addDeparture } = useAppData()
+  const { data, busy, reorderVehicles, addDeparture, saveVehicle, removeVehicle } = useAppData()
   const [departureModal, setDepartureModal] = useState(false)
+  const [vehicleModal, setVehicleModal] = useState(false)
   const [vehicleId, setVehicleId] = useState(data.vehicles[0]?.id ?? '')
   const [requiredAt, setRequiredAt] = useState('')
   const [label, setLabel] = useState('')
+  const [warningMinutes, setWarningMinutes] = useState(60)
+  const [repeat, setRepeat] = useState<'once' | 'daily' | 'weekly'>('once')
+  const [editingVehicleId, setEditingVehicleId] = useState('')
+  const [vehicleLabel, setVehicleLabel] = useState('')
+  const [vehiclePlate, setVehiclePlate] = useState('')
+  const [vehicleColor, setVehicleColor] = useState('#3e6d2d')
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
@@ -54,9 +63,14 @@ export function DrivewayPage() {
           <h1>Driveway</h1>
           <p>The current lineup decides exactly who needs to move.</p>
         </div>
-        <Button onClick={() => setDepartureModal(true)}>
-          <Plus size={18} /> Need my car
-        </Button>
+        <div className="button-row">
+          <Button variant="secondary" onClick={() => setVehicleModal(true)}>
+            <CarFront size={18} /> Add vehicle
+          </Button>
+          <Button onClick={() => setDepartureModal(true)}>
+            <Plus size={18} /> Need my car
+          </Button>
+        </div>
       </header>
 
       <div className="driveway-layout">
@@ -88,6 +102,15 @@ export function DrivewayPage() {
                       vehicle={vehicle}
                       index={index}
                       owner={data.members.find((member) => member.id === vehicle.ownerMemberId)!}
+                      canManage={vehicle.ownerMemberId === data.household.currentMemberId}
+                      onEdit={() => {
+                        setEditingVehicleId(vehicle.id)
+                        setVehicleLabel(vehicle.label)
+                        setVehiclePlate(vehicle.plate ?? '')
+                        setVehicleColor(vehicle.color)
+                        setVehicleModal(true)
+                      }}
+                      onRemove={() => void removeVehicle(vehicle.id)}
                     />
                   ))}
                 </div>
@@ -155,10 +178,16 @@ export function DrivewayPage() {
       >
         <form
           className="form-grid"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault()
             if (!vehicleId || !requiredAt) return
-            addDeparture(vehicleId, toIso(new Date(requiredAt)), label || 'Manual departure')
+            await addDeparture(
+              vehicleId,
+              toIso(new Date(requiredAt)),
+              label || 'Manual departure',
+              warningMinutes,
+              repeat === 'once' ? undefined : { frequency: repeat, interval: 1 },
+            )
             setDepartureModal(false)
             setLabel('')
             setRequiredAt('')
@@ -177,9 +206,61 @@ export function DrivewayPage() {
           <label>Reason
             <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Class, work, appointment…" />
           </label>
+          <label>Warning
+            <select value={warningMinutes} onChange={(event) => setWarningMinutes(Number(event.target.value))}>
+              <option value={30}>30 minutes before</option>
+              <option value={60}>1 hour before</option>
+              <option value={120}>2 hours before</option>
+            </select>
+          </label>
+          <label>Repeat
+            <select value={repeat} onChange={(event) => setRepeat(event.target.value as typeof repeat)}>
+              <option value="once">One time</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
           <div className="modal-actions field-span-2">
             <Button type="button" variant="ghost" onClick={() => setDepartureModal(false)}>Cancel</Button>
             <Button type="submit">Create departure</Button>
+          </div>
+        </form>
+      </Modal>
+      <Modal
+        open={vehicleModal}
+        onClose={() => setVehicleModal(false)}
+        title={editingVehicleId ? 'Edit vehicle' : 'Add a vehicle'}
+        description="Only you can edit or remove vehicles you own."
+      >
+        <form
+          className="form-grid"
+          onSubmit={async (event) => {
+            event.preventDefault()
+            if (!vehicleLabel.trim()) return
+            await saveVehicle({
+              id: editingVehicleId || undefined,
+              label: vehicleLabel.trim(),
+              plate: vehiclePlate.trim() || undefined,
+              color: vehicleColor,
+            })
+            setVehicleModal(false)
+            setEditingVehicleId('')
+            setVehicleLabel('')
+            setVehiclePlate('')
+          }}
+        >
+          <label>Vehicle name
+            <input value={vehicleLabel} onChange={(event) => setVehicleLabel(event.target.value)} placeholder="Blue Civic" required />
+          </label>
+          <label>Plate
+            <input value={vehiclePlate} onChange={(event) => setVehiclePlate(event.target.value)} placeholder="ABC 123" />
+          </label>
+          <label>Color
+            <input type="color" value={vehicleColor} onChange={(event) => setVehicleColor(event.target.value)} />
+          </label>
+          <div className="modal-actions field-span-2">
+            <Button type="button" variant="ghost" onClick={() => setVehicleModal(false)}>Cancel</Button>
+            <Button type="submit">{editingVehicleId ? 'Save changes' : 'Add vehicle'}</Button>
           </div>
         </form>
       </Modal>
@@ -191,10 +272,16 @@ function SortableVehicle({
   vehicle,
   owner,
   index,
+  canManage,
+  onEdit,
+  onRemove,
 }: {
   vehicle: Vehicle
   owner: ReturnType<typeof useAppData>['data']['members'][number]
   index: number
+  canManage: boolean
+  onEdit: () => void
+  onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: vehicle.id })
@@ -217,6 +304,12 @@ function SortableVehicle({
       </div>
       <Avatar initials={owner.initials} color={owner.color} size="sm" />
       <span className="owner-name">{owner.displayName}</span>
+      {canManage && (
+        <div className="vehicle-actions">
+          <button type="button" onClick={onEdit} aria-label={`Edit ${vehicle.label}`}><Pencil size={15} /></button>
+          <button type="button" onClick={onRemove} aria-label={`Remove ${vehicle.label}`}><Trash2 size={15} /></button>
+        </div>
+      )}
     </div>
   )
 }

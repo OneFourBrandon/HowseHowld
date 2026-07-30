@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(12);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -125,13 +125,12 @@ select set_config(
   true
 );
 select throws_ok(
-  $$select public.create_household_invite(
-    '10000000-0000-0000-0000-000000000000',
-    'new@example.com'
+  $$select public.rotate_household_share_code(
+    '10000000-0000-0000-0000-000000000000'
   )$$,
   'P0001',
-  'Only the household owner can invite members',
-  'non-owners cannot invite household members'
+  'Only the household owner can rotate the share code',
+  'non-owners cannot rotate household share codes'
 );
 
 select set_config(
@@ -140,11 +139,44 @@ select set_config(
   true
 );
 select lives_ok(
-  $$select public.create_household_invite(
-    '10000000-0000-0000-0000-000000000000',
-    'new@example.com'
+  $$select public.rotate_household_share_code(
+    '10000000-0000-0000-0000-000000000000'
   )$$,
-  'owners can create household invitations'
+  'owners can rotate household share codes'
+);
+update public.households
+set enabled_features = '["chores","money"]'::jsonb
+where id = '10000000-0000-0000-0000-000000000000';
+select is(
+  (
+    select enabled_features
+    from public.households
+    where id = '10000000-0000-0000-0000-000000000000'
+  ),
+  '["chores","money"]'::jsonb,
+  'owners can update household feature settings'
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000002',
+  true
+);
+update public.households
+set enabled_features = '["notifications"]'::jsonb
+where id = '10000000-0000-0000-0000-000000000000';
+select is(
+  (
+    select enabled_features
+    from public.households
+    where id = '10000000-0000-0000-0000-000000000000'
+  ),
+  '["chores","money"]'::jsonb,
+  'non-owners cannot update household feature settings'
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000001',
+  true
 );
 select is(
   has_table_privilege('authenticated', 'public.expenses', 'UPDATE'),
@@ -152,7 +184,7 @@ select is(
   'authenticated users cannot mutate immutable expenses directly'
 );
 select is(
-  has_function_privilege('anon', 'public.create_household(text)', 'EXECUTE'),
+  has_function_privilege('anon', 'public.create_household_v2(jsonb)', 'EXECUTE'),
   false,
   'anonymous callers cannot execute authenticated mutation RPCs'
 );

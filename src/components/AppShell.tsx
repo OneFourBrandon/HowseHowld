@@ -1,24 +1,35 @@
-import { useEffect } from 'react'
+import { type CSSProperties, useEffect } from 'react'
 import {
   CalendarDays,
-  CarFront,
-  CheckSquare2,
-  CircleDollarSign,
+  Car,
   Home,
+  ListTodo,
   Settings,
+  WalletMinimal,
   WifiOff,
   X,
 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAppData } from '../state/AppDataContext'
+import type { HouseholdFeature } from '../types'
 import { Avatar } from './ui'
 
-const navItems = [
-  { to: '/', label: 'Today', icon: Home },
-  { to: '/chores', label: 'Chores', icon: CheckSquare2 },
-  { to: '/money', label: 'Money', icon: CircleDollarSign },
-  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { to: '/driveway', label: 'Driveway', icon: CarFront },
+const navItems: Array<{
+  to: string
+  label: string
+  icon: typeof Home
+  feature?: HouseholdFeature | HouseholdFeature[]
+}> = [
+  { to: '/', label: 'Overview', icon: Home },
+  { to: '/chores', label: 'Chores', icon: ListTodo, feature: 'chores' },
+  { to: '/money', label: 'Money', icon: WalletMinimal, feature: 'money' },
+  {
+    to: '/calendar',
+    label: 'Calendar',
+    icon: CalendarDays,
+    feature: ['calendar', 'courses'],
+  },
+  { to: '/driveway', label: 'Driveway', icon: Car, feature: 'driveway' },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -27,6 +38,12 @@ export function AppShell() {
   const currentMember =
     data.members.find((member) => member.id === data.household.currentMemberId) ??
     data.members[0]
+  const visibleNavItems = navItems.filter(({ feature }) => {
+    if (!feature) return true
+    const candidates = Array.isArray(feature) ? feature : [feature]
+    return candidates.some((item) => data.household.enabledFeatures.includes(item))
+  })
+  const mobileNavItems = visibleNavItems.filter((item) => item.to !== '/settings')
 
   useEffect(() => {
     if (!toast) return
@@ -48,7 +65,7 @@ export function AppShell() {
         </div>
 
         <nav className="desktop-nav" aria-label="Primary">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {visibleNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -88,13 +105,26 @@ export function AppShell() {
             Offline — viewing cached data. Changes are paused.
           </div>
         )}
+        <NavLink
+          to="/settings"
+          aria-label="Settings"
+          className={({ isActive }) =>
+            `mobile-settings-link${demoMode ? ' mobile-settings-link-with-banner' : ''}${isActive ? ' is-active' : ''}`
+          }
+        >
+          <Settings size={21} strokeWidth={1.9} />
+        </NavLink>
         <main className="page-content">
           <Outlet />
         </main>
       </div>
 
-      <nav className="mobile-nav" aria-label="Primary">
-        {navItems.slice(0, 5).map(({ to, label, icon: Icon }) => (
+      <nav
+        className="mobile-nav"
+        aria-label="Primary"
+        style={{ '--mobile-nav-count': mobileNavItems.length } as CSSProperties}
+      >
+        {mobileNavItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

@@ -45,6 +45,18 @@ export function TodayPage() {
 
   return (
     <div className="page-stack today-page">
+      {data.household.enabledFeatures.includes('notifications') &&
+        !data.notificationHealth.subscribed && (
+        <Link to="/settings" className="alert-card alert-card-amber">
+          <BellRing size={20} />
+          <div>
+            <strong>Don’t miss the last call</strong>
+            <span>Enable reminders on this device for chore and driveway alerts.</span>
+          </div>
+          <ChevronRight size={20} />
+        </Link>
+      )}
+
       <header className="page-hero">
         <div>
           <p className="eyebrow">
@@ -69,18 +81,7 @@ export function TodayPage() {
         </div>
       </header>
 
-      {!data.notificationHealth.subscribed && (
-        <Link to="/settings" className="alert-card alert-card-amber">
-          <BellRing size={20} />
-          <div>
-            <strong>Don’t miss the last call</strong>
-            <span>Enable reminders on this device for chore and driveway alerts.</span>
-          </div>
-          <ChevronRight size={20} />
-        </Link>
-      )}
-
-      <section>
+      {data.household.enabledFeatures.includes('chores') && <section>
         <SectionHeader
           eyebrow="YOUR TURN"
           title="Today’s chore"
@@ -123,10 +124,11 @@ export function TodayPage() {
             </div>
           </Card>
         )}
-      </section>
+      </section>}
 
       <div className="dashboard-grid">
-        <section>
+        {(data.household.enabledFeatures.includes('calendar') ||
+          data.household.enabledFeatures.includes('courses')) && <section>
           <SectionHeader
             eyebrow="UP NEXT"
             title="Around the house"
@@ -150,9 +152,9 @@ export function TodayPage() {
               </div>
             ))}
           </Card>
-        </section>
+        </section>}
 
-        <section>
+        {data.household.enabledFeatures.includes('money') && <section>
           <SectionHeader eyebrow="QUICK LOOK" title="Shared money" />
           <Card className="balance-card">
             <div className="balance-icon">
@@ -176,10 +178,11 @@ export function TodayPage() {
               Open shared money <ArrowRight size={16} />
             </Link>
           </Card>
-        </section>
+        </section>}
       </div>
 
-      {nextDeparture && targetVehicle && (
+      {data.household.enabledFeatures.includes('driveway') &&
+        nextDeparture && targetVehicle && (
         <section>
           <SectionHeader
             eyebrow="DRIVEWAY"

@@ -9,13 +9,15 @@ import {
   useState,
 } from 'react'
 import { demoSnapshot } from '../data/demo'
-import { hasSupabaseConfig } from '../lib/supabase'
+import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import * as api from '../lib/api'
-import { blockerIds, cents, splitEvenly, toIso, uid } from '../lib/utils'
+import { blockerIds, cents, toIso, uid } from '../lib/utils'
 import type {
   AppSnapshot,
   CalendarEvent,
+  CreateHouseholdInput,
   Expense,
+  HouseholdFeature,
   Settlement,
   TaskDefinition,
   UUID,
@@ -26,8 +28,8 @@ type NewTask = Omit<
   'id' | 'householdId' | 'active' | 'nextMemberId'
 >
 type NewExpense = Pick<Expense, 'title' | 'amountCents'> & {
-  payerIds: UUID[]
-  beneficiaryIds: UUID[]
+  payers: Expense['payers']
+  beneficiaries: Expense['beneficiaries']
   receipt?: File
 }
 type NewSettlement = Pick<
@@ -46,6 +48,11 @@ interface AppDataContextValue {
   toast: string | null
   completeOccurrence: (id: UUID) => Promise<void>
   addTask: (task: NewTask) => Promise<void>
+  updateTask: (
+    id: UUID,
+    input: Partial<Omit<TaskDefinition, 'id' | 'householdId'>>,
+  ) => Promise<void>
+  assignManualTask: (taskId: UUID, memberId: UUID, scheduledDate: string) => Promise<void>
   disputeInfraction: (id: UUID, reason: string) => Promise<void>
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
@@ -55,14 +62,29 @@ interface AppDataContextValue {
   proposeFundPayment: (amountCents: number) => Promise<void>
   confirmFundPayment: (id: UUID, accept: boolean) => Promise<void>
   addEvent: (event: NewEvent) => Promise<void>
+  updateScheduleItemKind: (id: UUID, kind: 'class' | 'exam' | 'other') => Promise<void>
+  updateCourse: (id: UUID, name: string, color: string) => Promise<void>
   reorderVehicles: (orderedIds: UUID[]) => Promise<void>
-  addDeparture: (vehicleId: UUID, requiredAt: string, label: string) => void
+  addDeparture: (
+    vehicleId: UUID,
+    requiredAt: string,
+    label: string,
+    warningMinutes: number,
+    recurrence?: TaskDefinition['recurrence'],
+    scheduleItemId?: UUID,
+  ) => Promise<void>
+  saveVehicle: (input: { id?: UUID; label: string; color: string; plate?: string }) => Promise<void>
+  removeVehicle: (id: UUID) => Promise<void>
+  openReceipt: (path: string) => Promise<void>
   enableNotifications: () => Promise<void>
+  disableNotifications: () => Promise<void>
   sendTestNotification: () => Promise<void>
   clearToast: () => void
-  createHousehold: (name: string) => Promise<void>
-  acceptInvite: (token: string) => Promise<void>
-  createInvite: (email: string) => Promise<string>
+  createHousehold: (input: CreateHouseholdInput) => Promise<string | undefined>
+  rotateShareCode: () => Promise<string>
+  updateHouseholdFeatures: (features: HouseholdFeature[]) => Promise<void>
+  updateHouseholdTaskReminders: (times: string[]) => Promise<void>
+  refresh: () => Promise<void>
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
@@ -89,7 +111,13 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         setNeedsHousehold(false)
       }
     } catch (error) {
-      setBootstrapError(error instanceof Error ? error.message : 'Could not open the household.')
+      setBootstrapError(
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error && 'message' in error
+            ? String(error.message)
+            : 'Could not open the household.',
+      )
     } finally {
       setInitializing(false)
     }
@@ -99,10 +127,48 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     void refresh()
   }, [refresh])
 
+  useEffect(() => {
+    if (demoMode || !supabase || !data.household.id) return
+    const client = supabase
+    let timer: number | undefined
+    const queueRefresh = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => void refresh(), 250)
+    }
+    const tables = [
+      'task_definitions', 'task_occurrences', 'infractions', 'infraction_votes',
+      'expenses', 'expense_payers', 'expense_shares', 'settlements', 'fund_payments',
+      'calendar_events', 'event_audiences', 'courses', 'schedule_items',
+      'vehicles', 'driveway_state', 'driveway_positions', 'departure_occurrences',
+      'push_subscriptions',
+    ]
+    let channel = client.channel(`household:${data.household.id}`)
+    for (const table of tables) {
+      channel = channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table,
+          filter: `household_id=eq.${data.household.id}`,
+        },
+        queueRefresh,
+      )
+    }
+    channel.subscribe()
+    return () => {
+      window.clearTimeout(timer)
+      void client.removeChannel(channel)
+    }
+  }, [data.household.id, demoMode, refresh])
+
   const run = useCallback(
     async (key: string, action: () => Promise<void>, success: string) => {
       setBusy(key)
       try {
+        if (!demoMode && !navigator.onLine) {
+          throw new Error('You are offline. Reconnect before changing household data.')
+        }
         await action()
         setToast(success)
       } catch (error) {
@@ -112,7 +178,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         setBusy(null)
       }
     },
-    [],
+    [demoMode],
   )
 
   const completeOccurrence = useCallback(
@@ -188,6 +254,42 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.id, demoMode, run],
   )
 
+  const updateTask = useCallback(
+    async (
+      id: UUID,
+      input: Partial<Omit<TaskDefinition, 'id' | 'householdId'>>,
+    ) =>
+      run(
+        `task:update:${id}`,
+        async () => {
+          if (!demoMode) await api.updateTask(id, input)
+          setData((current) => ({
+            ...current,
+            tasks: current.tasks.map((task) =>
+              task.id === id ? { ...task, ...input } : task,
+            ),
+          }))
+        },
+        'Chore settings updated.',
+      ),
+    [demoMode, run],
+  )
+
+  const assignManualTask = useCallback(
+    async (taskId: UUID, memberId: UUID, scheduledDate: string) =>
+      run(
+        `task:assign:${taskId}`,
+        async () => {
+          if (!demoMode) {
+            await api.assignManualTask(taskId, memberId, scheduledDate)
+            await refresh()
+          }
+        },
+        'Manual chore assigned.',
+      ),
+    [demoMode, refresh, run],
+  )
+
   const disputeInfraction = useCallback(
     async (id: UUID, reason: string) =>
       run(
@@ -248,16 +350,14 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         'expense:new',
         async () => {
           const id = uid('expense')
-          const payers = splitEvenly(input.amountCents, input.payerIds)
-          const beneficiaries = splitEvenly(input.amountCents, input.beneficiaryIds)
           const expense: Expense = {
             id,
             title: input.title,
             purchasedAt: toIso(new Date()),
             createdBy: data.household.currentMemberId,
             amountCents: cents(input.amountCents),
-            payers,
-            beneficiaries,
+            payers: input.payers,
+            beneficiaries: input.beneficiaries,
             reversed: false,
           }
           if (!demoMode) {
@@ -271,12 +371,14 @@ export function AppDataProvider({ children }: PropsWithChildren) {
               receiptPath: expense.receiptPath,
               householdId: data.household.id,
             })
+            expense.id = createdId
             if (input.receipt) {
               expense.receiptPath = await api.uploadReceipt(
                 data.household.id,
                 createdId,
                 input.receipt,
               )
+              await api.attachExpenseReceipt(createdId, expense.receiptPath)
             }
           } else if (input.receipt) {
             expense.receiptPath = input.receipt.name
@@ -450,17 +552,61 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.id, demoMode, run],
   )
 
+  const updateScheduleItemKind = useCallback(
+    async (id: UUID, kind: 'class' | 'exam' | 'other') =>
+      run(
+        `schedule:kind:${id}`,
+        async () => {
+          if (!demoMode) await api.updateScheduleItemKind(id, kind)
+          setData((current) => ({
+            ...current,
+            events: current.events.map((event) =>
+              event.scheduleItemId === id ? { ...event, kind } : event,
+            ),
+          }))
+        },
+        'Schedule item updated.',
+      ),
+    [demoMode, run],
+  )
+
+  const updateCourse = useCallback(
+    async (id: UUID, name: string, color: string) =>
+      run(
+        `course:update:${id}`,
+        async () => {
+          if (!demoMode) await api.updateCourse(id, name, color)
+          setData((current) => ({
+            ...current,
+            courses: current.courses.map((course) =>
+              course.id === id ? { ...course, name, color } : course,
+            ),
+          }))
+        },
+        'Course details updated.',
+      ),
+    [demoMode, run],
+  )
+
   const reorderVehicles = useCallback(
     async (orderedIds: UUID[]) =>
       run(
         'driveway:reorder',
         async () => {
           if (!demoMode) {
-            await api.reorderDriveway(
-              data.household.id,
-              data.drivewayVersion,
-              orderedIds,
-            )
+            try {
+              await api.reorderDriveway(
+                data.household.id,
+                data.drivewayVersion,
+                orderedIds,
+              )
+            } catch (error) {
+              await refresh()
+              throw new Error(
+                'Someone else changed the driveway. The latest lineup is loaded; try again.',
+                { cause: error },
+              )
+            }
           }
           setData((current) => ({
             ...current,
@@ -476,38 +622,116 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         },
         'Driveway order updated for everyone.',
       ),
-    [data.drivewayVersion, data.household.id, demoMode, run],
+    [data.drivewayVersion, data.household.id, demoMode, refresh, run],
   )
 
   const addDeparture = useCallback(
-    (vehicleId: UUID, requiredAt: string, label: string) => {
-      setData((current) => {
-        const vehicle = current.vehicles.find((item) => item.id === vehicleId)
-        if (!vehicle) return current
-        return {
-          ...current,
-          departures: [
-            ...current.departures,
-            {
-              id: uid('departure'),
+    async (
+      vehicleId: UUID,
+      requiredAt: string,
+      label: string,
+      warningMinutes: number,
+      recurrence?: TaskDefinition['recurrence'],
+      scheduleItemId?: UUID,
+    ) =>
+      run(
+        'departure:new',
+        async () => {
+          const vehicle = data.vehicles.find((item) => item.id === vehicleId)
+          if (!vehicle) throw new Error('Choose a vehicle.')
+          if (!demoMode) {
+            await api.createDepartureRule({
+              householdId: data.household.id,
               vehicleId,
-              ownerMemberId: vehicle.ownerMemberId,
-              requiredAt: requiredAt as never,
-              source: 'manual',
-              sourceLabel: label,
-              warningMinutes: 60,
-              blockerVehicleIds: blockerIds(
-                current.vehicles.map((item) => item.id),
+              requiredAt,
+              label,
+              source: scheduleItemId ? 'course' : 'manual',
+              scheduleItemId,
+              recurrence,
+              warningMinutes: [warningMinutes],
+              travelBufferMinutes: 0,
+            })
+            await refresh()
+            return
+          }
+          setData((current) => ({
+            ...current,
+            departures: [
+              ...current.departures,
+              {
+                id: uid('departure'),
                 vehicleId,
-              ),
-            },
-          ],
-        }
-      })
-      setToast('Departure added. Blockers will get a one-hour warning.')
-    },
-    [],
+                ownerMemberId: vehicle.ownerMemberId,
+                requiredAt: requiredAt as never,
+                source: scheduleItemId ? 'course' : 'manual',
+                sourceLabel: label,
+                warningMinutes,
+                blockerVehicleIds: blockerIds(
+                  current.vehicles.map((item) => item.id),
+                  vehicleId,
+                ),
+              },
+            ],
+          }))
+        },
+        'Departure scheduled and blocker alerts queued.',
+      ),
+    [data.household.id, data.vehicles, demoMode, refresh, run],
   )
+
+  const saveVehicle = useCallback(
+    async (input: { id?: UUID; label: string; color: string; plate?: string }) =>
+      run(
+        input.id ? `vehicle:update:${input.id}` : 'vehicle:new',
+        async () => {
+          if (!demoMode) {
+            await api.upsertVehicle({ ...input, householdId: data.household.id })
+            await refresh()
+            return
+          }
+          setData((current) => ({
+            ...current,
+            vehicles: input.id
+              ? current.vehicles.map((vehicle) =>
+                  vehicle.id === input.id ? { ...vehicle, ...input } : vehicle,
+                )
+              : [...current.vehicles, {
+                  ...input,
+                  id: uid('vehicle'),
+                  ownerMemberId: current.household.currentMemberId,
+                }],
+          }))
+        },
+        input.id ? 'Vehicle updated.' : 'Vehicle added to the driveway.',
+      ),
+    [data.household.id, demoMode, refresh, run],
+  )
+
+  const removeVehicle = useCallback(
+    async (id: UUID) =>
+      run(
+        `vehicle:remove:${id}`,
+        async () => {
+          if (!demoMode) {
+            await api.archiveVehicle(id)
+            await refresh()
+            return
+          }
+          setData((current) => ({
+            ...current,
+            vehicles: current.vehicles.filter((vehicle) => vehicle.id !== id),
+            departures: current.departures.filter((departure) => departure.vehicleId !== id),
+          }))
+        },
+        'Vehicle removed.',
+      ),
+    [demoMode, refresh, run],
+  )
+
+  const openReceipt = useCallback(async (path: string) => {
+    const url = demoMode ? path : await api.getReceiptUrl(path)
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }, [demoMode])
 
   const enableNotifications = useCallback(
     async () =>
@@ -543,6 +767,26 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [demoMode, run],
   )
 
+  const disableNotifications = useCallback(
+    async () =>
+      run(
+        'notifications:disable',
+        async () => {
+          if (!('serviceWorker' in navigator)) return
+          const registration = await navigator.serviceWorker.ready
+          const subscription = await registration.pushManager.getSubscription()
+          if (subscription && !demoMode) await api.unsubscribePush(subscription)
+          if (subscription) await subscription.unsubscribe()
+          setData((current) => ({
+            ...current,
+            notificationHealth: { ...current.notificationHealth, subscribed: false },
+          }))
+        },
+        'Notifications disabled on this device.',
+      ),
+    [demoMode, run],
+  )
+
   const sendTestNotification = useCallback(
     async () =>
       run(
@@ -574,43 +818,79 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   )
 
   const createHousehold = useCallback(
-    async (name: string) =>
-      run(
-        'household:create',
-        async () => {
-          await api.createHousehold(name)
-          await refresh()
-        },
-        'Your household is ready.',
-      ),
-    [refresh, run],
-  )
-
-  const acceptInvite = useCallback(
-    async (token: string) =>
-      run(
-        'household:join',
-        async () => {
-          await api.acceptHouseholdInvite(token)
-          await refresh()
-        },
-        'Welcome to the household.',
-      ),
-    [refresh, run],
-  )
-
-  const createInvite = useCallback(
-    async (email: string) => {
-      setBusy('invite:create')
+    async (input: CreateHouseholdInput) => {
+      setBusy('household:create')
       try {
-        const token = await api.createHouseholdInvite(data.household.id, email)
-        setToast('Invite created. Share the link with your roommate.')
-        return `${window.location.origin}/?invite=${encodeURIComponent(token)}`
+        const result = await api.createHousehold(input)
+        sessionStorage.setItem('howsehowld:last-share-code', result.shareCode)
+        await refresh()
+        setToast('Your household is ready.')
+        return result.shareCode
       } finally {
         setBusy(null)
       }
     },
-    [data.household.id],
+    [refresh],
+  )
+
+  const rotateShareCode = useCallback(
+    async () => {
+      setBusy('share-code:rotate')
+      try {
+        const code = demoMode
+          ? 'DEMO-HOME-2026'
+          : await api.rotateHouseholdShareCode(data.household.id)
+        sessionStorage.setItem('howsehowld:last-share-code', code)
+        setData((current) => ({
+          ...current,
+          household: { ...current.household, shareCodeLast4: code.slice(-4) },
+        }))
+        setToast('A new share code is ready. The old code no longer works.')
+        return code
+      } finally {
+        setBusy(null)
+      }
+    },
+    [data.household.id, demoMode],
+  )
+
+  const updateHouseholdFeatures = useCallback(
+    async (features: HouseholdFeature[]) =>
+      run(
+        'household:features',
+        async () => {
+          const savedFeatures = demoMode
+            ? features
+            : await api.updateHouseholdFeatures(data.household.id, features)
+          setData((current) => ({
+            ...current,
+            household: {
+              ...current.household,
+              enabledFeatures: savedFeatures,
+            },
+          }))
+        },
+        'Household features updated.',
+      ),
+    [data.household.id, demoMode, run],
+  )
+
+  const updateHouseholdTaskReminders = useCallback(
+    async (times: string[]) =>
+      run(
+        'household:task-reminders',
+        async () => {
+          if (!demoMode) {
+            await api.updateHouseholdTaskReminders(data.household.id, times)
+          }
+          setData((current) => ({
+            ...current,
+            household: { ...current.household, defaultTaskReminderTimes: times },
+          }))
+        },
+        'Household reminder defaults saved.',
+      ),
+    [data.household.id, demoMode, run],
   )
 
   const value = useMemo<AppDataContextValue>(
@@ -624,6 +904,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       toast,
       completeOccurrence,
       addTask,
+      updateTask,
+      assignManualTask,
       disputeInfraction,
       voteInfraction,
       addExpense,
@@ -633,14 +915,22 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       proposeFundPayment,
       confirmFundPayment,
       addEvent,
+      updateScheduleItemKind,
+      updateCourse,
       reorderVehicles,
       addDeparture,
+      saveVehicle,
+      removeVehicle,
+      openReceipt,
       enableNotifications,
+      disableNotifications,
       sendTestNotification,
       clearToast: () => setToast(null),
       createHousehold,
-      acceptInvite,
-      createInvite,
+      rotateShareCode,
+      updateHouseholdFeatures,
+      updateHouseholdTaskReminders,
+      refresh,
     }),
     [
       data,
@@ -652,6 +942,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       toast,
       completeOccurrence,
       addTask,
+      updateTask,
+      assignManualTask,
       disputeInfraction,
       voteInfraction,
       addExpense,
@@ -661,13 +953,21 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       proposeFundPayment,
       confirmFundPayment,
       addEvent,
+      updateScheduleItemKind,
+      updateCourse,
       reorderVehicles,
       addDeparture,
+      saveVehicle,
+      removeVehicle,
+      openReceipt,
       enableNotifications,
+      disableNotifications,
       sendTestNotification,
       createHousehold,
-      acceptInvite,
-      createInvite,
+      rotateShareCode,
+      updateHouseholdFeatures,
+      updateHouseholdTaskReminders,
+      refresh,
     ],
   )
 

@@ -3,7 +3,9 @@ import { cents, initials } from './utils'
 import type {
   AppSnapshot,
   CalendarEvent,
+  CreateHouseholdInput,
   Expense,
+  HouseholdFeature,
   Settlement,
   TaskDefinition,
   UUID,
@@ -17,7 +19,7 @@ function requireClient() {
 export async function sendEmailOtp(email: string) {
   const { error } = await requireClient().auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false },
+    options: { shouldCreateUser: true },
   })
   if (error) throw error
 }
@@ -36,6 +38,30 @@ export async function signOut() {
   if (error) throw error
 }
 
+export async function addRecoveryEmail(email: string) {
+  const { error } = await requireClient().auth.updateUser({
+    email: email.trim().toLowerCase(),
+  })
+  if (error) throw error
+}
+
+export async function joinHouseWithCode(code: string, displayName: string) {
+  const client = requireClient()
+  const { error: authError } = await client.auth.signInAnonymously({
+    options: { data: { display_name: displayName.trim() } },
+  })
+  if (authError) throw authError
+  try {
+    await invokeRpc<UUID>('join_household_by_code', {
+      p_code: code,
+      p_display_name: displayName,
+    })
+  } catch (error) {
+    await client.auth.signOut()
+    throw error
+  }
+}
+
 export async function invokeRpc<T>(
   name: string,
   args: Record<string, unknown> = {},
@@ -45,14 +71,46 @@ export async function invokeRpc<T>(
   return data as T
 }
 
-export const createHousehold = (name: string) =>
-  invokeRpc<UUID>('create_household', { p_name: name })
-export const acceptHouseholdInvite = (token: string) =>
-  invokeRpc<UUID>('accept_household_invite', { p_token: token })
-export const createHouseholdInvite = (householdId: UUID, email: string) =>
-  invokeRpc<string>('create_household_invite', {
+export const createHousehold = (input: CreateHouseholdInput) =>
+  invokeRpc<{ householdId: UUID; shareCode: string }>('create_household_v2', {
+    p_input: input,
+  })
+export const rotateHouseholdShareCode = (householdId: UUID) =>
+  invokeRpc<string>('rotate_household_share_code', {
     p_household_id: householdId,
-    p_email: email,
+  })
+
+export async function updateHouseholdFeatures(
+  householdId: UUID,
+  enabledFeatures: HouseholdFeature[],
+) {
+  const { data, error } = await requireClient()
+    .from('households')
+    .update({
+      enabled_features: enabledFeatures,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', householdId)
+    .select('enabled_features')
+    .single()
+  if (error) throw error
+  return data.enabled_features as HouseholdFeature[]
+}
+
+export const updateHouseholdTaskReminders = (
+  householdId: UUID,
+  localTimes: string[],
+) =>
+  invokeRpc('update_household_task_reminders', {
+    p_household_id: householdId,
+    p_local_times: localTimes,
+  })
+
+export const updateCourse = (courseId: UUID, name: string, color: string) =>
+  invokeRpc('update_course', {
+    p_course_id: courseId,
+    p_name: name,
+    p_color: color,
   })
 
 export async function createTask(
@@ -61,8 +119,21 @@ export async function createTask(
   return invokeRpc<UUID>('create_task', { p_input: input })
 }
 
+export const updateTask = (taskId: UUID, input: Record<string, unknown>) =>
+  invokeRpc('update_task', { p_task_id: taskId, p_input: input })
+
 export const completeOccurrence = (occurrenceId: UUID) =>
   invokeRpc('complete_task_occurrence', { p_occurrence_id: occurrenceId })
+export const assignManualTask = (
+  taskId: UUID,
+  memberId: UUID,
+  scheduledDate: string,
+) =>
+  invokeRpc<UUID>('assign_manual_task', {
+    p_task_id: taskId,
+    p_member_id: memberId,
+    p_scheduled_date: scheduledDate,
+  })
 export const disputeInfraction = (infractionId: UUID, reason: string) =>
   invokeRpc('dispute_infraction', {
     p_infraction_id: infractionId,
@@ -144,6 +215,38 @@ export async function uploadReceipt(
   return data.path
 }
 
+export const attachExpenseReceipt = (expenseId: UUID, receiptPath: string) =>
+  invokeRpc('attach_expense_receipt', {
+    p_expense_id: expenseId,
+    p_receipt_path: receiptPath,
+  })
+
+export async function getReceiptUrl(receiptPath: string) {
+  const { data, error } = await requireClient()
+    .storage.from('receipts')
+    .createSignedUrl(receiptPath, 300)
+  if (error) throw error
+  return data.signedUrl
+}
+
+export const createDepartureRule = (input: Record<string, unknown>) =>
+  invokeRpc<UUID>('create_departure_rule', { p_input: input })
+
+export const upsertVehicle = (input: Record<string, unknown>) =>
+  invokeRpc<UUID>('upsert_vehicle', { p_input: input })
+
+export const archiveVehicle = (vehicleId: UUID) =>
+  invokeRpc('archive_vehicle', { p_vehicle_id: vehicleId })
+
+export const updateScheduleItemKind = (
+  scheduleItemId: UUID,
+  kind: 'class' | 'exam' | 'other',
+) =>
+  invokeRpc('update_schedule_item_kind', {
+    p_schedule_item_id: scheduleItemId,
+    p_kind: kind,
+  })
+
 export async function importIcs(file?: File, url?: string) {
   const form = new FormData()
   if (file) form.append('file', file)
@@ -203,9 +306,10 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('member_balances').select('*').eq('household_id', householdId),
     client.from('calendar_events').select('*, event_audiences(member_id)').eq('household_id', householdId).order('start_at'),
     client.from('courses').select('*').eq('household_id', householdId),
+    client.from('schedule_items').select('*').eq('household_id', householdId).is('archived_at', null).order('start_at'),
     client.from('vehicles').select('*').eq('household_id', householdId).eq('active', true),
     client.from('driveway_state').select('*, driveway_positions(*)').eq('household_id', householdId).single(),
-    client.from('departure_occurrences').select('*').eq('household_id', householdId).gte('required_at', new Date().toISOString()),
+    client.from('departure_occurrences').select('*, departure_rules(source,label,warning_minutes,schedule_item_id)').eq('household_id', householdId).gte('required_at', new Date().toISOString()),
     client.from('audit_events').select('*').eq('household_id', householdId).order('created_at', { ascending: false }).limit(100),
     client.from('push_subscriptions').select('id,last_success_at').eq('household_id', householdId).eq('active', true),
   ])
@@ -215,7 +319,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
   const [
     householdResult, taskResult, rotationResult, occurrenceResult, infractionResult,
     expenseResult, settlementResult, fundPaymentResult, balanceResult, eventResult,
-    courseResult, vehicleResult, drivewayResult, departureResult, auditResult, pushResult,
+    courseResult, scheduleResult, vehicleResult, drivewayResult, departureResult, auditResult, pushResult,
   ] = results
   const rowData = <T,>(result: { data: T | null }) => result.data
   const household = rowData(householdResult)!
@@ -251,6 +355,26 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       timezone: household.timezone,
       currency: 'CAD',
       currentMemberId: currentMember.id,
+      address: {
+        line1: household.address_line1 ?? '',
+        line2: household.address_line2 ?? undefined,
+        city: household.city ?? '',
+        region: household.region ?? '',
+        postalCode: household.postal_code ?? '',
+        countryCode: household.country_code ?? 'CA',
+      },
+      enabledFeatures: household.enabled_features ?? [
+        'chores',
+        'money',
+        'calendar',
+        'courses',
+        'driveway',
+        'notifications',
+      ],
+      defaultTaskReminderTimes: (household.default_task_reminders ?? [])
+        .filter((reminder: { type?: string }) => reminder.type === 'local_time')
+        .map((reminder: { value: string }) => reminder.value.slice(0, 5)),
+      shareCodeLast4: household.join_code_last4 ?? undefined,
     },
     members: memberRows.map((row) => {
       const profile = profileOf(row)
@@ -276,8 +400,15 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         description: task.description ?? undefined,
         area: task.area,
         assignmentMode: task.assignment_mode,
+        fixedMemberId: task.fixed_member_id ?? undefined,
+        recurrence: task.recurrence ?? { frequency: 'weekly', interval: 1 },
         recurrenceLabel: recurrenceLabel(task.recurrence),
+        startsOn: task.starts_on,
+        endsOn: task.ends_on ?? undefined,
         dueTime: String(task.due_time).slice(0, 5),
+        reminderTimes: (task.reminder_override ?? household.default_task_reminders ?? [])
+          .filter((reminder: { type?: string }) => reminder.type === 'local_time')
+          .map((reminder: { value: string }) => reminder.value.slice(0, 5)),
         penaltyEnabled: task.penalty_enabled,
         active: task.active,
         rotationMemberIds: taskRotations.map((rotation) => rotation.member_id),
@@ -357,7 +488,8 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       netCents: cents(Number(row.net_cents)),
       fundOwedCents: cents(Number(row.fund_owed_cents)),
     })),
-    events: (eventResult.data ?? []).map((row) => ({
+    events: expandRecurringEvents([
+      ...(eventResult.data ?? []).map((row) => ({
       id: row.id,
       title: row.title,
       description: row.description ?? undefined,
@@ -368,8 +500,29 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       creatorId: row.creator_member_id,
       audience: row.audience,
       audienceMemberIds: (row.event_audiences ?? []).map((item: { member_id: string }) => item.member_id),
-      kind: 'household',
+      kind: 'household' as const,
+      recurrence: row.recurrence ?? undefined,
+      reminderOffsets: row.reminder_offsets ?? [1440, 60],
     })),
+      ...(scheduleResult.data ?? []).map((row) => ({
+        id: `schedule-${row.id}`,
+        title: row.title,
+        description: row.description ?? undefined,
+        startAt: row.start_at,
+        endAt: row.end_at,
+        allDay: false,
+        location: row.location ?? undefined,
+        creatorId: row.owner_member_id,
+        audience: 'everyone' as const,
+        audienceMemberIds: [],
+        kind: row.kind,
+        courseCode: extractCourseCode(row.title),
+        reminderOffsets: [60],
+        imported: true,
+        scheduleItemId: row.id,
+        sourceUrl: row.source_url ?? undefined,
+      })),
+    ]).sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()),
     courses: (courseResult.data ?? []).map((row) => ({
       id: row.id,
       ownerMemberId: row.owner_member_id,
@@ -377,6 +530,8 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       name: row.name,
       color: row.color,
       meetingLabel: 'Imported schedule',
+      location: scheduleResult.data?.find((item) => item.course_id === row.id)?.location ?? undefined,
+      itemCount: scheduleResult.data?.filter((item) => item.course_id === row.id).length ?? 0,
     })),
     vehicles: orderedVehicles.map((row) => ({
       id: row.id,
@@ -391,10 +546,11 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       vehicleId: row.vehicle_id,
       ownerMemberId: row.owner_member_id,
       requiredAt: row.required_at,
-      source: 'manual',
-      sourceLabel: 'Departure',
-      warningMinutes: 60,
+      source: row.departure_rules?.source ?? 'manual',
+      sourceLabel: row.departure_rules?.label ?? 'Departure',
+      warningMinutes: row.departure_rules?.warning_minutes?.[0] ?? 60,
       blockerVehicleIds: row.blocker_vehicle_ids ?? [],
+      ruleId: row.rule_id,
     })),
     auditEvents: (auditResult.data ?? []).map((row) => ({
       id: row.id,
@@ -419,4 +575,38 @@ function recurrenceLabel(value: Record<string, unknown> | null) {
   const interval = Number(value.interval ?? 1)
   const unit = frequency.replace(/ly$/, '')
   return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`
+}
+
+function extractCourseCode(value: string) {
+  return value.match(/\b[A-Z]{2,4}\s?\d{3,4}[A-Z]?\b/i)?.[0]?.toUpperCase()
+}
+
+function expandRecurringEvents(events: CalendarEvent[]) {
+  const horizon = new Date()
+  horizon.setFullYear(horizon.getFullYear() + 1)
+  return events.flatMap((event) => {
+    if (!event.recurrence || event.recurrence.frequency === 'once' || event.imported) {
+      return [event]
+    }
+    const duration = new Date(event.endAt).getTime() - new Date(event.startAt).getTime()
+    const instances: CalendarEvent[] = []
+    let cursor = new Date(event.startAt)
+    for (let index = 0; index < 400 && cursor <= horizon; index++) {
+      if (cursor >= new Date(Date.now() - 31 * 86_400_000)) {
+        instances.push({
+          ...event,
+          id: index === 0 ? event.id : `${event.id}:${cursor.toISOString()}`,
+          startAt: cursor.toISOString() as CalendarEvent['startAt'],
+          endAt: new Date(cursor.getTime() + duration).toISOString() as CalendarEvent['endAt'],
+        })
+      }
+      const interval = Math.max(1, event.recurrence.interval)
+      const next = new Date(cursor)
+      if (event.recurrence.frequency === 'daily') next.setDate(next.getDate() + interval)
+      if (event.recurrence.frequency === 'weekly') next.setDate(next.getDate() + 7 * interval)
+      if (event.recurrence.frequency === 'monthly') next.setMonth(next.getMonth() + interval)
+      cursor = next
+    }
+    return instances
+  })
 }

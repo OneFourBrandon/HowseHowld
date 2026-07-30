@@ -1,15 +1,25 @@
 import { type FormEvent, type PropsWithChildren, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { KeyRound, Mail, ShieldCheck } from 'lucide-react'
+import { Home, KeyRound, Mail, ShieldCheck, Users } from 'lucide-react'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
-import { sendEmailOtp, verifyEmailOtp } from '../lib/api'
-import { Button, Card } from './ui'
+import { joinHouseWithCode, sendEmailOtp, verifyEmailOtp } from '../lib/api'
+import { Button } from './ui'
+
+type AuthMode = 'owner' | 'join'
 
 export function AuthGate({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(hasSupabaseConfig)
+  const [joining, setJoining] = useState(false)
+  const [mode, setMode] = useState<AuthMode>(
+    new URLSearchParams(window.location.search).has('code') ? 'join' : 'owner',
+  )
   const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
+  const [shareCode, setShareCode] = useState(
+    new URLSearchParams(window.location.search).get('code') ?? '',
+  )
+  const [displayName, setDisplayName] = useState('')
   const [stage, setStage] = useState<'email' | 'code'>('email')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -28,7 +38,7 @@ export function AuthGate({ children }: PropsWithChildren) {
   }, [])
 
   if (!hasSupabaseConfig) return children
-  if (loading) return <div className="app-loading">Opening the house…</div>
+  if (loading || joining) return <div className="app-loading">Opening your house…</div>
   if (session) return children
 
   const submitEmail = async (event: FormEvent) => {
@@ -58,6 +68,27 @@ export function AuthGate({ children }: PropsWithChildren) {
     }
   }
 
+  const submitHouseCode = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setJoining(true)
+    setError('')
+    try {
+      await joinHouseWithCode(shareCode, displayName)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'That house code did not work.')
+    } finally {
+      setJoining(false)
+      setBusy(false)
+    }
+  }
+
+  const selectMode = (nextMode: AuthMode) => {
+    setMode(nextMode)
+    setStage('email')
+    setError('')
+  }
+
   return (
     <div className="auth-page">
       <div className="auth-story">
@@ -66,73 +97,134 @@ export function AuthGate({ children }: PropsWithChildren) {
           <strong>HowseHowld</strong>
         </div>
         <div>
-          <p className="eyebrow">THE HOUSE, IN HARMONY</p>
+          <p className="eyebrow">ONE APP, EVERY HOUSE</p>
           <h1>Less chasing.<br />More living.</h1>
           <p>
-            Chores, shared money, schedules and the driveway—clear to everyone,
-            all in one calm place.
+            Each house gets its own private space for chores, money, schedules,
+            vehicles and the routines that keep everyone moving.
           </p>
         </div>
         <div className="auth-trust">
           <ShieldCheck size={18} />
-          Private to invited household members
+          Every household is isolated and private
         </div>
       </div>
-      <Card className="auth-card">
-        <div className="auth-icon">
-          {stage === 'email' ? <Mail /> : <KeyRound />}
+
+      <main className="auth-panel">
+        <div className="auth-content">
+        <div className="auth-mode-switch" aria-label="Choose how to continue">
+          <button
+            type="button"
+            className={mode === 'owner' ? 'is-active' : ''}
+            onClick={() => selectMode('owner')}
+          >
+            <Home size={17} /> Create or manage
+          </button>
+          <button
+            type="button"
+            className={mode === 'join' ? 'is-active' : ''}
+            onClick={() => selectMode('join')}
+          >
+            <Users size={17} /> Join with code
+          </button>
         </div>
-        <p className="eyebrow">WELCOME HOME</p>
-        <h2>{stage === 'email' ? 'Sign in to your house' : 'Check your email'}</h2>
+
+        <div className="auth-icon">
+          {mode === 'join' ? <Users /> : stage === 'email' ? <Mail /> : <KeyRound />}
+        </div>
+        <p className="eyebrow">{mode === 'join' ? 'JOIN YOUR HOUSE' : 'HOUSE ADMIN'}</p>
+        <h2>
+          {mode === 'join'
+            ? 'Use your house code'
+            : stage === 'email'
+              ? 'Create or open your account'
+              : 'Check your email'}
+        </h2>
         <p className="muted">
-          {stage === 'email'
-            ? 'We’ll send a six-digit code. No password to remember.'
-            : `Enter the code sent to ${email}.`}
+          {mode === 'join'
+            ? 'No email needed. Your account stays on this device until you link a recovery email.'
+            : stage === 'email'
+              ? 'House admins use a recoverable email account. We’ll send a six-digit code.'
+              : `Enter the code sent to ${email}.`}
         </p>
-        <form onSubmit={stage === 'email' ? submitEmail : submitCode}>
-          {stage === 'email' ? (
+
+        {mode === 'join' ? (
+          <form onSubmit={submitHouseCode}>
             <label>
-              Email address
+              House share code
               <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
+                value={shareCode}
+                onChange={(event) => setShareCode(event.target.value.toUpperCase())}
+                placeholder="ABC-123-DEF-456"
+                autoComplete="off"
+                minLength={12}
                 required
               />
             </label>
-          ) : (
             <label>
-              Six-digit code
+              Your name
               <input
-                type="text"
-                inputMode="numeric"
-                value={token}
-                onChange={(event) => setToken(event.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
-                minLength={6}
-                maxLength={6}
-                autoComplete="one-time-code"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Alex"
+                autoComplete="name"
+                minLength={2}
+                maxLength={80}
                 required
               />
             </label>
-          )}
-          {error && <p className="form-error">{error}</p>}
-          <Button size="lg" type="submit" disabled={busy}>
-            {busy ? 'One moment…' : stage === 'email' ? 'Send my code' : 'Open the house'}
-          </Button>
-          {stage === 'code' && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setStage('email')}
-            >
-              Use another email
+            {error && <p className="form-error">{error}</p>}
+            <Button size="lg" type="submit" disabled={busy}>
+              {busy ? 'Joining…' : 'Join the house'}
             </Button>
-          )}
-        </form>
-      </Card>
+            <p className="anonymous-account-note">
+              This is a device-based account. Link an email later in Settings
+              before signing out or moving to another phone.
+            </p>
+          </form>
+        ) : (
+          <form onSubmit={stage === 'email' ? submitEmail : submitCode}>
+            {stage === 'email' ? (
+              <label>
+                Email address
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                />
+              </label>
+            ) : (
+              <label>
+                Six-digit code
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={token}
+                  onChange={(event) => setToken(event.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  minLength={6}
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  required
+                />
+              </label>
+            )}
+            {error && <p className="form-error">{error}</p>}
+            <Button size="lg" type="submit" disabled={busy}>
+              {busy ? 'One moment…' : stage === 'email' ? 'Send my code' : 'Continue'}
+            </Button>
+            {stage === 'code' && (
+              <Button type="button" variant="ghost" onClick={() => setStage('email')}>
+                Use another email
+              </Button>
+            )}
+          </form>
+        )}
+        </div>
+      </main>
     </div>
   )
 }

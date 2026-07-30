@@ -3,7 +3,23 @@ export type MoneyCents = number & { readonly __brand: 'MoneyCents' }
 export type ISODateTime = string & { readonly __brand: 'ISODateTime' }
 
 export type HouseholdRole = 'owner' | 'member'
+export const HOUSEHOLD_FEATURES = [
+  'chores',
+  'money',
+  'calendar',
+  'courses',
+  'driveway',
+  'notifications',
+] as const
+export type HouseholdFeature =
+  (typeof HOUSEHOLD_FEATURES)[number]
 export type TaskAssignmentMode = 'rotation' | 'fixed' | 'manual' | 'one_off'
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'once'
+export interface RecurrenceDefinition {
+  frequency: RecurrenceFrequency
+  interval: number
+  weekdays?: number[]
+}
 export type TaskOccurrenceStatus = 'assigned' | 'completed' | 'missed'
 export type InfractionStatus =
   | 'pending'
@@ -35,6 +51,28 @@ export interface Household {
   timezone: string
   currency: 'CAD'
   currentMemberId: UUID
+  address: {
+    line1: string
+    line2?: string
+    city: string
+    region: string
+    postalCode: string
+    countryCode: string
+  }
+  enabledFeatures: HouseholdFeature[]
+  defaultTaskReminderTimes: string[]
+  shareCodeLast4?: string
+}
+
+export interface CreateHouseholdInput {
+  name: string
+  addressLine1: string
+  addressLine2?: string
+  city: string
+  region: string
+  postalCode: string
+  countryCode: string
+  enabledFeatures: HouseholdFeature[]
 }
 
 export interface TaskDefinition {
@@ -44,8 +82,13 @@ export interface TaskDefinition {
   description?: string
   area: string
   assignmentMode: TaskAssignmentMode
+  fixedMemberId?: UUID
+  recurrence: RecurrenceDefinition
   recurrenceLabel: string
+  startsOn: string
+  endsOn?: string
   dueTime: string
+  reminderTimes: string[]
   penaltyEnabled: boolean
   active: boolean
   rotationMemberIds: UUID[]
@@ -135,6 +178,11 @@ export interface CalendarEvent {
   audienceMemberIds: UUID[]
   kind: 'household' | 'class' | 'exam' | 'other'
   courseCode?: string
+  recurrence?: RecurrenceDefinition
+  reminderOffsets: number[]
+  imported?: boolean
+  scheduleItemId?: UUID
+  sourceUrl?: string
 }
 
 export interface Course {
@@ -145,6 +193,7 @@ export interface Course {
   color: string
   meetingLabel: string
   location?: string
+  itemCount?: number
 }
 
 export interface Vehicle {
@@ -164,6 +213,7 @@ export interface Departure {
   sourceLabel: string
   warningMinutes: number
   blockerVehicleIds: UUID[]
+  ruleId?: UUID
 }
 
 export interface AuditEvent {

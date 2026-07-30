@@ -7,34 +7,46 @@ import {
   Copy,
   Download,
   History,
+  KeyRound,
   LogOut,
-  Mail,
-  Plus,
+  RefreshCw,
   Send,
   ShieldCheck,
-  UserRoundPlus,
 } from 'lucide-react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { signOut } from '../lib/api'
+import { addRecoveryEmail, signOut } from '../lib/api'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, SectionHeader, Toggle } from '../components/ui'
+import { FeatureChecklist } from '../components/FeatureChecklist'
 import { formatDateTime } from '../lib/utils'
 
 export function SettingsPage() {
   const {
     data,
     busy,
-    demoMode,
     enableNotifications,
+    disableNotifications,
     sendTestNotification,
-    createInvite,
+    rotateShareCode,
+    updateHouseholdFeatures,
+    updateHouseholdTaskReminders,
   } = useAppData()
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteLink, setInviteLink] = useState('')
-  const [morning, setMorning] = useState(true)
-  const [evening, setEvening] = useState(true)
-  const [lastCall, setLastCall] = useState(true)
+  const [shareCode, setShareCode] = useState(
+    () => sessionStorage.getItem('howsehowld:last-share-code') ?? '',
+  )
+  const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [recoveryStatus, setRecoveryStatus] = useState('')
+  const [morning, setMorning] = useState(
+    () => data.household.defaultTaskReminderTimes.includes('09:00'),
+  )
+  const [evening, setEvening] = useState(
+    () => data.household.defaultTaskReminderTimes.includes('18:00'),
+  )
+  const [lastCall, setLastCall] = useState(
+    () => data.household.defaultTaskReminderTimes.includes('22:00')
+      || data.household.defaultTaskReminderTimes.includes('23:30'),
+  )
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW()
   const currentMember = data.members.find(
     (member) => member.id === data.household.currentMemberId,
@@ -65,6 +77,77 @@ export function SettingsPage() {
       <div className="settings-layout">
         <div className="settings-main">
           <section>
+            <SectionHeader eyebrow="HOUSEHOLD" title="Features" />
+            <div className="settings-feature-list">
+              <p>
+                Choose which tools this household uses. Overview and Settings are
+                always available.
+              </p>
+              <FeatureChecklist
+                enabledFeatures={data.household.enabledFeatures}
+                disabled={
+                  currentMember.role !== 'owner' ||
+                  busy === 'household:features'
+                }
+                onToggle={(feature) => {
+                  const nextFeatures = data.household.enabledFeatures.includes(feature)
+                    ? data.household.enabledFeatures.filter((item) => item !== feature)
+                    : [...data.household.enabledFeatures, feature]
+                  void updateHouseholdFeatures(nextFeatures).catch(() => {})
+                }}
+              />
+              {currentMember.role !== 'owner' && (
+                <p className="settings-note">
+                  Only the house owner can change available features.
+                </p>
+              )}
+            </div>
+          </section>
+
+          {!currentMember.email && hasSupabaseConfig && (
+            <section>
+              <SectionHeader eyebrow="ACCOUNT RECOVERY" title="Protect this account" />
+              <Card className="settings-card recovery-card">
+                <div>
+                  <strong>Add a recovery email before changing devices.</strong>
+                  <p>
+                    Your house-code account currently lives only on this device.
+                    Supabase will send a verification message to link your identity.
+                  </p>
+                </div>
+                <form
+                  onSubmit={async (event) => {
+                    event.preventDefault()
+                    setRecoveryStatus('')
+                    try {
+                      await addRecoveryEmail(recoveryEmail)
+                      setRecoveryStatus('Check your inbox to finish linking this account.')
+                      setRecoveryEmail('')
+                    } catch (cause) {
+                      setRecoveryStatus(
+                        cause instanceof Error ? cause.message : 'Could not add that email.',
+                      )
+                    }
+                  }}
+                >
+                  <label>
+                    Recovery email
+                    <input
+                      type="email"
+                      value={recoveryEmail}
+                      onChange={(event) => setRecoveryEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </label>
+                  <Button type="submit" size="sm">Send verification</Button>
+                </form>
+                {recoveryStatus && <p className="settings-note">{recoveryStatus}</p>}
+              </Card>
+            </section>
+          )}
+
+          {data.household.enabledFeatures.includes('notifications') && <section>
             <SectionHeader eyebrow="THIS DEVICE" title="Notification health" />
             <Card className="notification-health-card">
               <div className="health-score">
@@ -108,6 +191,15 @@ export function SettingsPage() {
                 >
                   <Send size={17} /> Send a test
                 </Button>
+                {data.notificationHealth.subscribed && (
+                  <Button
+                    variant="ghost"
+                    disabled={busy === 'notifications:disable'}
+                    onClick={disableNotifications}
+                  >
+                    Disable on this device
+                  </Button>
+                )}
               </div>
               {needRefresh && (
                 <button className="update-notice" onClick={() => updateServiceWorker(true)}>
@@ -115,17 +207,30 @@ export function SettingsPage() {
                 </button>
               )}
             </Card>
-          </section>
+          </section>}
 
-          <section>
+          {data.household.enabledFeatures.includes('chores') && <section>
             <SectionHeader eyebrow="DEFAULTS" title="Chore reminders" />
             <Card className="settings-card">
               <Toggle checked={morning} onChange={setMorning} label="Morning assignment · 9:00 AM" />
               <Toggle checked={evening} onChange={setEvening} label="Evening check-in · 6:00 PM" />
               <Toggle checked={lastCall} onChange={setLastCall} label="Last calls · 10:00 & 11:30 PM" />
               <p className="settings-note"><Clock3 size={15} /> Individual chores can replace these household defaults.</p>
+              {currentMember.role === 'owner' && (
+                <Button
+                  size="sm"
+                  disabled={busy === 'household:task-reminders'}
+                  onClick={() => updateHouseholdTaskReminders([
+                    ...(morning ? ['09:00'] : []),
+                    ...(evening ? ['18:00'] : []),
+                    ...(lastCall ? ['22:00', '23:30'] : []),
+                  ])}
+                >
+                  Save reminder defaults
+                </Button>
+              )}
             </Card>
-          </section>
+          </section>}
 
           <section>
             <SectionHeader eyebrow="TRANSPARENCY" title="Recent audit history" />
@@ -150,7 +255,10 @@ export function SettingsPage() {
             {data.members.map((member) => (
               <div className="member-row" key={member.id}>
                 <Avatar initials={member.initials} color={member.color} />
-                <div><strong>{member.displayName}</strong><span>{member.email}</span></div>
+                <div>
+                  <strong>{member.displayName}</strong>
+                  <span>{member.email || 'House-code account'}</span>
+                </div>
                 <Badge tone={member.role === 'owner' ? 'amber' : 'neutral'}>{member.role}</Badge>
               </div>
             ))}
@@ -158,36 +266,35 @@ export function SettingsPage() {
 
           {currentMember.role === 'owner' && (
             <Card className="invite-card">
-              <div className="invite-icon"><UserRoundPlus /></div>
-              <h3>Invite a roommate</h3>
-              <p>Only invited email addresses can request a sign-in code.</p>
-              <form
-                onSubmit={async (event) => {
-                  event.preventDefault()
-                  if (demoMode) {
-                    setInviteLink(`${window.location.origin}/?invite=demo-invite`)
-                  } else {
-                    setInviteLink(await createInvite(inviteEmail))
-                  }
-                  setInviteEmail('')
-                }}
-              >
-                <label>Email
-                  <div className="input-with-icon">
-                    <Mail size={16} />
-                    <input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="roommate@example.com" required />
-                  </div>
-                </label>
-                <Button type="submit" size="sm"><Plus size={16} /> Create invite</Button>
-              </form>
-              {inviteLink && (
+              <div className="invite-icon"><KeyRound /></div>
+              <h3>House share code</h3>
+              <p>
+                Roommates can create a device-based account with this code.
+                Rotating it immediately disables the old one.
+              </p>
+              {shareCode ? (
                 <button
-                  className="invite-link"
-                  onClick={() => navigator.clipboard.writeText(inviteLink)}
+                  className="share-code-display"
+                  onClick={() => navigator.clipboard.writeText(shareCode)}
                 >
-                  <Copy size={14} /> Copy invite link
+                  <strong>{shareCode}</strong>
+                  <span><Copy size={14} /> Copy code</span>
                 </button>
+              ) : (
+                <p className="masked-share-code">
+                  Current code ends in <strong>{data.household.shareCodeLast4 ?? '••••'}</strong>.
+                  Rotate it to reveal a new code.
+                </p>
               )}
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={busy === 'share-code:rotate'}
+                onClick={async () => setShareCode(await rotateShareCode())}
+              >
+                <RefreshCw size={15} /> Rotate and reveal code
+              </Button>
             </Card>
           )}
 
@@ -196,7 +303,13 @@ export function SettingsPage() {
             <dl>
               <dt>Timezone</dt><dd>{data.household.timezone}</dd>
               <dt>Currency</dt><dd>{data.household.currency}</dd>
-              <dt>Mode</dt><dd>{demoMode ? 'Demo data' : 'Live Supabase'}</dd>
+              <dt>Address</dt>
+              <dd>
+                {data.household.address.line1}, {data.household.address.city},{' '}
+                {data.household.address.region}
+              </dd>
+              <dt>Features</dt>
+              <dd>{data.household.enabledFeatures.length} enabled</dd>
             </dl>
             <button onClick={() => navigator.clipboard.writeText(data.household.id)}>
               <Copy size={14} /> Copy household ID

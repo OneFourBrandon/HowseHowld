@@ -7,6 +7,8 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  Pause,
+  Pencil,
   Plus,
   RotateCw,
   Scale,
@@ -18,7 +20,9 @@ import { formatDateTime, formatMoney } from '../lib/utils'
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Give the chore a name.'),
   area: z.string().trim().min(2, 'Choose an area.'),
-  recurrenceLabel: z.string().trim().min(2, 'Describe when it repeats.'),
+  frequency: z.enum(['daily', 'weekly', 'monthly', 'once']),
+  interval: z.number().int().min(1).max(30),
+  startsOn: z.string().min(1),
   dueTime: z.string().regex(/^\d{2}:\d{2}$/),
   assignmentMode: z.enum(['rotation', 'fixed', 'manual', 'one_off']),
   penaltyEnabled: z.boolean(),
@@ -31,28 +35,44 @@ export function ChoresPage() {
     busy,
     completeOccurrence,
     addTask,
+    updateTask,
+    assignManualTask,
     disputeInfraction,
     voteInfraction,
   } = useAppData()
   const [taskModal, setTaskModal] = useState(false)
   const [disputeId, setDisputeId] = useState<string | null>(null)
   const [disputeReason, setDisputeReason] = useState('')
+  const [weekdays, setWeekdays] = useState<number[]>([1])
+  const [rotationIds, setRotationIds] = useState(
+    () => data.members.filter((member) => member.active).map((member) => member.id),
+  )
+  const [fixedMemberId, setFixedMemberId] = useState(data.members[0]?.id ?? '')
+  const [reminderTimes, setReminderTimes] = useState(['09:00', '18:00', '22:00', '23:30'])
+  const [assignTaskId, setAssignTaskId] = useState('')
+  const [assignMemberId, setAssignMemberId] = useState(data.members[0]?.id ?? '')
+  const [assignDate, setAssignDate] = useState(new Date().toISOString().slice(0, 10))
   const currentMemberId = data.household.currentMemberId
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<TaskForm>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
       area: 'Kitchen',
-      recurrenceLabel: 'Every week',
+      frequency: 'weekly',
+      interval: 1,
+      startsOn: new Date().toISOString().slice(0, 10),
       dueTime: '23:59',
       assignmentMode: 'rotation',
       penaltyEnabled: true,
     },
   })
+  const assignmentMode = watch('assignmentMode')
+  const frequency = watch('frequency')
 
   const upcoming = useMemo(
     () =>
@@ -63,14 +83,37 @@ export function ChoresPage() {
   )
 
   const submitTask = handleSubmit(async (values) => {
+    const recurrence = {
+      frequency: values.assignmentMode === 'one_off' ? 'once' as const : values.frequency,
+      interval: values.interval,
+      weekdays: values.frequency === 'weekly' ? weekdays : undefined,
+    }
     await addTask({
-      ...values,
+      title: values.title,
+      area: values.area,
+      assignmentMode: values.assignmentMode,
+      fixedMemberId: values.assignmentMode !== 'rotation' ? fixedMemberId : undefined,
+      recurrence,
+      recurrenceLabel: recurrenceSummary(recurrence),
+      startsOn: values.startsOn,
+      dueTime: values.dueTime,
+      reminderTimes,
+      penaltyEnabled: values.penaltyEnabled,
       description: '',
-      rotationMemberIds: data.members.filter((member) => member.active).map((member) => member.id),
+      rotationMemberIds:
+        values.assignmentMode === 'rotation'
+          ? rotationIds
+          : [fixedMemberId],
     })
     reset()
     setTaskModal(false)
   })
+  const completedThisMonth = data.occurrences.filter((occurrence) => {
+    if (occurrence.status !== 'completed' || !occurrence.completedAt) return false
+    const completed = new Date(occurrence.completedAt)
+    const now = new Date()
+    return completed.getMonth() === now.getMonth() && completed.getFullYear() === now.getFullYear()
+  }).length
 
   return (
     <div className="page-stack">
@@ -88,7 +131,7 @@ export function ChoresPage() {
       <div className="stats-row">
         <Card className="stat-card">
           <CheckCircle2 />
-          <div><strong>12</strong><span>Completed this month</span></div>
+          <div><strong>{completedThisMonth}</strong><span>Completed this month</span></div>
         </Card>
         <Card className="stat-card">
           <RotateCw />
@@ -158,6 +201,35 @@ export function ChoresPage() {
                   <div className="routine-next">
                     {next && <Avatar initials={next.initials} color={next.color} size="sm" />}
                     <span>Next: {next?.displayName ?? 'Manual'}</span>
+                  </div>
+                  <div className="button-row">
+                    {task.assignmentMode === 'manual' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setAssignTaskId(task.id)}
+                      >
+                        Assign
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => updateTask(task.id, { active: !task.active })}
+                    >
+                      {task.active ? <Pause size={15} /> : <RotateCw size={15} />}
+                      {task.active ? 'Pause' : 'Resume'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        const title = window.prompt('Rename this chore', task.title)
+                        if (title?.trim()) updateTask(task.id, { title: title.trim() })
+                      }}
+                    >
+                      <Pencil size={15} /> Edit
+                    </Button>
                   </div>
                 </div>
               )
@@ -248,11 +320,104 @@ export function ChoresPage() {
             </select>
           </label>
           <label>Repeats
-            <input {...register('recurrenceLabel')} placeholder="Every Tuesday" />
+            <select {...register('frequency')}>
+              <option value="daily">Daily</option>
+              <option value="weekly">Selected weekdays</option>
+              <option value="monthly">Monthly</option>
+              <option value="once">Once</option>
+            </select>
+          </label>
+          <label>Every
+            <div className="input-with-suffix">
+              <input type="number" min="1" max="30" {...register('interval', { valueAsNumber: true })} />
+              <span>{frequency === 'daily' ? 'days' : frequency === 'weekly' ? 'weeks' : frequency === 'monthly' ? 'months' : 'time'}</span>
+            </div>
+          </label>
+          {frequency === 'weekly' && (
+            <fieldset className="field-span-2 compact-options">
+              <legend>Weekdays</legend>
+              <div className="weekday-picker">
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => {
+                  const day = index + 1
+                  return (
+                    <button
+                      type="button"
+                      key={`${label}-${day}`}
+                      className={weekdays.includes(day) ? 'is-selected' : ''}
+                      onClick={() => setWeekdays((current) =>
+                        current.includes(day)
+                          ? current.filter((item) => item !== day)
+                          : [...current, day].sort(),
+                      )}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+          )}
+          <label>Starts on
+            <input type="date" {...register('startsOn')} />
           </label>
           <label>Due time
             <input type="time" {...register('dueTime')} />
           </label>
+          {assignmentMode !== 'rotation' && (
+            <label className="field-span-2">Assigned roommate
+              <select value={fixedMemberId} onChange={(event) => setFixedMemberId(event.target.value)}>
+                {data.members.filter((member) => member.active).map((member) => (
+                  <option key={member.id} value={member.id}>{member.displayName}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {assignmentMode === 'rotation' && (
+            <fieldset className="field-span-2 compact-options">
+              <legend>Rotation order and eligibility</legend>
+              <div className="member-check-grid">
+                {data.members.filter((member) => member.active).map((member) => (
+                  <label className="member-check" key={member.id}>
+                    <input
+                      type="checkbox"
+                      checked={rotationIds.includes(member.id)}
+                      onChange={(event) => setRotationIds((current) =>
+                        event.target.checked
+                          ? [...current, member.id]
+                          : current.filter((id) => id !== member.id),
+                      )}
+                    />
+                    <Avatar initials={member.initials} color={member.color} size="sm" />
+                    {member.displayName}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <fieldset className="field-span-2 compact-options">
+            <legend>Task reminders</legend>
+            <div className="member-check-grid">
+              {[
+                ['09:00', 'Morning'],
+                ['18:00', '6:00 PM'],
+                ['22:00', '10:00 PM'],
+                ['23:30', '11:30 PM'],
+              ].map(([time, label]) => (
+                <label className="member-check" key={time}>
+                  <input
+                    type="checkbox"
+                    checked={reminderTimes.includes(time)}
+                    onChange={(event) => setReminderTimes((current) =>
+                      event.target.checked
+                        ? [...current, time].sort()
+                        : current.filter((item) => item !== time),
+                    )}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <label className="checkbox-field field-span-2">
             <input type="checkbox" {...register('penaltyEnabled')} />
             Apply the household penalty when missed
@@ -293,6 +458,51 @@ export function ChoresPage() {
           </div>
         </form>
       </Modal>
+
+      <Modal
+        open={Boolean(assignTaskId)}
+        onClose={() => setAssignTaskId('')}
+        title="Assign this chore"
+        description="Manual chores appear only when someone explicitly assigns them."
+      >
+        <form
+          className="form-grid"
+          onSubmit={async (event) => {
+            event.preventDefault()
+            await assignManualTask(assignTaskId, assignMemberId, assignDate)
+            setAssignTaskId('')
+          }}
+        >
+          <label>Roommate
+            <select value={assignMemberId} onChange={(event) => setAssignMemberId(event.target.value)}>
+              {data.members.filter((member) => member.active).map((member) => (
+                <option value={member.id} key={member.id}>{member.displayName}</option>
+              ))}
+            </select>
+          </label>
+          <label>Due date
+            <input type="date" value={assignDate} onChange={(event) => setAssignDate(event.target.value)} />
+          </label>
+          <div className="modal-actions field-span-2">
+            <Button type="button" variant="ghost" onClick={() => setAssignTaskId('')}>Cancel</Button>
+            <Button type="submit">Assign chore</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
+}
+
+function recurrenceSummary(recurrence: {
+  frequency: 'daily' | 'weekly' | 'monthly' | 'once'
+  interval: number
+  weekdays?: number[]
+}) {
+  if (recurrence.frequency === 'once') return 'One time'
+  if (recurrence.frequency === 'weekly' && recurrence.weekdays?.length) {
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    return `Every ${recurrence.interval > 1 ? `${recurrence.interval} weeks on ` : ''}${recurrence.weekdays.map((day) => names[day - 1]).join(', ')}`
+  }
+  const unit = recurrence.frequency === 'daily' ? 'day' : recurrence.frequency === 'monthly' ? 'month' : 'week'
+  return recurrence.interval === 1 ? `Every ${unit}` : `Every ${recurrence.interval} ${unit}s`
 }

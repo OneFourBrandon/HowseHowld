@@ -93,44 +93,35 @@ export default {
       const rows = events.flatMap((component: ICAL.Component) => {
         try {
           const event = new ICAL.Event(component)
-          const code = extractCourseCode(event.summary)
-          const recurrenceId = component.getFirstPropertyValue("recurrence-id")
-          const rrule = component.getFirstPropertyValue("rrule")
-          return [{
-            household_id: member.household_id,
-            owner_member_id: member.id,
-            import_id: importRow.id,
-            external_uid: event.uid || crypto.randomUUID(),
-            recurrence_id: recurrenceId?.toString() ?? "",
-            kind: /exam|test|midterm|final/i.test(event.summary) ? "exam" : code ? "class" : "other",
-            title: event.summary || "Imported event",
-            description: event.description || null,
-            location: event.location || null,
-            source_url: component.getFirstPropertyValue("url")?.toString() ?? null,
-            start_at: event.startDate.toJSDate().toISOString(),
-            end_at: event.endDate.toJSDate().toISOString(),
-            timezone: event.startDate.zone?.tzid || null,
-            rrule: rrule?.toString() ?? null,
-          }]
+          return expandEvent(event, component, {
+            householdId: member.household_id,
+            ownerMemberId: member.id,
+            importId: importRow.id,
+          })
         } catch {
           return []
         }
       })
+      const courseCodes = [...new Set(rows.map((row) => extractCourseCode(row.title)).filter(Boolean))]
+      const courseIds = new Map<string, string>()
+      for (const code of courseCodes) {
+        const { data: course, error } = await admin.from("courses").upsert({
+          household_id: member.household_id,
+          owner_member_id: member.id,
+          code,
+          name: code,
+        }, { onConflict: "household_id,owner_member_id,code" }).select("id").single()
+        if (error) throw error
+        courseIds.set(code, course.id)
+      }
+      for (const row of rows) {
+        row.course_id = courseIds.get(extractCourseCode(row.title)) ?? null
+      }
       if (rows.length) {
         const { error } = await admin.from("schedule_items").upsert(rows, {
           onConflict: "household_id,owner_member_id,external_uid,recurrence_id",
         })
         if (error) throw error
-      }
-
-      const courseCodes = [...new Set(rows.map((row) => extractCourseCode(row.title)).filter(Boolean))]
-      for (const code of courseCodes) {
-        await admin.from("courses").upsert({
-          household_id: member.household_id,
-          owner_member_id: member.id,
-          code,
-          name: code,
-        }, { onConflict: "household_id,owner_member_id,code" })
       }
 
       return json({ imported: rows.length, skipped: events.length - rows.length })
@@ -142,6 +133,56 @@ export default {
 
 function extractCourseCode(value: string) {
   return value.match(/\b[A-Z]{2,4}\s?\d{3,4}[A-Z]?\b/i)?.[0]?.toUpperCase() ?? ""
+}
+
+function expandEvent(
+  event: ICAL.Event,
+  component: ICAL.Component,
+  owner: { householdId: string; ownerMemberId: string; importId: string },
+) {
+  const code = extractCourseCode(event.summary)
+  const recurrenceId = component.getFirstPropertyValue("recurrence-id")
+  const rrule = component.getFirstPropertyValue("rrule")
+  const common = {
+    household_id: owner.householdId,
+    owner_member_id: owner.ownerMemberId,
+    import_id: owner.importId,
+    course_id: null as string | null,
+    external_uid: event.uid || crypto.randomUUID(),
+    kind: /exam|test|midterm|final/i.test(event.summary) ? "exam" : code ? "class" : "other",
+    title: event.summary || "Imported event",
+    description: event.description || null,
+    location: event.location || null,
+    source_url: component.getFirstPropertyValue("url")?.toString() ?? null,
+    timezone: event.startDate.zone?.tzid || null,
+    rrule: rrule?.toString() ?? null,
+  }
+  if (!event.isRecurring() || recurrenceId) {
+    return [{
+      ...common,
+      recurrence_id: recurrenceId?.toString() ?? "",
+      start_at: event.startDate.toJSDate().toISOString(),
+      end_at: event.endDate.toJSDate().toISOString(),
+    }]
+  }
+
+  const rows = []
+  const iterator = event.iterator()
+  const horizon = new Date()
+  horizon.setFullYear(horizon.getFullYear() + 1)
+  for (let count = 0; count < 500; count++) {
+    const next = iterator.next()
+    if (!next || next.toJSDate() > horizon) break
+    const occurrence = event.getOccurrenceDetails(next)
+    if (occurrence.endDate.toJSDate() < new Date(Date.now() - 31 * 86400000)) continue
+    rows.push({
+      ...common,
+      recurrence_id: next.toString(),
+      start_at: occurrence.startDate.toJSDate().toISOString(),
+      end_at: occurrence.endDate.toJSDate().toISOString(),
+    })
+  }
+  return rows
 }
 
 function json(value: unknown, status = 200) {
