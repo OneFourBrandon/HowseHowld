@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.pnpm-store
+node_modules
+dist
+test-results
+playwright-report
+supabase/.temp
+.env
+.env.*
+*.log

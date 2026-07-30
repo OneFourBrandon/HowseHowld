@@ -29,6 +29,39 @@ fully interactive demo household.
 
 Local auth emails appear in Mailpit at `http://127.0.0.1:54324`.
 
+## Docker Compose and WebStorm
+
+The default Compose service runs the Vite development server with hot reload:
+
+```powershell
+docker compose up --build
+```
+
+Open `http://localhost:5173`. Without an `.env.local`, it starts in the
+interactive demo household.
+
+For the complete local backend, start Supabase on the host first:
+
+```powershell
+pnpm supabase:start
+pnpm exec supabase status
+```
+
+Copy `.env.example` to `.env.local`, then set the URL to
+`http://127.0.0.1:54321` and copy the publishable key printed by
+`supabase status`. The URL is intentionally localhost because the Supabase
+client runs in your browser, even though Vite runs in a container.
+
+In WebStorm, add `compose.yaml` as a Docker Compose run configuration and
+select the `app` service. For full-stack development, create a compound run
+configuration containing:
+
+1. An npm configuration for `supabase:start`.
+2. The Docker Compose `app` configuration.
+
+Run `pnpm supabase:stop` when you want to stop the local backend without
+deleting its data. Rebuild the `app` service after changing dependencies.
+
 ## Verification
 
 ```powershell

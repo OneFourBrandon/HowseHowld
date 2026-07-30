@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "icons": "node scripts/generate-icons.mjs",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
     "preview": "vite preview"
   },
   "dependencies": {
