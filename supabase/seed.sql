@@ -1,0 +1,2 @@
+-- Seed data is intentionally empty. Use the app to create a household so auth
+-- ownership and audit trails match production behavior.
