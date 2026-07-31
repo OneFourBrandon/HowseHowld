@@ -5,6 +5,7 @@ import type {
   CalendarEvent,
   CreateHouseholdInput,
   Expense,
+  HouseholdBill,
   HouseholdFeature,
   Settlement,
   TaskDefinition,
@@ -185,6 +186,19 @@ export const confirmFundPayment = (fundPaymentId: UUID, accept: boolean) =>
     p_accept: accept,
   })
 
+export const upsertHouseholdBill = (
+  input: Omit<HouseholdBill, 'id'> & { id?: UUID },
+) =>
+  invokeRpc<UUID>('upsert_household_bill', {
+    p_input: input,
+  })
+
+export const setHouseholdBillPaid = (periodId: UUID, paid: boolean) =>
+  invokeRpc('set_household_bill_paid', {
+    p_period_id: periodId,
+    p_paid: paid,
+  })
+
 export async function upsertCalendarEvent(
   input: Omit<CalendarEvent, 'id' | 'creatorId'> & { householdId?: UUID },
 ) {
@@ -303,6 +317,8 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('expenses').select('*, expense_payers(*), expense_shares(*)').eq('household_id', householdId).order('purchased_at', { ascending: false }),
     client.from('settlements').select('*').eq('household_id', householdId),
     client.from('fund_payments').select('*').eq('household_id', householdId).order('created_at', { ascending: false }),
+    client.from('household_bills').select('*, household_bill_members(member_id)').eq('household_id', householdId).eq('active', true).order('due_day'),
+    client.from('household_bill_periods').select('*, household_bill_payments(member_id)').eq('household_id', householdId).gte('period_month', new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1).toISOString().slice(0, 10)).order('period_month', { ascending: false }),
     client.from('member_balances').select('*').eq('household_id', householdId),
     client.from('calendar_events').select('*, event_audiences(member_id)').eq('household_id', householdId).order('start_at'),
     client.from('courses').select('*').eq('household_id', householdId),
@@ -318,7 +334,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
 
   const [
     householdResult, taskResult, rotationResult, occurrenceResult, infractionResult,
-    expenseResult, settlementResult, fundPaymentResult, balanceResult, eventResult,
+    expenseResult, settlementResult, fundPaymentResult, billResult, billPeriodResult, balanceResult, eventResult,
     courseResult, scheduleResult, vehicleResult, drivewayResult, departureResult, auditResult, pushResult,
   ] = results
   const rowData = <T,>(result: { data: T | null }) => result.data
@@ -479,6 +495,29 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       status: row.status,
       confirmedBy: row.confirmed_by ?? undefined,
       createdAt: row.created_at,
+    })),
+    bills: (billResult.data ?? []).map((row) => ({
+      id: row.id,
+      householdId: row.household_id,
+      name: row.name,
+      category: row.category,
+      amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),
+      dueDay: row.due_day,
+      reminderDaysBefore: row.reminder_days_before ?? [7, 3, 1, 0],
+      active: row.active,
+      memberIds: (row.household_bill_members ?? []).map(
+        (member: { member_id: string }) => member.member_id,
+      ),
+    })),
+    billPeriods: (billPeriodResult.data ?? []).map((row) => ({
+      id: row.id,
+      billId: row.bill_id,
+      periodMonth: row.period_month,
+      dueAt: row.due_at,
+      amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),
+      paidMemberIds: (row.household_bill_payments ?? []).map(
+        (payment: { member_id: string }) => payment.member_id,
+      ),
     })),
     balances: (balanceResult.data ?? []).map((row) => ({
       memberId: row.member_id,

@@ -2,17 +2,39 @@ import { useState } from 'react'
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  BellRing,
+  Building2,
   Camera,
   Check,
   CircleDollarSign,
+  Droplets,
+  Flame,
+  Lightbulb,
+  MoreHorizontal,
   Plus,
   ReceiptText,
   RotateCcw,
+  ShieldCheck,
   WalletCards,
+  Wifi,
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
 import { cents, formatDateTime, formatMoney, splitEvenly } from '../lib/utils'
+import type { HouseholdBillCategory } from '../types'
+
+const monthValue = (date = new Date()) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+function BillIcon({ category }: { category: HouseholdBillCategory }) {
+  if (category === 'rent') return <Building2 />
+  if (category === 'electricity') return <Lightbulb />
+  if (category === 'water') return <Droplets />
+  if (category === 'gas') return <Flame />
+  if (category === 'internet') return <Wifi />
+  if (category === 'insurance') return <ShieldCheck />
+  return <MoreHorizontal />
+}
 
 export function MoneyPage() {
   const {
@@ -24,10 +46,22 @@ export function MoneyPage() {
     confirmSettlement,
     proposeFundPayment,
     confirmFundPayment,
+    addBill,
+    setBillPaid,
     openReceipt,
   } = useAppData()
   const [expenseModal, setExpenseModal] = useState(false)
   const [settleModal, setSettleModal] = useState(false)
+  const [billModal, setBillModal] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState(monthValue)
+  const [billName, setBillName] = useState('')
+  const [billCategory, setBillCategory] = useState<HouseholdBillCategory>('rent')
+  const [billAmount, setBillAmount] = useState('')
+  const [billDueDay, setBillDueDay] = useState('1')
+  const [billReminders, setBillReminders] = useState(() => new Set([7, 3, 1, 0]))
+  const [billMembers, setBillMembers] = useState(
+    () => new Set(data.members.map((member) => member.id)),
+  )
   const [title, setTitle] = useState('')
   const [amount, setAmount] = useState('')
   const [receipt, setReceipt] = useState<File | undefined>()
@@ -48,6 +82,9 @@ export function MoneyPage() {
   const totalHouseSpend = data.expenses
     .filter((expense) => !expense.reversed)
     .reduce((sum, expense) => sum + expense.amountCents, 0)
+  const selectedPeriods = data.billPeriods.filter(
+    (period) => period.periodMonth.slice(0, 7) === selectedMonth,
+  )
 
   const submitExpense = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -129,6 +166,95 @@ export function MoneyPage() {
           })}
         </Card>
       </div>
+
+      <section className="bill-section" id="bills">
+        <div className="bill-section-heading">
+          <div>
+            <p className="eyebrow">MONTHLY HOUSE COSTS</p>
+            <h2>Utilities &amp; rent</h2>
+            <p>Check off your own payment each month. Unpaid roommates receive the selected reminders.</p>
+          </div>
+          <div className="bill-section-actions">
+            <label>
+              <span>Month</span>
+              <input
+                aria-label="Bills month"
+                type="month"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.target.value)}
+              />
+            </label>
+            <Button variant="secondary" onClick={() => setBillModal(true)}>
+              <Plus size={18} /> Add bill
+            </Button>
+          </div>
+        </div>
+        <div className="bill-list">
+          {data.bills.map((bill) => {
+            const period = selectedPeriods.find((item) => item.billId === bill.id)
+            const paid = Boolean(period?.paidMemberIds.includes(currentMemberId))
+            const assignedMembers = data.members.filter((member) =>
+              bill.memberIds.includes(member.id),
+            )
+            return (
+              <div className="bill-row" key={bill.id}>
+                <div className={`bill-icon bill-icon-${bill.category}`}>
+                  <BillIcon category={bill.category} />
+                </div>
+                <div className="bill-main">
+                  <strong>{bill.name}</strong>
+                  <span>
+                    Due {period ? formatDateTime(period.dueAt) : `day ${bill.dueDay}`}
+                    {' · '}
+                    <BellRing size={13} />
+                    {bill.reminderDaysBefore.map((day) => day === 0 ? 'due day' : `${day}d`).join(', ')}
+                  </span>
+                </div>
+                <div className="bill-roommates" aria-label={`${period?.paidMemberIds.length ?? 0} roommates paid`}>
+                  {assignedMembers.map((member) => (
+                    <span
+                      className={period?.paidMemberIds.includes(member.id) ? 'is-paid' : ''}
+                      key={member.id}
+                      title={`${member.displayName}: ${period?.paidMemberIds.includes(member.id) ? 'paid' : 'unpaid'}`}
+                    >
+                      <Avatar initials={member.initials} color={member.color} size="sm" />
+                      {period?.paidMemberIds.includes(member.id) && <Check size={11} />}
+                    </span>
+                  ))}
+                </div>
+                <strong className="bill-amount">
+                  {period?.amountCents != null
+                    ? formatMoney(period.amountCents)
+                    : bill.amountCents != null
+                      ? formatMoney(bill.amountCents)
+                      : 'Variable'}
+                </strong>
+                {bill.memberIds.includes(currentMemberId) ? (
+                  <label className="bill-paid-check">
+                    <input
+                      type="checkbox"
+                      checked={paid}
+                      disabled={!period || busy === `bill:paid:${period.id}`}
+                      onChange={(event) => {
+                        if (period) void setBillPaid(period.id, event.target.checked)
+                      }}
+                    />
+                    <span>{paid ? 'Paid' : period ? 'Mark paid' : 'No period'}</span>
+                  </label>
+                ) : (
+                  <span className="bill-not-assigned">Not assigned</span>
+                )}
+              </div>
+            )
+          })}
+          {!data.bills.length && (
+            <div className="bill-empty">
+              <Building2 />
+              <div><strong>No monthly bills yet</strong><span>Add rent or a utility to start tracking payments.</span></div>
+            </div>
+          )}
+        </div>
+      </section>
 
       <div className="content-grid-two money-content">
         <section>
@@ -276,6 +402,99 @@ export function MoneyPage() {
           </div>
         </section>
       </div>
+
+      <Modal
+        open={billModal}
+        onClose={() => setBillModal(false)}
+        title="Add utilities or rent"
+        description="A payment check is tracked separately for every assigned roommate each month."
+      >
+        <form
+          className="form-grid"
+          onSubmit={async (event) => {
+            event.preventDefault()
+            if (!billName.trim() || !billMembers.size) return
+            const amountCents = billAmount ? Math.round(Number(billAmount) * 100) : undefined
+            await addBill({
+              name: billName.trim(),
+              category: billCategory,
+              amountCents: amountCents && amountCents > 0 ? cents(amountCents) : undefined,
+              dueDay: Number(billDueDay),
+              reminderDaysBefore: [...billReminders].sort((a, b) => b - a),
+              memberIds: [...billMembers],
+            })
+            setBillName('')
+            setBillAmount('')
+            setBillModal(false)
+          }}
+        >
+          <label className="field-span-2">Name
+            <input value={billName} onChange={(event) => setBillName(event.target.value)} placeholder="Hydro" required />
+          </label>
+          <label>Type
+            <select value={billCategory} onChange={(event) => setBillCategory(event.target.value as HouseholdBillCategory)}>
+              <option value="rent">Rent</option>
+              <option value="electricity">Electricity</option>
+              <option value="water">Water</option>
+              <option value="gas">Gas</option>
+              <option value="internet">Internet</option>
+              <option value="insurance">Insurance</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>Household amount (CAD) <span className="optional">Optional</span>
+            <input type="number" min="0.01" step="0.01" value={billAmount} onChange={(event) => setBillAmount(event.target.value)} placeholder="Variable" />
+          </label>
+          <label className="field-span-2">Due day
+            <input type="number" min="1" max="28" value={billDueDay} onChange={(event) => setBillDueDay(event.target.value)} required />
+          </label>
+          <fieldset className="field-span-2 compact-options">
+            <legend>Remind unpaid roommates</legend>
+            <div className="bill-reminder-options">
+              {[7, 3, 1, 0].map((day) => (
+                <label key={day}>
+                  <input
+                    type="checkbox"
+                    checked={billReminders.has(day)}
+                    onChange={(event) => setBillReminders((current) => {
+                      const next = new Set(current)
+                      if (event.target.checked) next.add(day)
+                      else next.delete(day)
+                      return next
+                    })}
+                  />
+                  {day === 0 ? 'Due day' : `${day} day${day === 1 ? '' : 's'} before`}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="field-span-2 compact-options">
+            <legend>Who needs to pay?</legend>
+            <div className="bill-member-options">
+              {data.members.map((member) => (
+                <label key={member.id}>
+                  <input
+                    type="checkbox"
+                    checked={billMembers.has(member.id)}
+                    onChange={(event) => setBillMembers((current) => {
+                      const next = new Set(current)
+                      if (event.target.checked) next.add(member.id)
+                      else next.delete(member.id)
+                      return next
+                    })}
+                  />
+                  <Avatar initials={member.initials} color={member.color} size="sm" />
+                  {member.displayName}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="modal-actions field-span-2">
+            <Button type="button" variant="ghost" onClick={() => setBillModal(false)}>Cancel</Button>
+            <Button type="submit" disabled={busy === 'bill:new'}>Add monthly bill</Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={expenseModal}

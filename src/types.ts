@@ -156,6 +156,36 @@ export interface FundPayment {
   createdAt: ISODateTime
 }
 
+export type HouseholdBillCategory =
+  | 'rent'
+  | 'electricity'
+  | 'water'
+  | 'gas'
+  | 'internet'
+  | 'insurance'
+  | 'other'
+
+export interface HouseholdBill {
+  id: UUID
+  householdId: UUID
+  name: string
+  category: HouseholdBillCategory
+  amountCents?: MoneyCents
+  dueDay: number
+  reminderDaysBefore: number[]
+  active: boolean
+  memberIds: UUID[]
+}
+
+export interface HouseholdBillPeriod {
+  id: UUID
+  billId: UUID
+  periodMonth: string
+  dueAt: ISODateTime
+  amountCents?: MoneyCents
+  paidMemberIds: UUID[]
+}
+
 export interface MemberBalance {
   memberId: UUID
   contributionCents: MoneyCents
@@ -241,6 +271,8 @@ export interface AppSnapshot {
   expenses: Expense[]
   settlements: Settlement[]
   fundPayments: FundPayment[]
+  bills: HouseholdBill[]
+  billPeriods: HouseholdBillPeriod[]
   balances: MemberBalance[]
   events: CalendarEvent[]
   courses: Course[]

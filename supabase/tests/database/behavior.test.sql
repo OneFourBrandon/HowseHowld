@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(15);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -101,6 +101,49 @@ insert into public.vehicles (
     'Other car'
   );
 
+insert into public.household_bills (
+  id, household_id, name, category, amount_cents, due_day, created_by
+) values
+  (
+    '14000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000000',
+    'Rent', 'rent', 300000, 1,
+    '11000000-0000-0000-0000-000000000001'
+  ),
+  (
+    '24000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000000',
+    'Private hydro', 'electricity', 9000, 15,
+    '21000000-0000-0000-0000-000000000003'
+  );
+insert into public.household_bill_members (household_id, bill_id, member_id) values
+  (
+    '10000000-0000-0000-0000-000000000000',
+    '14000000-0000-0000-0000-000000000001',
+    '11000000-0000-0000-0000-000000000001'
+  ),
+  (
+    '10000000-0000-0000-0000-000000000000',
+    '14000000-0000-0000-0000-000000000001',
+    '11000000-0000-0000-0000-000000000002'
+  ),
+  (
+    '20000000-0000-0000-0000-000000000000',
+    '24000000-0000-0000-0000-000000000001',
+    '21000000-0000-0000-0000-000000000003'
+  );
+insert into public.household_bill_periods (
+  id, household_id, bill_id, period_month, amount_cents, due_at
+) values
+  (
+    '15000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000000',
+    '14000000-0000-0000-0000-000000000001',
+    date_trunc('month', current_date)::date,
+    300000,
+    now() + interval '2 days'
+  );
+
 set local role authenticated;
 select set_config(
   'request.jwt.claim.sub',
@@ -118,11 +161,32 @@ select is(
   1,
   'RLS isolates task definitions between households'
 );
+select is(
+  (select count(*)::integer from public.household_bills),
+  1,
+  'RLS isolates monthly bills between households'
+);
 
 select set_config(
   'request.jwt.claim.sub',
   '00000000-0000-0000-0000-000000000002',
   true
+);
+select lives_ok(
+  $$select public.set_household_bill_paid(
+    '15000000-0000-0000-0000-000000000001',
+    true
+  )$$,
+  'an assigned roommate can check off their own payment'
+);
+select is(
+  (
+    select member_id
+    from public.household_bill_payments
+    where period_id = '15000000-0000-0000-0000-000000000001'
+  ),
+  '11000000-0000-0000-0000-000000000002'::uuid,
+  'the payment RPC always records the signed-in member'
 );
 select throws_ok(
   $$select public.rotate_household_share_code(

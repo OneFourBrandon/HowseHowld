@@ -10,6 +10,8 @@ type AuthMode = 'owner' | 'join'
 export function AuthGate({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(hasSupabaseConfig)
+  const [authError, setAuthError] = useState('')
+  const [authAttempt, setAuthAttempt] = useState(0)
   const [joining, setJoining] = useState(false)
   const [mode, setMode] = useState<AuthMode>(
     new URLSearchParams(window.location.search).has('code') ? 'join' : 'owner',
@@ -26,19 +28,62 @@ export function AuthGate({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!supabase) return
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
+    let active = true
+    let timer: number | undefined
+    setLoading(true)
+    setAuthError('')
+    const timeout = new Promise<never>((_, reject) => {
+      timer = window.setTimeout(
+        () => reject(new Error('The household backend did not respond.')),
+        6_000,
+      )
     })
+    void Promise.race([supabase.auth.getSession(), timeout])
+      .then(({ data }) => {
+        if (!active) return
+        setSession(data.session)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!active) return
+        setAuthError(
+          'Could not reach local Supabase. Start the Supabase services in WebStorm, then try again.',
+        )
+        setLoading(false)
+      })
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return
       setSession(nextSession)
+      setAuthError('')
       setLoading(false)
     })
-    return () => data.subscription.unsubscribe()
-  }, [])
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+      data.subscription.unsubscribe()
+    }
+  }, [authAttempt])
 
   if (!hasSupabaseConfig) return children
   if (loading || joining) return <div className="app-loading">Opening your house…</div>
+  if (authError) {
+    return (
+      <main className="backend-unavailable">
+        <div className="brand">
+          <div className="brand-mark">H</div>
+          <strong>HowseHowld</strong>
+        </div>
+        <div>
+          <p className="eyebrow">LOCAL BACKEND OFFLINE</p>
+          <h1>Your house couldn’t open.</h1>
+          <p>{authError}</p>
+        </div>
+        <Button onClick={() => setAuthAttempt((attempt) => attempt + 1)}>
+          Try again
+        </Button>
+      </main>
+    )
+  }
   if (session) return children
 
   const submitEmail = async (event: FormEvent) => {

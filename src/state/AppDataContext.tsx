@@ -17,6 +17,7 @@ import type {
   CalendarEvent,
   CreateHouseholdInput,
   Expense,
+  HouseholdBill,
   HouseholdFeature,
   Settlement,
   TaskDefinition,
@@ -36,6 +37,7 @@ type NewSettlement = Pick<
   Settlement,
   'toMemberId' | 'amountCents' | 'note'
 >
+type NewBill = Omit<HouseholdBill, 'id' | 'householdId' | 'active'>
 type NewEvent = Omit<CalendarEvent, 'id' | 'creatorId'>
 
 interface AppDataContextValue {
@@ -61,6 +63,8 @@ interface AppDataContextValue {
   confirmSettlement: (id: UUID, accept: boolean) => Promise<void>
   proposeFundPayment: (amountCents: number) => Promise<void>
   confirmFundPayment: (id: UUID, accept: boolean) => Promise<void>
+  addBill: (bill: NewBill) => Promise<void>
+  setBillPaid: (periodId: UUID, paid: boolean) => Promise<void>
   addEvent: (event: NewEvent) => Promise<void>
   updateScheduleItemKind: (id: UUID, kind: 'class' | 'exam' | 'other') => Promise<void>
   updateCourse: (id: UUID, name: string, color: string) => Promise<void>
@@ -103,7 +107,15 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     setInitializing(true)
     setBootstrapError(null)
     try {
-      const snapshot = await api.loadSnapshot()
+      const timeout = new Promise<never>((_, reject) => {
+        window.setTimeout(
+          () => reject(new Error(
+            'The household data did not respond. Check that local Supabase is running, then try again.',
+          )),
+          8_000,
+        )
+      })
+      const snapshot = await Promise.race([api.loadSnapshot(), timeout])
       if (!snapshot) {
         setNeedsHousehold(true)
       } else {
@@ -138,6 +150,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     const tables = [
       'task_definitions', 'task_occurrences', 'infractions', 'infraction_votes',
       'expenses', 'expense_payers', 'expense_shares', 'settlements', 'fund_payments',
+      'household_bills', 'household_bill_members', 'household_bill_periods',
+      'household_bill_payments',
       'calendar_events', 'event_audiences', 'courses', 'schedule_items',
       'vehicles', 'driveway_state', 'driveway_positions', 'departure_occurrences',
       'push_subscriptions',
@@ -517,6 +531,74 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           }))
         },
         accept ? 'Fund payment confirmed.' : 'Fund payment rejected.',
+      ),
+    [demoMode, run],
+  )
+
+  const addBill = useCallback(
+    async (input: NewBill) =>
+      run(
+        'bill:new',
+        async () => {
+          if (!demoMode) {
+            await api.upsertHouseholdBill({
+              ...input,
+              householdId: data.household.id,
+              active: true,
+            })
+            await refresh()
+            return
+          }
+          setData((current) => {
+            const id = uid('bill')
+            const month = new Date()
+            const periodMonth = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`
+            const due = new Date(month.getFullYear(), month.getMonth(), input.dueDay, 9)
+            return {
+              ...current,
+              bills: [...current.bills, {
+                ...input,
+                id,
+                householdId: current.household.id,
+                active: true,
+              }],
+              billPeriods: [...current.billPeriods, {
+                id: uid('bill-period'),
+                billId: id,
+                periodMonth,
+                dueAt: toIso(due),
+                amountCents: input.amountCents,
+                paidMemberIds: [],
+              }],
+            }
+          })
+        },
+        'Monthly bill added and reminders scheduled.',
+      ),
+    [data.household.id, demoMode, refresh, run],
+  )
+
+  const setBillPaid = useCallback(
+    async (periodId: UUID, paid: boolean) =>
+      run(
+        `bill:paid:${periodId}`,
+        async () => {
+          if (!demoMode) await api.setHouseholdBillPaid(periodId, paid)
+          setData((current) => ({
+            ...current,
+            billPeriods: current.billPeriods.map((period) => {
+              if (period.id !== periodId) return period
+              const memberId = current.household.currentMemberId
+              return {
+                ...period,
+                paidMemberIds: paid
+                  ? [...new Set([...period.paidMemberIds, memberId])]
+                  : period.paidMemberIds.filter((id) => id !== memberId),
+              }
+            }),
+          }))
+        },
+        paid ? 'Marked paid for this month.' : 'Marked unpaid for this month.',
       ),
     [demoMode, run],
   )
@@ -914,6 +996,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       confirmSettlement,
       proposeFundPayment,
       confirmFundPayment,
+      addBill,
+      setBillPaid,
       addEvent,
       updateScheduleItemKind,
       updateCourse,
@@ -952,6 +1036,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       confirmSettlement,
       proposeFundPayment,
       confirmFundPayment,
+      addBill,
+      setBillPaid,
       addEvent,
       updateScheduleItemKind,
       updateCourse,

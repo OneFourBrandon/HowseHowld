@@ -30,7 +30,9 @@ services:
       timeout: 3s
       retries: 12
       start_period: 15s
-    restart: unless-stopped
+    # WebStorm should own the development server lifecycle. Do not let Docker
+    # bring this container back after Docker Desktop or Windows restarts.
+    restart: "no"
 
 volumes:
   node_modules:

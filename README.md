@@ -21,13 +21,18 @@ Requirements: Node 24+, pnpm 11+, Docker Desktop.
 
 ```powershell
 pnpm install
-pnpm exec supabase start
-pnpm dev
+pnpm dev:stack
 ```
 
-Copy `.env.example` to `.env.local` and use the local values printed by
-`supabase status`. Without those values, the app deliberately opens in a
-fully interactive demo household.
+`dev:stack` is the single local full-stack entry point. When
+`VITE_SUPABASE_URL` is absent, a placeholder, or localhost, it starts the
+Supabase CLI stack first and then the Compose app. Stopping the run stops both
+sets of containers without deleting their data. When the URL is a real hosted
+Supabase URL, it starts only the app.
+
+Development builds automatically use the standard local Supabase URL and
+public local key when no values are configured. Production builds never use
+those defaults and still require hosted environment variables.
 
 Local auth emails appear in Mailpit at `http://127.0.0.1:54324`.
 Anonymous Auth is enabled in the local Supabase configuration. A roommate can
@@ -35,36 +40,23 @@ join with the house share code and a display name without providing an email.
 
 ## Docker Compose and WebStorm
 
-The default Compose service runs the Vite development server with hot reload:
+The Compose service itself runs the Vite development server with hot reload:
 
 ```powershell
 docker compose up --build
 ```
 
-Open `http://localhost:5173`. Without an `.env.local`, it starts in the
-interactive demo household.
+Open `http://localhost:5173`. Supabase local development is managed by its CLI,
+which generates its own Docker services from `supabase/config.toml`; it is not
+duplicated inside `compose.yaml`.
 
-For the complete local backend, start Supabase on the host first:
+In WebStorm, create an npm run configuration for `dev:stack` and use that
+instead of the raw Compose configuration when you want the complete local
+application. The WebStorm Stop button reaches the script cleanup block, which
+stops both the app and local Supabase while preserving their volumes.
 
-```powershell
-pnpm supabase:start
-pnpm exec supabase status
-```
-
-Copy `.env.example` to `.env.local`, then set the URL to
-`http://127.0.0.1:54321` and copy the publishable key printed by
-`supabase status`. The URL is intentionally localhost because the Supabase
-client runs in your browser, even though Vite runs in a container.
-
-In WebStorm, add `compose.yaml` as a Docker Compose run configuration and
-select the `app` service. For full-stack development, create a compound run
-configuration containing:
-
-1. An npm configuration for `supabase:start`.
-2. The Docker Compose `app` configuration.
-
-Run `pnpm supabase:stop` when you want to stop the local backend without
-deleting its data. Rebuild the `app` service after changing dependencies.
+Running `docker compose up --build` directly remains app-only. This is useful
+when `VITE_SUPABASE_URL` points at a hosted project.
 
 ## Verification
 

@@ -2,6 +2,7 @@ import type { AppSnapshot } from '../types'
 import { blockerIds, cents, toIso } from '../lib/utils'
 
 const now = new Date()
+const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 const at = (dayOffset: number, hours: number, minutes = 0) => {
   const date = new Date(now)
   date.setDate(date.getDate() + dayOffset)
@@ -233,6 +234,48 @@ export const demoSnapshot: AppSnapshot = {
     },
   ],
   fundPayments: [],
+  bills: [
+    {
+      id: 'bill-rent',
+      householdId: 'house-maple',
+      name: 'Monthly rent',
+      category: 'rent',
+      amountCents: cents(320_000),
+      dueDay: 1,
+      reminderDaysBefore: [7, 3, 1, 0],
+      active: true,
+      memberIds: ['member-brandon', 'member-maya', 'member-liam', 'member-noah'],
+    },
+    {
+      id: 'bill-internet',
+      householdId: 'house-maple',
+      name: 'Internet',
+      category: 'internet',
+      amountCents: cents(8_900),
+      dueDay: 15,
+      reminderDaysBefore: [3, 1, 0],
+      active: true,
+      memberIds: ['member-brandon', 'member-maya', 'member-liam', 'member-noah'],
+    },
+  ],
+  billPeriods: [
+    {
+      id: 'bill-period-rent',
+      billId: 'bill-rent',
+      periodMonth: currentMonth,
+      dueAt: at(2, 9),
+      amountCents: cents(320_000),
+      paidMemberIds: ['member-maya', 'member-liam'],
+    },
+    {
+      id: 'bill-period-internet',
+      billId: 'bill-internet',
+      periodMonth: currentMonth,
+      dueAt: at(8, 9),
+      amountCents: cents(8_900),
+      paidMemberIds: ['member-brandon', 'member-maya'],
+    },
+  ],
   balances: [
     {
       memberId: 'member-brandon',
