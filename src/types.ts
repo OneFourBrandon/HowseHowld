@@ -324,7 +324,6 @@ export interface AppSnapshot {
   courses: Course[]
   sharedCourses: SharedCourse[]
   vehicles: Vehicle[]
-  drivewayVersion: number
   departures: Departure[]
   auditEvents: AuditEvent[]
   notificationHealth: NotificationHealth

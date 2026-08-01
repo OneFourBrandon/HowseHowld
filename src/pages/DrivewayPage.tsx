@@ -118,7 +118,7 @@ export function DrivewayPage() {
           <SectionHeader
             eyebrow="LIVE LINEUP"
             title="Street to back"
-            description={`Version ${data.drivewayVersion} · drag cars to update`}
+            description={`drag cars to update`}
           />
           <Card className={"driveway-card relative overflow-hidden p-[22px_0_26px] py-[28px_34px]"}>
             <div className="street-label flex items-center justify-center gap-3 text-[.75rem] font-extrabold tracking-[.07em] text-(--muted)">

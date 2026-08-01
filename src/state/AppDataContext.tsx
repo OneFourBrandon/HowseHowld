@@ -751,7 +751,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         async () => {
           setData((current) => ({
             ...current,
-            drivewayVersion: current.drivewayVersion + 1,
             vehicles: orderedIds
               .map((id) => current.vehicles.find((vehicle) => vehicle.id === id))
               .filter((vehicle): vehicle is NonNullable<typeof vehicle> => Boolean(vehicle)),
@@ -764,7 +763,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
             try {
               await api.reorderDriveway(
                 data.household.id,
-                data.drivewayVersion,
                 orderedIds,
               )
             } catch (error) {
@@ -778,7 +776,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         },
         'Driveway order updated for everyone.',
       ),
-    [data.drivewayVersion, data.household.id, demoMode, refresh, run],
+    [data.household.id, demoMode, refresh, run],
   )
 
   const addDeparture = useCallback(

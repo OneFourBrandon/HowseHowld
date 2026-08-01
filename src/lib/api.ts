@@ -767,7 +767,6 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       color: row.color,
       plate: row.plate ?? undefined,
     })),
-    drivewayVersion: Number(drivewayResult.data?.version ?? 0),
     departures: (departureResult.data ?? []).map((row) => ({
       id: row.id,
       vehicleId: row.vehicle_id,

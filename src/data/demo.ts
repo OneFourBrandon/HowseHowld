@@ -414,7 +414,6 @@ export const demoSnapshot: AppSnapshot = {
       plate: 'BRNDN 7',
     },
   ],
-  drivewayVersion: 7,
   departures: [
     {
       id: 'departure-brandon',
