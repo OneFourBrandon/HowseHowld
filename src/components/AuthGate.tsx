@@ -1,8 +1,9 @@
-import { type FormEvent, type PropsWithChildren, useEffect, useState } from 'react'
+import { cn } from '../lib/cn'
+import { type PropsWithChildren, type SubmitEvent, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { Home, KeyRound, Mail, ShieldCheck, Users } from 'lucide-react'
+import { Home, ShieldCheck, Users } from 'lucide-react'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
-import { joinHouseWithCode, sendEmailOtp, verifyEmailOtp } from '../lib/api'
+import { joinHouseWithCode, sendAdminMagicLink } from '../lib/api'
 import { Button } from './ui'
 
 type AuthMode = 'owner' | 'join'
@@ -14,22 +15,38 @@ export function AuthGate({ children }: PropsWithChildren) {
   const [authAttempt, setAuthAttempt] = useState(0)
   const [joining, setJoining] = useState(false)
   const [mode, setMode] = useState<AuthMode>(
-    new URLSearchParams(window.location.search).has('code') ? 'join' : 'owner',
+    new URLSearchParams(window.location.search).has('code') ? 'owner' : 'join',
   )
   const [email, setEmail] = useState('')
-  const [token, setToken] = useState('')
   const [shareCode, setShareCode] = useState(
     new URLSearchParams(window.location.search).get('code') ?? '',
   )
   const [displayName, setDisplayName] = useState('')
-  const [stage, setStage] = useState<'email' | 'code'>('email')
+  const [stage, setStage] = useState<'email' | 'sent'>('email')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const recoveryCodeMode = shareCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase().startsWith('REC')
 
   useEffect(() => {
-    if (!supabase) return
+    const client = supabase
+    if (!client) return
     let active = true
     let timer: number | undefined
+    const syncSession = async () => {
+      const { data } = await client.auth.getSession()
+      if (!active || !data.session) return
+      setSession(data.session)
+      setAuthError('')
+      setLoading(false)
+    }
+    const syncWhenVisible = () => {
+      if (document.visibilityState === 'visible') void syncSession()
+    }
+    const syncFromStorage = (event: StorageEvent) => {
+      if (event.key?.startsWith('sb-') && event.key.endsWith('-auth-token')) {
+        void syncSession()
+      }
+    }
     setLoading(true)
     setAuthError('')
     const timeout = new Promise<never>((_, reject) => {
@@ -38,7 +55,7 @@ export function AuthGate({ children }: PropsWithChildren) {
         6_000,
       )
     })
-    void Promise.race([supabase.auth.getSession(), timeout])
+    void Promise.race([client.auth.getSession(), timeout])
       .then(({ data }) => {
         if (!active) return
         setSession(data.session)
@@ -51,32 +68,38 @@ export function AuthGate({ children }: PropsWithChildren) {
         )
         setLoading(false)
       })
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return
       setSession(nextSession)
       setAuthError('')
       setLoading(false)
     })
+    window.addEventListener('focus', syncSession)
+    window.addEventListener('storage', syncFromStorage)
+    document.addEventListener('visibilitychange', syncWhenVisible)
     return () => {
       active = false
       window.clearTimeout(timer)
+      window.removeEventListener('focus', syncSession)
+      window.removeEventListener('storage', syncFromStorage)
+      document.removeEventListener('visibilitychange', syncWhenVisible)
       data.subscription.unsubscribe()
     }
   }, [authAttempt])
 
   if (!hasSupabaseConfig) return children
-  if (loading || joining) return <div className="app-loading">Opening your house…</div>
+  if (loading || joining) return <div className={"app-loading min-h-screen grid place-items-center text-(--forest) bg-(--paper) font-display"}>Opening your house…</div>
   if (authError) {
     return (
-      <main className="backend-unavailable">
-        <div className="brand">
-          <div className="brand-mark">H</div>
-          <strong>HowseHowld</strong>
+      <main className={"backend-unavailable grid content-center justify-items-start gap-8.5 w-[min(620px,calc(100%-40px))] min-h-svh mx-auto"}>
+        <div className={"brand flex items-center gap-3"}>
+          <div className={"brand-mark w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"}>H</div>
+          <strong className={"block font-display text-[1.18rem] tracking-[-.02em]"}>HowseHowld</strong>
         </div>
-        <div>
-          <p className="eyebrow">LOCAL BACKEND OFFLINE</p>
-          <h1>Your house couldn’t open.</h1>
-          <p>{authError}</p>
+        <div className={"grid gap-2.5"}>
+          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>LOCAL BACKEND OFFLINE</p>
+          <h1 className={"text-[clamp(2.2rem,6vw,4.5rem)] leading-[.98]"}>Your house couldn’t open.</h1>
+          <p className={"max-w-135 text-(--muted) leading-[1.6]"}>{authError}</p>
         </div>
         <Button onClick={() => setAuthAttempt((attempt) => attempt + 1)}>
           Try again
@@ -86,34 +109,21 @@ export function AuthGate({ children }: PropsWithChildren) {
   }
   if (session) return children
 
-  const submitEmail = async (event: FormEvent) => {
+  const submitEmail = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     setBusy(true)
     setError('')
     try {
-      await sendEmailOtp(email)
-      setStage('code')
+      await sendAdminMagicLink(email)
+      setStage('sent')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not send the code.')
+      setError(cause instanceof Error ? cause.message : 'Could not send the sign-in link.')
     } finally {
       setBusy(false)
     }
   }
 
-  const submitCode = async (event: FormEvent) => {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      await verifyEmailOtp(email, token)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That code did not work.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const submitHouseCode = async (event: FormEvent) => {
+  const submitHouseCode = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     setBusy(true)
     setJoining(true)
@@ -135,104 +145,105 @@ export function AuthGate({ children }: PropsWithChildren) {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-story">
-        <div className="brand brand-light">
-          <div className="brand-mark">H</div>
-          <strong>HowseHowld</strong>
+    <div className={"auth-page min-h-screen grid grid-cols-[0.9fr_1.1fr] bg-(--paper) max-[640px]:grid-cols-1 max-[640px]:items-center max-[640px]:p-3.5 max-[980px]:block max-[980px]:p-0"}>
+      <div className={"auth-story p-[clamp(32px,6vw,88px)] flex flex-col justify-between text-white bg-(--forest) max-[640px]:hidden"}>
+        <div className={"brand brand-light flex items-center gap-3"}>
+          <div className={"brand-mark mr-0.5 w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"}>H</div>
+          <strong className={"block font-display text-[1.18rem] tracking-[-.02em]"}>HowseHowld</strong>
         </div>
         <div>
-          <p className="eyebrow">ONE APP, EVERY HOUSE</p>
-          <h1>Less chasing.<br />More living.</h1>
-          <p>
+          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>ONE APP, EVERY HOUSE</p>
+          <h1 className={"mt-3.5 text-[clamp(3.2rem,7vw,6.4rem)] leading-[.91]"}>Less chasing.<br />More living.</h1>
+          <p className={"max-w-135 mt-6.25 text-[#cadac4] text-[1rem] leading-[1.6]"}>
             Each house gets its own private space for chores, money, schedules,
             vehicles and the routines that keep everyone moving.
           </p>
         </div>
-        <div className="auth-trust">
+        <div className={"auth-trust flex items-center gap-2 text-[#cadac4] text-[.8rem]"}>
           <ShieldCheck size={18} />
           Every household is isolated and private
         </div>
       </div>
 
-      <main className="auth-panel">
-        <div className="auth-content">
-        <div className="auth-mode-switch" aria-label="Choose how to continue">
+      <main className={"auth-panel min-w-0 grid items-center p-[clamp(10px,3vw,96px)] max-[980px]:min-h-screen max-[980px]:p-[clamp(28px,8vw,72px)] max-[640px]:p-[24px_20px_40px]"}>
+        <div className={"auth-content w-[min(600px,80%)] h-[min(620px,calc(100vh-48px))] overflow-y-auto scrollbar-gutter-stable mx-auto max-[980px]:w-[min(620px,100%)] max-[980px]:h-auto max-[980px]:overflow-visible max-[980px]:scrollbar-gutter-auto"}>
+        <div className={"auth-mode-switch grid grid-cols-2 gap-1 mb-7 p-1 border border-(--line) rounded-[10px] bg-[#edf1ed] max-[640px]:mb-5.5"} aria-label="Choose how to continue">
           <button
             type="button"
-            className={mode === 'owner' ? 'is-active' : ''}
-            onClick={() => selectMode('owner')}
-          >
-            <Home size={17} /> Create or manage
-          </button>
-          <button
-            type="button"
-            className={mode === 'join' ? 'is-active' : ''}
+            className={cn(
+              'min-h-10.5 p-[8px_10px] inline-flex items-center justify-center gap-1.75 border-0 rounded-[7px] text-(--muted) bg-transparent text-[.76rem] font-[750] max-[640px]:text-[.7rem]',
+              mode === 'join' && 'is-active text-(--forest) bg-(--surface-strong) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
+            )}
             onClick={() => selectMode('join')}
           >
             <Users size={17} /> Join with code
           </button>
+          <button
+              type="button"
+              className={cn(
+                'min-h-10.5 p-[8px_10px] inline-flex items-center justify-center gap-1.75 border-0 rounded-[7px] text-(--muted) bg-transparent text-[.76rem] font-[750] max-[640px]:text-[.7rem]',
+                mode === 'owner' && 'is-active text-(--forest) bg-(--surface-strong) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
+              )}
+              onClick={() => selectMode('owner')}
+          >
+            <Home size={17} /> Create/Manage as Admin
+          </button>
         </div>
 
-        <div className="auth-icon">
-          {mode === 'join' ? <Users /> : stage === 'email' ? <Mail /> : <KeyRound />}
-        </div>
-        <p className="eyebrow">{mode === 'join' ? 'JOIN YOUR HOUSE' : 'HOUSE ADMIN'}</p>
-        <h2>
+        <h2 className={"max-w-full mt-2.5 text-[clamp(2.15rem,3.1vw,3.25rem)] leading-[1.02] max-[640px]:text-[2.25rem]"}>
           {mode === 'join'
-            ? 'Use your house code'
+            ? 'Use a house or recovery code'
             : stage === 'email'
-              ? 'Create or open your account'
-              : 'Check your email'}
+              ? 'Admin Login/Creation'
+              : 'Open your sign-in link'}
         </h2>
-        <p className="muted">
+        <p className={"muted max-w-full mt-3.5 text-(--muted) text-[.9rem] leading-[1.6]"}>
           {mode === 'join'
-            ? 'No email needed. Your account stays on this device until you link a recovery email.'
+            ? 'Join with your house share code, or use a one-time recovery code from your admin to restore your roommate account.'
             : stage === 'email'
-              ? 'House admins use a recoverable email account. We’ll send a six-digit code.'
-              : `Enter the code sent to ${email}.`}
+              ? 'House admins use a recoverable email account. We’ll email you a secure sign-in link.'
+              : `We sent a one-time sign-in link to ${email}. Open it in this browser to continue. If your email app uses another browser, copy the link into this one.`}
         </p>
 
         {mode === 'join' ? (
-          <form onSubmit={submitHouseCode}>
-            <label>
-              House share code
+          <form className={"grid gap-4 mt-8"} onSubmit={submitHouseCode}>
+            <label className={"text-[.78rem]"}>
+              House share or recovery code
               <input
+                className={"min-h-13 text-[.9rem]"}
                 value={shareCode}
                 onChange={(event) => setShareCode(event.target.value.toUpperCase())}
-                placeholder="ABC-123-DEF-456"
+                placeholder="ABC-123-DEF-456 or REC-1234-5678-9ABC-DEF0"
                 autoComplete="off"
                 minLength={12}
                 required
               />
             </label>
-            <label>
-              Your name
+            <label className={"text-[.78rem]"}>
+              Your name <span className={"field-hint ml-1.25 text-(--muted) text-[.72rem] font-medium"}>{recoveryCodeMode ? 'Optional for recovery' : 'Required for a new account'}</span>
               <input
+                className={"min-h-13 text-[.9rem]"}
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Alex"
+                placeholder="Brandon"
                 autoComplete="name"
                 minLength={2}
                 maxLength={80}
-                required
+                required={!recoveryCodeMode}
               />
             </label>
-            {error && <p className="form-error">{error}</p>}
+            {error && <p className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{error}</p>}
             <Button size="lg" type="submit" disabled={busy}>
-              {busy ? 'Joining…' : 'Join the house'}
+              {busy ? 'Joining…' : recoveryCodeMode ? 'Restore my account' : 'Join the house'}
             </Button>
-            <p className="anonymous-account-note">
-              This is a device-based account. Link an email later in Settings
-              before signing out or moving to another phone.
-            </p>
           </form>
         ) : (
-          <form onSubmit={stage === 'email' ? submitEmail : submitCode}>
+          <form className={"grid gap-4 mt-8"} onSubmit={submitEmail}>
             {stage === 'email' ? (
-              <label>
+              <label className={"text-[.78rem]"}>
                 Email address
                 <input
+                  className={"min-h-13 text-[.9rem]"}
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -241,30 +252,21 @@ export function AuthGate({ children }: PropsWithChildren) {
                   required
                 />
               </label>
-            ) : (
-              <label>
-                Six-digit code
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={token}
-                  onChange={(event) => setToken(event.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  minLength={6}
-                  maxLength={6}
-                  autoComplete="one-time-code"
-                  required
-                />
-              </label>
-            )}
-            {error && <p className="form-error">{error}</p>}
-            <Button size="lg" type="submit" disabled={busy}>
-              {busy ? 'One moment…' : stage === 'email' ? 'Send my code' : 'Continue'}
-            </Button>
-            {stage === 'code' && (
-              <Button type="button" variant="ghost" onClick={() => setStage('email')}>
-                Use another email
+            ) : null}
+            {error && <p className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{error}</p>}
+            {stage === 'email' ? (
+              <Button size="lg" type="submit" disabled={busy}>
+                {busy ? 'Sending link…' : 'Email me a sign-in link'}
               </Button>
+            ) : (
+              <>
+                <Button type="button" onClick={() => setAuthAttempt((attempt) => attempt + 1)}>
+                  I opened the link — check again
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setStage('email')}>
+                  Use another email or resend
+                </Button>
+              </>
             )}
           </form>
         )}

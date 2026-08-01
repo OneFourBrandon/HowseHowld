@@ -8,15 +8,33 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.venv
 dist
 dist-ssr
+coverage
 *.local
 .env
 .env.*
 !.env.example
 supabase/.temp
+supabase/.branches
+supabase/.env
+supabase/.env.*
+!supabase/functions/.env.example
+*.dump
+*.dump.gz
+*.sql.gz
+*.backup
 test-results
 playwright-report
+
+# Private credentials and local tool connections
+.mcp.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
 
 # Editor directories and files
 .vscode/*

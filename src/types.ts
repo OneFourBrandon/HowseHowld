@@ -14,7 +14,7 @@ export const HOUSEHOLD_FEATURES = [
 export type HouseholdFeature =
   (typeof HOUSEHOLD_FEATURES)[number]
 export type TaskAssignmentMode = 'rotation' | 'fixed' | 'manual' | 'one_off'
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'once'
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'once' | 'rolling_queue'
 export interface RecurrenceDefinition {
   frequency: RecurrenceFrequency
   interval: number
@@ -41,6 +41,8 @@ export interface Member {
   email: string
   initials: string
   color: string
+  avatarPath?: string
+  avatarUrl?: string
   role: HouseholdRole
   active: boolean
 }
@@ -226,6 +228,50 @@ export interface Course {
   itemCount?: number
 }
 
+export type SharedCourseMeetingKind = 'lecture' | 'lab'
+export type SharedCourseAssessmentKind = 'midterm' | 'exam'
+
+export interface SharedCourseMeeting {
+  id: UUID
+  memberId: UUID
+  kind: SharedCourseMeetingKind
+  weekday: 1 | 2 | 3 | 4 | 5
+  startTime: string
+  durationMinutes: number
+  location?: string
+}
+
+export interface SharedCourseAssessment {
+  id: UUID
+  memberId: UUID
+  kind: SharedCourseAssessmentKind
+  title: string
+  startsAt: ISODateTime
+  durationMinutes: number
+  location?: string
+}
+
+export interface SharedCourse {
+  id: UUID
+  code: string
+  name: string
+  color: string
+  createdByMemberId: UUID
+  enrollmentMemberIds: UUID[]
+  meetings: SharedCourseMeeting[]
+  assessments: SharedCourseAssessment[]
+}
+
+export interface SaveSharedCourseInput {
+  householdId: UUID
+  courseId?: UUID
+  code: string
+  name: string
+  color: string
+  meetings: Array<Omit<SharedCourseMeeting, 'id' | 'memberId'>>
+  assessments: Array<Omit<SharedCourseAssessment, 'id' | 'memberId'>>
+}
+
 export interface Vehicle {
   id: UUID
   ownerMemberId: UUID
@@ -276,6 +322,7 @@ export interface AppSnapshot {
   balances: MemberBalance[]
   events: CalendarEvent[]
   courses: Course[]
+  sharedCourses: SharedCourse[]
   vehicles: Vehicle[]
   drivewayVersion: number
   departures: Departure[]

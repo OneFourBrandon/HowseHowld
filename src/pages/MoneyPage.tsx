@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { cn } from '../lib/cn'
+import { type SubmitEvent, useState } from 'react'
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -86,7 +87,7 @@ export function MoneyPage() {
     (period) => period.periodMonth.slice(0, 7) === selectedMonth,
   )
 
-  const submitExpense = async (event: React.FormEvent) => {
+  const submitExpense = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     const amountCents = Math.round(Number(amount) * 100)
     if (!title.trim() || amountCents <= 0 || !beneficiaries.size) return
@@ -121,14 +122,14 @@ export function MoneyPage() {
   }
 
   return (
-    <div className="page-stack">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">NO SPREADSHEETS, NO GUESSING</p>
-          <h1>Shared money</h1>
+    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
+      <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
+        <div className="grid gap-3.75">
+          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>NO SPREADSHEETS, NO GUESSING</p>
+          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Shared money</h1>
           <p>Every purchase, share and payment stays balanced and traceable.</p>
         </div>
-        <div className="button-row">
+        <div className="button-row flex flex-wrap items-center gap-2.25 max-[640px]:w-full">
           <Button variant="secondary" onClick={() => setSettleModal(true)}>
             <WalletCards size={18} /> Settle up
           </Button>
@@ -138,27 +139,27 @@ export function MoneyPage() {
         </div>
       </header>
 
-      <div className="money-overview">
-        <Card className="spend-card">
+      <div className={"money-overview grid items-stretch max-[980px]:gap-8 grid-cols-[minmax(290px,.62fr)_minmax(0,1.38fr)] gap-14.5 max-[640px]:grid-cols-1 max-[640px]:gap-7.5"}>
+        <Card className="spend-card flex min-h-55 items-center justify-between border-0 border-l-[3px] border-l-(--gold) bg-transparent p-[32px_34px] text-(--ink) max-[640px]:min-h-39.5 max-[640px]:p-[24px_0_24px_22px]">
           <div>
-            <p className="eyebrow">HOUSE SPEND</p>
-            <strong>{formatMoney(totalHouseSpend)}</strong>
-            <span>Across {data.expenses.filter((item) => !item.reversed).length} purchases</span>
+            <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>HOUSE SPEND</p>
+            <strong className="mt-2.5 block font-display text-[2.8rem] font-[720]">{formatMoney(totalHouseSpend)}</strong>
+            <span className="mt-1.25 block text-[.78rem] text-(--muted)">Across {data.expenses.filter((item) => !item.reversed).length} purchases</span>
           </div>
-          <div className="spend-orb"><CircleDollarSign /></div>
+          <div className={"spend-orb w-10.5 h-10.5 grid place-items-center rounded-lg text-(--forest) bg-(--gold-soft)"}><CircleDollarSign /></div>
         </Card>
-        <Card className="balance-table-card">
+        <Card className={"balance-table-card p-0 border-t border-t-(--line) border-b border-b-(--line)"}>
           {data.balances.map((balance) => {
             const member = data.members.find((item) => item.id === balance.memberId)!
             return (
-              <div className="balance-row" key={member.id}>
-                <Avatar initials={member.initials} color={member.color} size="sm" />
-                <div><strong>{member.displayName}</strong><span>{member.id === currentMemberId ? 'You' : 'Roommate'}</span></div>
-                <div className="balance-breakdown">
+              <div className="balance-row grid min-h-21.5 grid-cols-[42px_minmax(140px,1fr)_auto_96px] items-center gap-x-4 border-t border-(--line) px-1 first:border-t-0 max-[640px]:grid-cols-[42px_1fr_auto]" key={member.id}>
+                <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
+                <div><strong className="block text-[.88rem]">{member.displayName}</strong><span className="block text-[.75rem] leading-[1.4] text-(--muted)">{member.id === currentMemberId ? 'You' : 'Roommate'}</span></div>
+                <div className={"balance-breakdown flex gap-7 font-sans tabular-nums max-[640px]:hidden"}>
                   <span>Paid {formatMoney(balance.contributionCents)}</span>
                   <span>Used {formatMoney(balance.resourceUseCents)}</span>
                 </div>
-                <strong className={balance.netCents >= 0 ? 'money-positive' : 'money-negative'}>
+                <strong className={cn('text-right font-sans text-[.88rem] tabular-nums', balance.netCents >= 0 ? 'money-positive text-(--green)!' : 'money-negative text-(--coral)!')}>
                   {formatMoney(balance.netCents, true)}
                 </strong>
               </div>
@@ -167,29 +168,30 @@ export function MoneyPage() {
         </Card>
       </div>
 
-      <section className="bill-section" id="bills">
-        <div className="bill-section-heading">
-          <div>
-            <p className="eyebrow">MONTHLY HOUSE COSTS</p>
-            <h2>Utilities &amp; rent</h2>
+      <section className={"bill-section grid gap-4.5 py-[10px_22px] border-y border-(--line)"} id="bills">
+        <div className="bill-section-heading flex items-end justify-between gap-7 max-[760px]:flex-col max-[760px]:items-stretch">
+          <div className="grid gap-1.5">
+            <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>MONTHLY HOUSE COSTS</p>
+            <h2 className="text-[clamp(1.65rem,2.4vw,2.15rem)]">Utilities &amp; rent</h2>
             <p>Check off your own payment each month. Unpaid roommates receive the selected reminders.</p>
           </div>
-          <div className="bill-section-actions">
-            <label>
+          <div className="bill-section-actions flex items-end gap-2.5 max-[760px]:justify-between max-[420px]:flex-col max-[420px]:items-stretch">
+            <label className="grid gap-1.25 text-[.72rem] font-bold text-(--muted)">
               <span>Month</span>
               <input
+                className="min-h-10.5 py-1.75 max-[420px]:w-full"
                 aria-label="Bills month"
                 type="month"
                 value={selectedMonth}
                 onChange={(event) => setSelectedMonth(event.target.value)}
               />
             </label>
-            <Button variant="secondary" onClick={() => setBillModal(true)}>
+            <Button className="max-[420px]:w-full" variant="secondary" onClick={() => setBillModal(true)}>
               <Plus size={18} /> Add bill
             </Button>
           </div>
         </div>
-        <div className="bill-list">
+        <div className={"bill-list border-t border-t-(--line)"}>
           {data.bills.map((bill) => {
             const period = selectedPeriods.find((item) => item.billId === bill.id)
             const paid = Boolean(period?.paidMemberIds.includes(currentMemberId))
@@ -197,32 +199,43 @@ export function MoneyPage() {
               bill.memberIds.includes(member.id),
             )
             return (
-              <div className="bill-row" key={bill.id}>
-                <div className={`bill-icon bill-icon-${bill.category}`}>
+              <div className={"bill-row grid grid-cols-[46px_minmax(190px,1.35fr)_minmax(120px,.75fr)_auto_minmax(112px,auto)] items-center gap-4.5 min-h-22 p-[14px_2px] border-b border-b-(--line) max-[760px]:grid-cols-[42px_minmax(0,1fr)_auto] max-[760px]:gap-[10px_12px] max-[760px]:py-4"} key={bill.id}>
+                <div
+                  className={cn(
+                    'bill-icon grid h-10.5 w-10.5 place-items-center rounded-[10px] bg-(--sage-2) text-(--forest) max-[760px]:row-[1]',
+                    bill.category === 'electricity' && 'bg-[#fff3c8] text-[#8a6a00]',
+                    bill.category === 'gas' && 'bg-[#fbe8dd] text-[#a34e28]',
+                    bill.category === 'internet' && 'bg-[#e8e6f7] text-[#5c5795]',
+                    bill.category === 'rent' && 'bg-(--gold-soft) text-[#8b6413]',
+                    bill.category === 'water' && 'bg-[#e2f3f6] text-[#287488]',
+                  )}
+                >
                   <BillIcon category={bill.category} />
                 </div>
-                <div className="bill-main">
-                  <strong>{bill.name}</strong>
-                  <span>
+                <div className="bill-main grid gap-1.5 max-[760px]:col-[2/4]">
+                  <strong className="text-[.94rem]">{bill.name}</strong>
+                  <span className="flex items-center gap-1.25 text-[.75rem] text-(--muted)">
                     Due {period ? formatDateTime(period.dueAt) : `day ${bill.dueDay}`}
                     {' · '}
                     <BellRing size={13} />
                     {bill.reminderDaysBefore.map((day) => day === 0 ? 'due day' : `${day}d`).join(', ')}
                   </span>
                 </div>
-                <div className="bill-roommates" aria-label={`${period?.paidMemberIds.length ?? 0} roommates paid`}>
+                <div className="bill-roommates flex min-w-29.5 items-center max-[760px]:col-[2] max-[760px]:min-w-0" aria-label={`${period?.paidMemberIds.length ?? 0} roommates paid`}>
                   {assignedMembers.map((member) => (
                     <span
-                      className={period?.paidMemberIds.includes(member.id) ? 'is-paid' : ''}
+                      className={cn(
+                        'relative -ml-1.25 inline-grid opacity-[.42] first:ml-0', period?.paidMemberIds.includes(member.id) && 'is-paid opacity-100',
+                      )}
                       key={member.id}
                       title={`${member.displayName}: ${period?.paidMemberIds.includes(member.id) ? 'paid' : 'unpaid'}`}
                     >
-                      <Avatar initials={member.initials} color={member.color} size="sm" />
-                      {period?.paidMemberIds.includes(member.id) && <Check size={11} />}
+                      <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
+                      {period?.paidMemberIds.includes(member.id) && <Check className="absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full bg-(--forest) p-0.5 text-white shadow-[0_0_0_2px_var(--paper)]" size={11} />}
                     </span>
                   ))}
                 </div>
-                <strong className="bill-amount">
+                <strong className={"bill-amount min-w-23 text-right text-[.92rem] max-[760px]:col-[3] max-[760px]:row-[2]"}>
                   {period?.amountCents != null
                     ? formatMoney(period.amountCents)
                     : bill.amountCents != null
@@ -230,8 +243,9 @@ export function MoneyPage() {
                       : 'Variable'}
                 </strong>
                 {bill.memberIds.includes(currentMemberId) ? (
-                  <label className="bill-paid-check">
+                  <label className="bill-paid-check inline-flex min-w-28 cursor-pointer items-center justify-start gap-2 text-[.82rem] font-[750] text-(--ink) max-[760px]:col-[2/4]">
                     <input
+                      className="peer h-4.75 w-4.75"
                       type="checkbox"
                       checked={paid}
                       disabled={!period || busy === `bill:paid:${period.id}`}
@@ -239,49 +253,55 @@ export function MoneyPage() {
                         if (period) void setBillPaid(period.id, event.target.checked)
                       }}
                     />
-                    <span>{paid ? 'Paid' : period ? 'Mark paid' : 'No period'}</span>
+                    <span className="peer-checked:text-(--forest)">{paid ? 'Paid' : period ? 'Mark paid' : 'No period'}</span>
                   </label>
                 ) : (
-                  <span className="bill-not-assigned">Not assigned</span>
+                  <span className={"bill-not-assigned text-(--muted) text-[.76rem] max-[760px]:col-[2/4]"}>Not assigned</span>
                 )}
               </div>
             )
           })}
           {!data.bills.length && (
-            <div className="bill-empty">
+            <div className="bill-empty flex min-h-27.5 items-center gap-3.5 text-(--muted)">
               <Building2 />
-              <div><strong>No monthly bills yet</strong><span>Add rent or a utility to start tracking payments.</span></div>
+              <div className="grid gap-0.75"><strong className="text-(--ink)">No monthly bills yet</strong><span className="text-[.8rem]">Add rent or a utility to start tracking payments.</span></div>
             </div>
           )}
         </div>
       </section>
 
-      <div className="content-grid-two money-content">
+      <div className={"content-grid-two grid grid-cols-[minmax(0,1.12fr)_minmax(300px,.88fr)] gap-6.25 items-start max-[980px]:grid-cols-1 max-[980px]:gap-12.5 money-content grid-cols-[1.15fr_.85fr] max-[980px]:grid-cols-1 gap-14.5 max-[980px]:gap-12.5"}>
         <section>
           <SectionHeader eyebrow="LEDGER" title="Recent purchases" />
-          <div className="expense-list">
+          <div className={"expense-list grid gap-0"}>
             {data.expenses.map((expense) => {
               const creator = data.members.find((member) => member.id === expense.createdBy)!
               return (
-                <Card className={`expense-card ${expense.reversed ? 'is-reversed' : ''}`} key={expense.id}>
-                  <div className="expense-icon"><ReceiptText /></div>
-                  <div className="expense-detail">
-                    <div>
-                      <strong>{expense.title}</strong>
+                <Card
+                  className={cn(
+                    'expense-card grid min-h-28 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-b-(--line) px-1 py-5.5 max-[640px]:px-0',
+                    expense.reversed && 'is-reversed opacity-[.58]',
+                  )}
+                  key={expense.id}
+                >
+                  <div className={"expense-icon w-9.75 h-9.75 grid place-items-center text-(--gold) bg-(--gold-soft) rounded-[7px]"}><ReceiptText /></div>
+                  <div className="expense-detail grid gap-1.25">
+                    <div className="flex items-center gap-1.5">
+                      <strong className="text-[.9rem]">{expense.title}</strong>
                       {expense.reversed && <Badge tone="red">Reversed</Badge>}
                       {expense.receiptPath && <Badge><Camera size={12} /> Receipt</Badge>}
                     </div>
                     <span>Added by {creator.displayName} · {formatDateTime(expense.purchasedAt)}</span>
-                    <div className="share-avatars">
+                    <div className="share-avatars mt-1.75 flex items-center gap-0.75">
                       {expense.beneficiaries.map((share) => {
                         const member = data.members.find((item) => item.id === share.memberId)!
-                        return <Avatar key={member.id} initials={member.initials} color={member.color} size="sm" />
+                        return <Avatar key={member.id} initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                       })}
-                      <span>sharing</span>
+                      <span className="ml-1.25 text-[.75rem] text-(--muted)">sharing</span>
                     </div>
                     {expense.receiptPath && (
                       <button
-                        className="inline-link"
+                        className={"inline-link inline-flex items-center gap-1.5 border-0 p-[4px_0] bg-transparent text-(--forest) [font:inherit] text-[.82rem] font-bold cursor-pointer"}
                         type="button"
                         onClick={() => openReceipt(expense.receiptPath!)}
                       >
@@ -289,10 +309,10 @@ export function MoneyPage() {
                       </button>
                     )}
                   </div>
-                  <div className="expense-amount">
-                    <strong>{formatMoney(expense.amountCents)}</strong>
+                  <div className="expense-amount grid justify-items-end gap-1.75 font-sans tabular-nums">
+                    <strong className="text-[.9rem]">{formatMoney(expense.amountCents)}</strong>
                     {!expense.reversed && expense.createdBy === currentMemberId && (
-                      <button
+                      <button className="inline-flex items-center gap-1 border-0 bg-transparent text-[.75rem] text-(--muted)"
                         onClick={() => {
                           const reason = window.prompt('Why are you reversing this purchase?')
                           if (reason?.trim()) reverseExpense(expense.id, reason.trim())
@@ -311,25 +331,25 @@ export function MoneyPage() {
 
         <section>
           <SectionHeader eyebrow="CONFIRMATIONS" title="Payments" />
-          <div className="settlement-list">
+          <div className={"settlement-list grid gap-0"}>
             {data.settlements.map((settlement) => {
               const from = data.members.find((member) => member.id === settlement.fromMemberId)!
               const to = data.members.find((member) => member.id === settlement.toMemberId)!
               const awaitingMe = settlement.toMemberId === currentMemberId && settlement.status === 'pending'
               return (
-                <Card className="settlement-card" key={settlement.id}>
-                  <div className="settlement-people">
-                    <Avatar initials={from.initials} color={from.color} size="sm" />
-                    <ArrowUpRight size={17} />
-                    <Avatar initials={to.initials} color={to.color} size="sm" />
+                <Card className="settlement-card grid min-h-27 grid-cols-[auto_1fr_auto] items-center gap-2.5 border-b border-b-(--line) px-1 py-5.5 max-[640px]:px-0" key={settlement.id}>
+                  <div className="settlement-people flex items-center gap-0.75">
+                    <Avatar initials={from.initials} color={from.color} imageUrl={from.avatarUrl} size="sm" />
+                    <ArrowUpRight className="text-(--muted)" size={17} />
+                    <Avatar initials={to.initials} color={to.color} imageUrl={to.avatarUrl} size="sm" />
                   </div>
                   <div>
-                    <strong>{from.displayName} paid {to.displayName}</strong>
-                    <span>{settlement.note || formatDateTime(settlement.createdAt)}</span>
+                    <strong className="block text-[.82rem]">{from.displayName} paid {to.displayName}</strong>
+                    <span className="mt-0.75 block text-[.75rem] text-(--muted)">{settlement.note || formatDateTime(settlement.createdAt)}</span>
                   </div>
-                  <strong>{formatMoney(settlement.amountCents)}</strong>
+                  <strong className="text-[.82rem]">{formatMoney(settlement.amountCents)}</strong>
                   {awaitingMe ? (
-                    <div className="button-row">
+                    <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
                       <Button
                         size="sm"
                         variant="secondary"
@@ -354,16 +374,17 @@ export function MoneyPage() {
             })}
           </div>
 
-          <div className="fund-section">
+          <div className={"fund-section pt-2 max-[640px]:mt-11 mt-16.5"}>
             <SectionHeader eyebrow="HOUSEHOLD FUND" title="Penalty account" />
-            <Card className="fund-card">
-              <div className="fund-icon"><ArrowDownLeft /></div>
+            <Card className="fund-card flex min-h-24 items-center gap-3 border-b border-b-(--line) px-1 py-5.25">
+              <div className={"fund-icon w-10.5 h-10.5 grid place-items-center text-(--forest) bg-(--sage) rounded-lg"}><ArrowDownLeft /></div>
               <div>
-                <strong>{formatMoney(data.balances.reduce((sum, item) => sum + item.fundOwedCents, 0))} outstanding</strong>
-                <span>Kept separate from shared purchase balances</span>
+                <strong className="block text-[.84rem]">{formatMoney(data.balances.reduce((sum, item) => sum + item.fundOwedCents, 0))} outstanding</strong>
+                <span className="mt-0.75 block text-[.75rem] text-(--muted)">Kept separate from shared purchase balances</span>
               </div>
               {(data.balances.find((item) => item.memberId === currentMemberId)?.fundOwedCents ?? 0) > 0 && (
                 <Button
+                  className="ml-auto"
                   size="sm"
                   variant="secondary"
                   onClick={() => {
@@ -380,14 +401,14 @@ export function MoneyPage() {
               const member = data.members.find((item) => item.id === payment.memberId)!
               const canConfirm = payment.memberId !== currentMemberId && payment.status === 'pending'
               return (
-                <Card className="fund-payment-row" key={payment.id}>
-                  <Avatar initials={member.initials} color={member.color} size="sm" />
+                <Card className="fund-payment-row mt-2 grid min-h-20 grid-cols-[auto_1fr_auto] items-center gap-2.25 border-b border-b-(--line) px-1 py-3.25" key={payment.id}>
+                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   <div>
-                    <strong>{member.displayName} paid {formatMoney(payment.amountCents)}</strong>
-                    <span>{formatDateTime(payment.createdAt)}</span>
+                    <strong className="block text-[.84rem]">{member.displayName} paid {formatMoney(payment.amountCents)}</strong>
+                    <span className="mt-0.75 block font-sans text-[.75rem] text-(--muted) tabular-nums">{formatDateTime(payment.createdAt)}</span>
                   </div>
                   {canConfirm ? (
-                    <div className="button-row">
+                    <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
                       <Button size="sm" variant="ghost" onClick={() => confirmFundPayment(payment.id, false)}>Reject</Button>
                       <Button size="sm" onClick={() => confirmFundPayment(payment.id, true)}>Confirm</Button>
                     </div>
@@ -410,7 +431,7 @@ export function MoneyPage() {
         description="A payment check is tracked separately for every assigned roommate each month."
       >
         <form
-          className="form-grid"
+          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
           onSubmit={async (event) => {
             event.preventDefault()
             if (!billName.trim() || !billMembers.size) return
@@ -428,7 +449,7 @@ export function MoneyPage() {
             setBillModal(false)
           }}
         >
-          <label className="field-span-2">Name
+          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Name
             <input value={billName} onChange={(event) => setBillName(event.target.value)} placeholder="Hydro" required />
           </label>
           <label>Type
@@ -442,17 +463,17 @@ export function MoneyPage() {
               <option value="other">Other</option>
             </select>
           </label>
-          <label>Household amount (CAD) <span className="optional">Optional</span>
+          <label>Household amount (CAD) <span className={"optional"}>Optional</span>
             <input type="number" min="0.01" step="0.01" value={billAmount} onChange={(event) => setBillAmount(event.target.value)} placeholder="Variable" />
           </label>
-          <label className="field-span-2">Due day
+          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Due day
             <input type="number" min="1" max="28" value={billDueDay} onChange={(event) => setBillDueDay(event.target.value)} required />
           </label>
-          <fieldset className="field-span-2 compact-options">
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
             <legend>Remind unpaid roommates</legend>
-            <div className="bill-reminder-options">
+            <div className="bill-reminder-options mt-1.75 grid grid-cols-2 gap-0 max-[420px]:grid-cols-1">
               {[7, 3, 1, 0].map((day) => (
-                <label key={day}>
+                <label className="flex min-h-10.5 items-center gap-2.25 border-b border-b-(--line) text-[.84rem] font-[650]" key={day}>
                   <input
                     type="checkbox"
                     checked={billReminders.has(day)}
@@ -468,11 +489,11 @@ export function MoneyPage() {
               ))}
             </div>
           </fieldset>
-          <fieldset className="field-span-2 compact-options">
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
             <legend>Who needs to pay?</legend>
-            <div className="bill-member-options">
+            <div className="bill-member-options mt-1.75 grid gap-0">
               {data.members.map((member) => (
-                <label key={member.id}>
+                <label className="flex min-h-10.5 items-center gap-2.25 border-b border-b-(--line) text-[.84rem] font-[650]" key={member.id}>
                   <input
                     type="checkbox"
                     checked={billMembers.has(member.id)}
@@ -483,13 +504,13 @@ export function MoneyPage() {
                       return next
                     })}
                   />
-                  <Avatar initials={member.initials} color={member.color} size="sm" />
+                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   {member.displayName}
                 </label>
               ))}
             </div>
           </fieldset>
-          <div className="modal-actions field-span-2">
+          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
             <Button type="button" variant="ghost" onClick={() => setBillModal(false)}>Cancel</Button>
             <Button type="submit" disabled={busy === 'bill:new'}>Add monthly bill</Button>
           </div>
@@ -502,8 +523,8 @@ export function MoneyPage() {
         title="Add a shared purchase"
         description="Amounts are stored in cents and posted as an immutable transaction."
       >
-        <form className="form-grid" onSubmit={submitExpense}>
-          <label className="field-span-2">What did you buy?
+        <form className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"} onSubmit={submitExpense}>
+          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>What did you buy?
             <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Toilet paper" required />
           </label>
           <label>Amount (CAD)
@@ -512,14 +533,14 @@ export function MoneyPage() {
           <label>Receipt photo
             <input type="file" accept="image/*" onChange={(event) => setReceipt(event.target.files?.[0])} />
           </label>
-          <fieldset className="field-span-2">
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1]"}>
             <legend>Who paid?</legend>
-            <div className="member-amount-list">
+            <div className={"member-amount-list grid gap-1.5 my-2"}>
               {data.members.map((member) => {
                 const selected = payers.has(member.id)
                 return (
-                  <div className="member-amount-row" key={member.id}>
-                    <label className="member-check">
+                  <div className="member-amount-row grid grid-cols-[minmax(0,1fr)_120px] items-center gap-3 max-[560px]:grid-cols-1" key={member.id}>
+                    <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25">
                       <input
                         type="checkbox"
                         checked={selected}
@@ -531,11 +552,12 @@ export function MoneyPage() {
                           return next
                         })}
                       />
-                      <Avatar initials={member.initials} color={member.color} size="sm" />
+                      <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                       {member.displayName}
                     </label>
                     {selected && (
                       <input
+                        className="min-h-10"
                         aria-label={`${member.displayName} paid amount`}
                         type="number"
                         min="0"
@@ -552,13 +574,13 @@ export function MoneyPage() {
                 )
               })}
             </div>
-            <button type="button" className="inline-link" onClick={() => setPayerAmounts({})}>
+            <button type="button" className={"inline-link inline-flex items-center gap-1.5 border-0 p-[4px_0] bg-transparent text-(--forest) [font:inherit] text-[.82rem] font-bold cursor-pointer"} onClick={() => setPayerAmounts({})}>
               Use an equal payer split
             </button>
           </fieldset>
-          <fieldset className="field-span-2">
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1]"}>
             <legend>Who used it?</legend>
-            <label className="compact-toggle">
+            <label className={"compact-toggle text-(--muted) text-[.86rem]"}>
               <input
                 type="checkbox"
                 checked={customShares}
@@ -566,9 +588,9 @@ export function MoneyPage() {
               />
               Enter custom shares
             </label>
-            <div className="member-check-grid">
+            <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
               {data.members.map((member) => (
-                <label className="member-check" key={member.id}>
+                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={member.id}>
                   <input
                     type="checkbox"
                     checked={beneficiaries.has(member.id)}
@@ -581,7 +603,7 @@ export function MoneyPage() {
                       })
                     }}
                   />
-                  <Avatar initials={member.initials} color={member.color} size="sm" />
+                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   {member.displayName}
                   {customShares && beneficiaries.has(member.id) && (
                     <input
@@ -600,7 +622,7 @@ export function MoneyPage() {
               ))}
             </div>
           </fieldset>
-          <div className="split-preview field-span-2">
+          <div className={"split-preview p-[11px_13px] flex items-center justify-between rounded-[10px] text-[#5d6b64] bg-(--sage-2) text-[.78rem] field-span-2 col-span-full max-[640px]:col-[1]"}>
             <span>{customShares ? 'Custom share total' : 'Deterministic split preview'}</span>
             <strong>
               {beneficiaries.size && amount
@@ -615,7 +637,7 @@ export function MoneyPage() {
                 : '—'}
             </strong>
           </div>
-          <div className="modal-actions field-span-2">
+          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
             <Button type="button" variant="ghost" onClick={() => setExpenseModal(false)}>Cancel</Button>
             <Button type="submit" disabled={busy === 'expense:new'}>Post purchase</Button>
           </div>
@@ -629,7 +651,7 @@ export function MoneyPage() {
         description="The recipient must confirm before balances change."
       >
         <form
-          className="form-grid"
+          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
           onSubmit={async (event) => {
             event.preventDefault()
             const amountCents = Math.round(Number(settleAmount) * 100)
@@ -643,17 +665,17 @@ export function MoneyPage() {
             setSettleModal(false)
           }}
         >
-          <label className="field-span-2">Paid to
+          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Paid to
             <select value={settleTo} onChange={(event) => setSettleTo(event.target.value)}>
               {data.members.filter((member) => member.id !== currentMemberId).map((member) => (
                 <option key={member.id} value={member.id}>{member.displayName}</option>
               ))}
             </select>
           </label>
-          <label className="field-span-2">Amount (CAD)
+          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Amount (CAD)
             <input type="number" min="0.01" step="0.01" value={settleAmount} onChange={(event) => setSettleAmount(event.target.value)} required />
           </label>
-          <div className="modal-actions field-span-2">
+          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
             <Button type="button" variant="ghost" onClick={() => setSettleModal(false)}>Cancel</Button>
             <Button type="submit">Send for confirmation</Button>
           </div>

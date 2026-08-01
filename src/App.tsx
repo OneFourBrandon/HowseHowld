@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthGate } from './components/AuthGate'
 import { AppShell } from './components/AppShell'
 import { HouseholdGate } from './components/HouseholdGate'
+import { ProfileGate } from './components/ProfileGate'
 import { AppDataProvider } from './state/AppDataContext'
 import { useAppData } from './state/AppDataContext'
 import type { HouseholdFeature } from './types'
@@ -43,9 +44,10 @@ function FeatureRoute({
 export default function App() {
   return (
     <AuthGate>
-      <AppDataProvider>
-        <HouseholdGate>
-          <Suspense fallback={<div className="route-loading">Opening your house…</div>}>
+      <ProfileGate>
+        <AppDataProvider>
+          <HouseholdGate>
+          <Suspense fallback={<div className={"route-loading min-h-dvh grid place-items-center text-(--muted)"}>Opening your house…</div>}>
             <Routes>
               <Route element={<AppShell />}>
                 <Route index element={<TodayPage />} />
@@ -58,8 +60,9 @@ export default function App() {
               </Route>
             </Routes>
           </Suspense>
-        </HouseholdGate>
-      </AppDataProvider>
+          </HouseholdGate>
+        </AppDataProvider>
+      </ProfileGate>
     </AuthGate>
   )
 }

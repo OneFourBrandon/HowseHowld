@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(20);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -308,6 +308,48 @@ select throws_ok(
   'P0001',
   'The lineup must include every active vehicle exactly once',
   'a lineup cannot import a vehicle from another household'
+);
+
+select is(
+  has_table_privilege('authenticated', 'public.member_recovery_codes', 'SELECT'),
+  false,
+  'recovery code hashes are not directly readable'
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000002',
+  true
+);
+select throws_ok(
+  $$select public.remove_household_member(
+    '11000000-0000-0000-0000-000000000001'
+  )$$,
+  'P0001',
+  'Only the household owner can remove roommates',
+  'non-owners cannot remove household members'
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000001',
+  true
+);
+select ok(
+  length(public.issue_member_recovery_code(
+    '11000000-0000-0000-0000-000000000002'
+  )) > 10,
+  'owners can issue one-time recovery codes'
+);
+select lives_ok(
+  $$select public.remove_household_member(
+    '11000000-0000-0000-0000-000000000002'
+  )$$,
+  'owners can remove a roommate'
+);
+select is(
+  (select active from public.household_members
+   where id = '11000000-0000-0000-0000-000000000002'),
+  false,
+  'removed roommates become inactive'
 );
 
 reset role;

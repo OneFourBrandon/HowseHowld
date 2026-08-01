@@ -1,3 +1,4 @@
+import { cn } from '../lib/cn'
 import {
   Bell,
   CalendarDays,
@@ -64,26 +65,35 @@ export function FeatureChecklist({
   disabled?: boolean
 }) {
   return (
-    <div className="feature-options feature-checklist">
+    <div className={"feature-options feature-checklist flex flex-col gap-0 border-t border-t-(--line)"}>
       {householdFeatureOptions.map((feature) => {
         const FeatureIcon = feature.icon
+        const checked = enabledFeatures.includes(feature.id)
         return (
           <label
             key={feature.id}
-            className={`feature-option${disabled ? ' is-disabled' : ''}`}
+            className={cn(
+              'feature-option grid min-h-16.5 cursor-pointer grid-cols-[28px_minmax(0,1fr)_20px] items-center gap-3 border-0 border-b border-b-(--line) bg-transparent p-[11px_2px]',
+              disabled && 'is-disabled cursor-default opacity-[.64]',
+            )}
           >
-            <FeatureIcon className="feature-icon" size={21} aria-hidden="true" />
-            <span className="feature-copy">
-              <strong>{feature.label}</strong>
-              <small>{feature.description}</small>
+            <FeatureIcon className={"feature-icon text-(--forest-2)"} size={21} aria-hidden="true" />
+            <span className={"feature-copy"}>
+              <strong className="block text-[.86rem] text-(--ink)">{feature.label}</strong>
+              <small className="mt-0.5 block text-[.76rem] leading-[1.35] font-medium text-(--muted)">{feature.description}</small>
             </span>
             <input
+              className="peer sr-only"
               type="checkbox"
-              checked={enabledFeatures.includes(feature.id)}
+              checked={checked}
               disabled={disabled}
               onChange={() => onToggle(feature.id)}
             />
-            <span className="feature-checkbox" aria-hidden="true">
+            <span className={cn(
+              "feature-checkbox w-4.75 h-4.75 grid place-items-center border border-[#9aa8a1] rounded-[5px] text-transparent transition-[background_.15s_ease,border-color_.15s_ease,color_.15s_ease] peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[rgba(43,75,31,.2)]",
+              checked && 'text-white',
+              checked ? 'border-(--forest) bg-(--forest)' : 'border-[#9aa8a1] bg-transparent'
+            )} aria-hidden="true">
               <Check size={14} strokeWidth={3} />
             </span>
           </label>

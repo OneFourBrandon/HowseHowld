@@ -375,6 +375,22 @@ export const demoSnapshot: AppSnapshot = {
       location: 'BA 1170',
     },
   ],
+  sharedCourses: [
+    {
+      id: 'shared-course-csc',
+      code: 'CSC 209',
+      name: 'Software Tools & Systems',
+      color: '#568742',
+      createdByMemberId: 'member-brandon',
+      enrollmentMemberIds: ['member-brandon', 'member-liam'],
+      meetings: [
+        { id: 'meeting-csc-brandon-1', memberId: 'member-brandon', kind: 'lecture', weekday: 2, startTime: '14:00', durationMinutes: 60, location: 'BA 1170' },
+        { id: 'meeting-csc-liam-1', memberId: 'member-liam', kind: 'lecture', weekday: 2, startTime: '14:00', durationMinutes: 60, location: 'BA 1170' },
+        { id: 'meeting-csc-brandon-2', memberId: 'member-brandon', kind: 'lab', weekday: 4, startTime: '16:00', durationMinutes: 120, location: 'BA 2200' },
+      ],
+      assessments: [],
+    },
+  ],
   vehicles: [
     {
       id: 'vehicle-maya',

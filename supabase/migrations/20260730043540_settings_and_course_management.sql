@@ -9,7 +9,7 @@ set search_path = ''
 as $$
 begin
   if not private.is_household_owner(p_household_id) then
-    raise exception 'Only the house owner can change household defaults';
+    raise exception 'Only the howse owner can change household defaults';
   end if;
   if cardinality(p_local_times) > 8 then raise exception 'Too many reminder times'; end if;
   update public.households

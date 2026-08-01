@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { cn } from '../lib/cn'
+import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -20,7 +21,7 @@ import { formatDateTime, formatMoney } from '../lib/utils'
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Give the chore a name.'),
   area: z.string().trim().min(2, 'Choose an area.'),
-  frequency: z.enum(['daily', 'weekly', 'monthly', 'once']),
+  frequency: z.enum(['daily', 'weekly', 'monthly', 'once', 'rolling_queue']),
   interval: z.number().int().min(1).max(30),
   startsOn: z.string().min(1),
   dueTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -57,6 +58,7 @@ export function ChoresPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<TaskForm>({
@@ -74,6 +76,12 @@ export function ChoresPage() {
   const assignmentMode = watch('assignmentMode')
   const frequency = watch('frequency')
 
+  useEffect(() => {
+    if (frequency === 'rolling_queue' && assignmentMode !== 'rotation') {
+      setValue('assignmentMode', 'rotation')
+    }
+  }, [assignmentMode, frequency, setValue])
+
   const upcoming = useMemo(
     () =>
       [...data.occurrences].sort(
@@ -83,9 +91,10 @@ export function ChoresPage() {
   )
 
   const submitTask = handleSubmit(async (values) => {
+    const rollingQueue = values.frequency === 'rolling_queue'
     const recurrence = {
       frequency: values.assignmentMode === 'one_off' ? 'once' as const : values.frequency,
-      interval: values.interval,
+      interval: rollingQueue ? 1 : values.interval,
       weekdays: values.frequency === 'weekly' ? weekdays : undefined,
     }
     await addTask({
@@ -116,30 +125,30 @@ export function ChoresPage() {
   }).length
 
   return (
-    <div className="page-stack">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">FAIR TURNS, CLEAR EXPECTATIONS</p>
-          <h1>Chores</h1>
+    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
+      <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
+        <div className="grid gap-3.75">
+          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>FAIR TURNS, CLEAR EXPECTATIONS</p>
+          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Chores</h1>
           <p>Everyone knows what’s next—and what happens if it’s missed.</p>
         </div>
-        <Button onClick={() => setTaskModal(true)}>
+        <Button className="max-[640px]:w-full" onClick={() => setTaskModal(true)}>
           <Plus size={18} /> New chore
         </Button>
       </header>
 
-      <div className="stats-row">
-        <Card className="stat-card">
-          <CheckCircle2 />
-          <div><strong>{completedThisMonth}</strong><span>Completed this month</span></div>
+      <div className={"stats-row grid grid-cols-3 gap-0 border-t border-t-(--line) border-b border-b-(--line) max-[640px]:grid-cols-1"}>
+        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-25.5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:first:border-t-0">
+          <CheckCircle2 className="h-10 w-10 rounded-[7px] bg-(--green-soft) p-2 text-(--green)" />
+          <div><strong className="block font-display text-[1.65rem]">{completedThisMonth}</strong><span className="block text-[.76rem] text-(--muted)">Completed this month</span></div>
         </Card>
-        <Card className="stat-card">
-          <RotateCw />
-          <div><strong>{data.tasks.filter((task) => task.active).length}</strong><span>Active rotations</span></div>
+        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-25.5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:first:border-t-0">
+          <RotateCw className="h-10 w-10 rounded-[7px] bg-(--green-soft) p-2 text-(--green)" />
+          <div><strong className="block font-display text-[1.65rem]">{data.tasks.filter((task) => task.active).length}</strong><span className="block text-[.76rem] text-(--muted)">Active rotations</span></div>
         </Card>
-        <Card className="stat-card">
-          <AlertTriangle />
-          <div><strong>{data.infractions.filter((item) => item.status !== 'excused' && item.status !== 'paid').length}</strong><span>Open infractions</span></div>
+        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-25.5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:first:border-t-0">
+          <AlertTriangle className="h-10 w-10 rounded-[7px] bg-(--green-soft) p-2 text-(--green)" />
+          <div><strong className="block font-display text-[1.65rem]">{data.infractions.filter((item) => item.status !== 'excused' && item.status !== 'paid').length}</strong><span className="block text-[.76rem] text-(--muted)">Open infractions</span></div>
         </Card>
       </div>
 
@@ -149,29 +158,35 @@ export function ChoresPage() {
           title="Coming up"
           description="Server-confirmed deadlines in Toronto time."
         />
-        <div className="occurrence-list">
+        <div className={"occurrence-list grid gap-0"}>
           {upcoming.map((occurrence) => {
             const member = data.members.find((item) => item.id === occurrence.assigneeId)!
             const isMine = member.id === currentMemberId
             return (
-              <Card key={occurrence.id} className="occurrence-card">
-                <div className={`status-check status-${occurrence.status}`}>
+              <Card key={occurrence.id} className="occurrence-card grid min-h-25.5 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3.25 border-b border-b-(--line) px-1 py-5 max-[640px]:grid-cols-[auto_1fr_auto] max-[640px]:px-0">
+                <div
+                  className={cn(
+                    'status-check w-9 h-9 grid place-items-center text-[#8a7444] bg-(--gold-soft) rounded-lg',
+                    occurrence.status === 'completed' && 'text-white bg-(--green)',
+                  )}
+                >
                   {occurrence.status === 'completed' ? <Check size={18} /> : <Clock3 size={18} />}
                 </div>
-                <div className="occurrence-detail">
-                  <div>
+                <div className="occurrence-detail grid gap-1.25">
+                  <div className="flex gap-1.25">
                     <Badge>{occurrence.area}</Badge>
                     {isMine && occurrence.status === 'assigned' && <Badge tone="amber">Your turn</Badge>}
                   </div>
-                  <h3>{occurrence.taskTitle}</h3>
+                  <h3 className="text-[.94rem]">{occurrence.taskTitle}</h3>
                   <span>{formatDateTime(occurrence.dueAt)} · {occurrence.reminderLabel}</span>
                 </div>
-                <div className="occurrence-person">
-                  <Avatar initials={member.initials} color={member.color} size="sm" />
+                <div className={"occurrence-person flex items-center gap-1.75 text-(--muted) max-[640px]:col-[2] text-[.76rem]"}>
+                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   <span>{member.displayName}</span>
                 </div>
                 {isMine && occurrence.status === 'assigned' && (
                   <Button
+                    className="max-[640px]:col-[3] max-[640px]:row-[1/span_2]"
                     variant="secondary"
                     disabled={busy === `complete:${occurrence.id}`}
                     onClick={() => completeOccurrence(occurrence.id)}
@@ -185,24 +200,24 @@ export function ChoresPage() {
         </div>
       </section>
 
-      <div className="content-grid-two">
+      <div className={"content-grid-two grid grid-cols-[minmax(0,1.12fr)_minmax(300px,.88fr)] gap-6.25 items-start max-[980px]:grid-cols-1 max-[980px]:gap-12.5"}>
         <section>
           <SectionHeader eyebrow="ROTATIONS" title="House routines" />
-          <Card className="routine-list">
+          <Card className={"routine-list p-0"}>
             {data.tasks.map((task) => {
               const next = data.members.find((member) => member.id === task.nextMemberId)
               return (
-                <div className="routine-row" key={task.id}>
-                  <div className="routine-icon"><RotateCw size={18} /></div>
+                <div className="routine-row grid min-h-24 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.75 border-t border-(--line) px-1 first:border-t-0" key={task.id}>
+                  <div className={"routine-icon w-8.5 h-8.5 grid place-items-center text-(--green) bg-(--green-soft) rounded-[7px]"}><RotateCw size={18} /></div>
                   <div>
-                    <strong>{task.title}</strong>
+                    <strong className="block text-[.88rem]">{task.title}</strong>
                     <span>{task.recurrenceLabel} · due {task.dueTime}</span>
                   </div>
-                  <div className="routine-next">
-                    {next && <Avatar initials={next.initials} color={next.color} size="sm" />}
+                  <div className={"routine-next flex items-center gap-1.75"}>
+                    {next && <Avatar initials={next.initials} color={next.color} imageUrl={next.avatarUrl} size="sm" />}
                     <span>Next: {next?.displayName ?? 'Manual'}</span>
                   </div>
-                  <div className="button-row">
+                  <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
                     {task.assignmentMode === 'manual' && (
                       <Button
                         size="sm"
@@ -245,9 +260,9 @@ export function ChoresPage() {
               infraction.upholdVotes.includes(currentMemberId) ||
               infraction.excuseVotes.includes(currentMemberId)
             return (
-              <Card className="infraction-card" key={infraction.id}>
-                <div className="infraction-heading">
-                  <Avatar initials={member.initials} color={member.color} size="sm" />
+              <Card className="infraction-card grid gap-3.25 border-b border-b-(--line) px-7 py-6.25" key={infraction.id}>
+                <div className="infraction-heading grid grid-cols-[auto_1fr_auto] items-center gap-2.25">
+                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   <div>
                     <strong>{member.displayName} · {infraction.taskTitle}</strong>
                     <span>{formatMoney(infraction.amountCents)} pending</span>
@@ -259,7 +274,7 @@ export function ChoresPage() {
                 {infraction.disputeReason && (
                   <blockquote>“{infraction.disputeReason}”</blockquote>
                 )}
-                <div className="vote-meter">
+                <div className={"vote-meter flex justify-between text-(--muted) text-[.75rem]"}>
                   <span>{infraction.excuseVotes.length} excuse</span>
                   <span>{infraction.upholdVotes.length} uphold</span>
                 </div>
@@ -272,7 +287,7 @@ export function ChoresPage() {
                 {infraction.memberId !== currentMemberId &&
                   infraction.status === 'disputed' &&
                   !hasVoted && (
-                    <div className="button-row">
+                    <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
                       <Button
                         variant="secondary"
                         onClick={() => voteInfraction(infraction.id, 'excuse')}
@@ -287,7 +302,7 @@ export function ChoresPage() {
                       </Button>
                     </div>
                   )}
-                <div className="deadline-note">
+                <div className={"deadline-note flex items-center gap-1.5 text-(--muted) text-[.75rem] font-sans tabular-nums"}>
                   <Scale size={15} />
                   Review closes {formatDateTime(infraction.disputeDeadline)}
                 </div>
@@ -303,16 +318,16 @@ export function ChoresPage() {
         title="Create a chore"
         description="Set the routine once. The server handles every turn."
       >
-        <form className="form-grid" onSubmit={submitTask}>
-          <label className="field-span-2">Chore name
+        <form className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"} onSubmit={submitTask}>
+          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Chore name
             <input {...register('title')} placeholder="Clean the bathroom" />
-            {errors.title && <span className="form-error">{errors.title.message}</span>}
+            {errors.title && <span className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{errors.title.message}</span>}
           </label>
           <label>Area
             <input {...register('area')} placeholder="Bathroom" />
           </label>
           <label>Assignment
-            <select {...register('assignmentMode')}>
+            <select {...register('assignmentMode')} disabled={frequency === 'rolling_queue'}>
               <option value="rotation">Fair rotation</option>
               <option value="fixed">Fixed roommate</option>
               <option value="manual">Assign manually</option>
@@ -325,25 +340,32 @@ export function ChoresPage() {
               <option value="weekly">Selected weekdays</option>
               <option value="monthly">Monthly</option>
               <option value="once">Once</option>
+              <option value="rolling_queue">Rolling queue · one per day</option>
             </select>
           </label>
-          <label>Every
-            <div className="input-with-suffix">
-              <input type="number" min="1" max="30" {...register('interval', { valueAsNumber: true })} />
-              <span>{frequency === 'daily' ? 'days' : frequency === 'weekly' ? 'weeks' : frequency === 'monthly' ? 'months' : 'time'}</span>
-            </div>
-          </label>
+          {frequency === 'rolling_queue' ? (
+            <p className="self-end rounded-lg border border-(--line) bg-(--sage-2) p-3 text-[.74rem] leading-normal text-(--muted)">
+              This chore joins the household queue. One queued chore is selected each day, with assignees advancing through the selected rotation.
+            </p>
+          ) : (
+            <label>Every
+              <div className="input-with-suffix grid grid-cols-[minmax(70px,1fr)_auto] items-center gap-2.5">
+                <input type="number" min="1" max="30" {...register('interval', { valueAsNumber: true })} />
+                <span>{frequency === 'daily' ? 'days' : frequency === 'weekly' ? 'weeks' : frequency === 'monthly' ? 'months' : 'time'}</span>
+              </div>
+            </label>
+          )}
           {frequency === 'weekly' && (
-            <fieldset className="field-span-2 compact-options">
+            <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
               <legend>Weekdays</legend>
-              <div className="weekday-picker">
+              <div className="weekday-picker grid grid-cols-7 gap-2 max-[560px]:gap-1">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => {
                   const day = index + 1
                   return (
                     <button
                       type="button"
                       key={`${label}-${day}`}
-                      className={weekdays.includes(day) ? 'is-selected' : ''}
+                      className={cn('min-h-10 rounded-full border border-(--line) bg-transparent font-[inherit] font-bold text-(--muted)', weekdays.includes(day) && 'is-selected border-(--forest) bg-(--forest) text-white')}
                       onClick={() => setWeekdays((current) =>
                         current.includes(day)
                           ? current.filter((item) => item !== day)
@@ -364,7 +386,7 @@ export function ChoresPage() {
             <input type="time" {...register('dueTime')} />
           </label>
           {assignmentMode !== 'rotation' && (
-            <label className="field-span-2">Assigned roommate
+            <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Assigned roommate
               <select value={fixedMemberId} onChange={(event) => setFixedMemberId(event.target.value)}>
                 {data.members.filter((member) => member.active).map((member) => (
                   <option key={member.id} value={member.id}>{member.displayName}</option>
@@ -373,11 +395,11 @@ export function ChoresPage() {
             </label>
           )}
           {assignmentMode === 'rotation' && (
-            <fieldset className="field-span-2 compact-options">
+            <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
               <legend>Rotation order and eligibility</legend>
-              <div className="member-check-grid">
+              <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
                 {data.members.filter((member) => member.active).map((member) => (
-                  <label className="member-check" key={member.id}>
+                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={member.id}>
                     <input
                       type="checkbox"
                       checked={rotationIds.includes(member.id)}
@@ -387,23 +409,23 @@ export function ChoresPage() {
                           : current.filter((id) => id !== member.id),
                       )}
                     />
-                    <Avatar initials={member.initials} color={member.color} size="sm" />
+                    <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                     {member.displayName}
                   </label>
                 ))}
               </div>
             </fieldset>
           )}
-          <fieldset className="field-span-2 compact-options">
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
             <legend>Task reminders</legend>
-            <div className="member-check-grid">
+            <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
               {[
                 ['09:00', 'Morning'],
                 ['18:00', '6:00 PM'],
                 ['22:00', '10:00 PM'],
                 ['23:30', '11:30 PM'],
               ].map(([time, label]) => (
-                <label className="member-check" key={time}>
+                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={time}>
                   <input
                     type="checkbox"
                     checked={reminderTimes.includes(time)}
@@ -418,11 +440,11 @@ export function ChoresPage() {
               ))}
             </div>
           </fieldset>
-          <label className="checkbox-field field-span-2">
+          <label className={"checkbox-field flex items-center gap-2 p-[10px_0] field-span-2 col-span-full max-[640px]:col-[1]"}>
             <input type="checkbox" {...register('penaltyEnabled')} />
             Apply the household penalty when missed
           </label>
-          <div className="modal-actions field-span-2">
+          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
             <Button type="button" variant="ghost" onClick={() => setTaskModal(false)}>Cancel</Button>
             <Button type="submit" disabled={busy === 'task:new'}>Create chore</Button>
           </div>
@@ -452,7 +474,7 @@ export function ChoresPage() {
               rows={4}
             />
           </label>
-          <div className="modal-actions">
+          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5"}>
             <Button type="button" variant="ghost" onClick={() => setDisputeId(null)}>Cancel</Button>
             <Button type="submit" disabled={disputeReason.trim().length < 5}>Open dispute</Button>
           </div>
@@ -466,7 +488,7 @@ export function ChoresPage() {
         description="Manual chores appear only when someone explicitly assigns them."
       >
         <form
-          className="form-grid"
+          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
           onSubmit={async (event) => {
             event.preventDefault()
             await assignManualTask(assignTaskId, assignMemberId, assignDate)
@@ -483,7 +505,7 @@ export function ChoresPage() {
           <label>Due date
             <input type="date" value={assignDate} onChange={(event) => setAssignDate(event.target.value)} />
           </label>
-          <div className="modal-actions field-span-2">
+          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
             <Button type="button" variant="ghost" onClick={() => setAssignTaskId('')}>Cancel</Button>
             <Button type="submit">Assign chore</Button>
           </div>
@@ -494,11 +516,12 @@ export function ChoresPage() {
 }
 
 function recurrenceSummary(recurrence: {
-  frequency: 'daily' | 'weekly' | 'monthly' | 'once'
+  frequency: 'daily' | 'weekly' | 'monthly' | 'once' | 'rolling_queue'
   interval: number
   weekdays?: number[]
 }) {
   if (recurrence.frequency === 'once') return 'One time'
+  if (recurrence.frequency === 'rolling_queue') return 'Rolling queue · one per day'
   if (recurrence.frequency === 'weekly' && recurrence.weekdays?.length) {
     const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     return `Every ${recurrence.interval > 1 ? `${recurrence.interval} weeks on ` : ''}${recurrence.weekdays.map((day) => names[day - 1]).join(', ')}`

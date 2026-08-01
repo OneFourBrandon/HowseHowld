@@ -11,7 +11,7 @@ import {
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import * as api from '../lib/api'
-import { blockerIds, cents, toIso, uid } from '../lib/utils'
+import { blockerIds, cents, initials, toIso, uid } from '../lib/utils'
 import type {
   AppSnapshot,
   CalendarEvent,
@@ -19,6 +19,7 @@ import type {
   Expense,
   HouseholdBill,
   HouseholdFeature,
+  SaveSharedCourseInput,
   Settlement,
   TaskDefinition,
   UUID,
@@ -68,6 +69,7 @@ interface AppDataContextValue {
   addEvent: (event: NewEvent) => Promise<void>
   updateScheduleItemKind: (id: UUID, kind: 'class' | 'exam' | 'other') => Promise<void>
   updateCourse: (id: UUID, name: string, color: string) => Promise<void>
+  saveSharedCourse: (input: Omit<SaveSharedCourseInput, 'householdId'>) => Promise<void>
   reorderVehicles: (orderedIds: UUID[]) => Promise<void>
   addDeparture: (
     vehicleId: UUID,
@@ -86,6 +88,9 @@ interface AppDataContextValue {
   clearToast: () => void
   createHousehold: (input: CreateHouseholdInput) => Promise<string | undefined>
   rotateShareCode: () => Promise<string>
+  issueMemberRecoveryCode: (memberId: UUID) => Promise<string>
+  removeHouseholdMember: (memberId: UUID) => Promise<void>
+  updateProfile: (displayName: string, avatar?: File | null) => Promise<void>
   updateHouseholdFeatures: (features: HouseholdFeature[]) => Promise<void>
   updateHouseholdTaskReminders: (times: string[]) => Promise<void>
   refresh: () => Promise<void>
@@ -153,6 +158,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       'household_bills', 'household_bill_members', 'household_bill_periods',
       'household_bill_payments',
       'calendar_events', 'event_audiences', 'courses', 'schedule_items',
+      'shared_courses', 'shared_course_enrollments', 'shared_course_meetings',
+      'shared_course_assessments',
       'vehicles', 'driveway_state', 'driveway_positions', 'departure_occurrences',
       'push_subscriptions',
     ]
@@ -169,6 +176,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         queueRefresh,
       )
     }
+    channel = channel.on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'profiles' },
+      queueRefresh,
+    )
     channel.subscribe()
     return () => {
       window.clearTimeout(timer)
@@ -245,6 +257,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
               householdId: data.household.id,
               active: true,
             })
+            await refresh()
+            return
           }
           setData((current) => {
             const id = uid('task')
@@ -265,7 +279,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         },
         'Chore added to the house rotation.',
       ),
-    [data.household.id, demoMode, run],
+    [data.household.id, demoMode, refresh, run],
   )
 
   const updateTask = useCallback(
@@ -670,11 +684,82 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [demoMode, run],
   )
 
+  const saveSharedCourse = useCallback(
+    async (input: Omit<SaveSharedCourseInput, 'householdId'>) =>
+      run(
+        `shared-course:save:${input.courseId ?? 'new'}`,
+        async () => {
+          if (!demoMode) {
+            await api.saveSharedCourse({ ...input, householdId: data.household.id })
+            const snapshot = await api.loadSnapshot()
+            if (snapshot) setData(snapshot)
+            return
+          }
+          setData((current) => {
+            const currentMemberId = current.household.currentMemberId
+            const existing = input.courseId
+              ? current.sharedCourses.find((course) => course.id === input.courseId)
+              : current.sharedCourses.find(
+                  (course) => course.code.replace(/\s/g, '').toLowerCase()
+                    === input.code.replace(/\s/g, '').toLowerCase(),
+                )
+            const courseId = existing?.id ?? uid('shared-course')
+            const nextCourse = {
+              id: courseId,
+              code: existing?.code ?? input.code.toUpperCase(),
+              name: existing?.name ?? input.name,
+              color: existing?.color ?? input.color,
+              createdByMemberId: existing?.createdByMemberId ?? currentMemberId,
+              enrollmentMemberIds: Array.from(new Set([
+                ...(existing?.enrollmentMemberIds ?? []),
+                currentMemberId,
+              ])),
+              meetings: [
+                ...(existing?.meetings ?? []).filter((meeting) => meeting.memberId !== currentMemberId),
+                ...input.meetings.map((meeting) => ({
+                  ...meeting,
+                  id: uid('shared-meeting'),
+                  memberId: currentMemberId,
+                })),
+              ],
+              assessments: [
+                ...(existing?.assessments ?? []).filter((assessment) => assessment.memberId !== currentMemberId),
+                ...input.assessments.map((assessment) => ({
+                  ...assessment,
+                  id: uid('shared-assessment'),
+                  memberId: currentMemberId,
+                })),
+              ],
+            }
+            return {
+              ...current,
+              sharedCourses: existing
+                ? current.sharedCourses.map((course) => course.id === courseId ? nextCourse : course)
+                : [...current.sharedCourses, nextCourse],
+            }
+          })
+        },
+        'Class schedule saved.',
+      ),
+    [data.household.id, demoMode, run],
+  )
+
   const reorderVehicles = useCallback(
     async (orderedIds: UUID[]) =>
       run(
         'driveway:reorder',
         async () => {
+          setData((current) => ({
+            ...current,
+            drivewayVersion: current.drivewayVersion + 1,
+            vehicles: orderedIds
+              .map((id) => current.vehicles.find((vehicle) => vehicle.id === id))
+              .filter((vehicle): vehicle is NonNullable<typeof vehicle> => Boolean(vehicle)),
+            departures: current.departures.map((departure) => ({
+              ...departure,
+              blockerVehicleIds: blockerIds(orderedIds, departure.vehicleId),
+            })),
+          }))
           if (!demoMode) {
             try {
               await api.reorderDriveway(
@@ -690,17 +775,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
               )
             }
           }
-          setData((current) => ({
-            ...current,
-            drivewayVersion: current.drivewayVersion + 1,
-            vehicles: orderedIds
-              .map((id) => current.vehicles.find((vehicle) => vehicle.id === id))
-              .filter((vehicle): vehicle is NonNullable<typeof vehicle> => Boolean(vehicle)),
-            departures: current.departures.map((departure) => ({
-              ...departure,
-              blockerVehicleIds: blockerIds(orderedIds, departure.vehicleId),
-            })),
-          }))
         },
         'Driveway order updated for everyone.',
       ),
@@ -827,14 +901,17 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           if (permission !== 'granted') throw new Error('Notification permission was not granted.')
           const registration = await navigator.serviceWorker.ready
           const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
+          if (!vapidKey) {
+            throw new Error('VITE_VAPID_PUBLIC_KEY is not configured for this app.')
+          }
           let subscription = await registration.pushManager.getSubscription()
-          if (!subscription && vapidKey) {
+          if (!subscription) {
             subscription = await registration.pushManager.subscribe({
               userVisibleOnly: true,
               applicationServerKey: vapidKey,
             })
           }
-          if (subscription && !demoMode) await api.subscribePush(subscription)
+          if (!demoMode) await api.subscribePush(subscription)
           setData((current) => ({
             ...current,
             notificationHealth: {
@@ -936,6 +1013,77 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.id, demoMode],
   )
 
+  const issueMemberRecoveryCode = useCallback(
+    async (memberId: UUID) => {
+      setBusy(`member:recovery:${memberId}`)
+      try {
+        const code = demoMode
+          ? `REC-DEMO-${Math.random().toString(36).slice(2, 14).toUpperCase()}`
+          : await api.issueMemberRecoveryCode(memberId)
+        setToast('One-time recovery code generated. Share it privately.')
+        return code
+      } finally {
+        setBusy(null)
+      }
+    },
+    [demoMode],
+  )
+
+  const removeHouseholdMember = useCallback(
+    async (memberId: UUID) =>
+      run(
+        `member:remove:${memberId}`,
+        async () => {
+          if (demoMode) {
+            setData((current) => ({
+              ...current,
+              members: current.members.filter((member) => member.id !== memberId),
+            }))
+          } else {
+            await api.removeHouseholdMember(memberId)
+            await refresh()
+          }
+        },
+        'Roommate removed from the household.',
+      ),
+    [demoMode, refresh, run],
+  )
+
+  const updateProfile = useCallback(
+    async (displayName: string, avatar?: File | null) =>
+      run(
+        'profile:update',
+        async () => {
+          const normalizedName = displayName.trim()
+          if (demoMode) {
+            const avatarUrl = avatar instanceof File
+              ? URL.createObjectURL(avatar)
+              : avatar === null
+                ? undefined
+                : null
+            setData((current) => ({
+              ...current,
+              members: current.members.map((member) =>
+                member.id === current.household.currentMemberId
+                  ? {
+                      ...member,
+                      displayName: normalizedName,
+                      initials: initials(normalizedName),
+                      avatarUrl: avatarUrl === null ? member.avatarUrl : avatarUrl,
+                    }
+                  : member,
+              ),
+            }))
+          } else {
+            await api.updateCurrentProfile({ displayName: normalizedName, avatar })
+            await refresh()
+          }
+        },
+        'Your profile was updated.',
+      ),
+    [demoMode, refresh, run],
+  )
+
   const updateHouseholdFeatures = useCallback(
     async (features: HouseholdFeature[]) =>
       run(
@@ -1001,6 +1149,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addEvent,
       updateScheduleItemKind,
       updateCourse,
+      saveSharedCourse,
       reorderVehicles,
       addDeparture,
       saveVehicle,
@@ -1012,6 +1161,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       clearToast: () => setToast(null),
       createHousehold,
       rotateShareCode,
+      issueMemberRecoveryCode,
+      removeHouseholdMember,
+      updateProfile,
       updateHouseholdFeatures,
       updateHouseholdTaskReminders,
       refresh,
@@ -1041,6 +1193,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addEvent,
       updateScheduleItemKind,
       updateCourse,
+      saveSharedCourse,
       reorderVehicles,
       addDeparture,
       saveVehicle,
@@ -1051,6 +1204,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       sendTestNotification,
       createHousehold,
       rotateShareCode,
+      issueMemberRecoveryCode,
+      removeHouseholdMember,
+      updateProfile,
       updateHouseholdFeatures,
       updateHouseholdTaskReminders,
       refresh,

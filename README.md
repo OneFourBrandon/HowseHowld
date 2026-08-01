@@ -7,7 +7,7 @@ server-authoritative deadlines.
 ## What is implemented
 
 - One Supabase project for any number of isolated households
-- Email OTP admin accounts, anonymous share-code resident accounts, and optional later identity linking
+- Email magic-link admin accounts, anonymous share-code resident accounts, and optional later identity linking
 - Household setup with address, feature selection, and owner-rotatable hashed share codes
 - Per-task rotations, fixed/manual/one-off tasks, Toronto-time deadlines, reminders, completion, escalation, disputes, and peer voting
 - Immutable double-entry expense ledger, multiple payers/beneficiaries, deterministic cent splitting, confirmed settlements, receipt storage, and household-fund payments
@@ -85,10 +85,9 @@ to bypass Focus or silent mode.
 2. Under Auth providers, enable **Allow anonymous sign-ins** and **Allow manual
    linking**. Enable Cloudflare Turnstile or hCaptcha before opening signups to
    the public; anonymous users otherwise create database records cheaply.
-3. Configure Resend under Supabase Auth SMTP, set OTP length to six, copy the
+3. Configure Resend under Supabase Auth SMTP, copy the
    `supabase/templates/magic_link.html` content into the hosted Magic Link
-   template so it sends `{{ .Token }}`, and add the final Vercel URL to Auth
-   redirect URLs.
+   template, and add the final Vercel URL to Auth redirect URLs.
 4. Sign in with the house admin email, create the house with its address and
    enabled features, then share the generated code with residents. House codes
    are stored only as SHA-256 hashes and can be rotated from Settings.

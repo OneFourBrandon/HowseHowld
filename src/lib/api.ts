@@ -7,6 +7,7 @@ import type {
   Expense,
   HouseholdBill,
   HouseholdFeature,
+  SaveSharedCourseInput,
   Settlement,
   TaskDefinition,
   UUID,
@@ -17,19 +18,122 @@ function requireClient() {
   return supabase
 }
 
-export async function sendEmailOtp(email: string) {
-  const { error } = await requireClient().auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true },
-  })
-  if (error) throw error
+export interface CurrentProfile {
+  id: UUID
+  displayName: string
+  avatarColor: string
+  avatarPath?: string
+  avatarUrl?: string
+  onboardingCompletedAt?: string
 }
 
-export async function verifyEmailOtp(email: string, token: string) {
-  const { error } = await requireClient().auth.verifyOtp({
+export interface ProfileUpdate {
+  displayName: string
+  avatar?: File | null
+  completeOnboarding?: boolean
+}
+
+const avatarTypes = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+])
+
+export async function getCurrentProfile(): Promise<CurrentProfile> {
+  const client = requireClient()
+  const { data: userData, error: userError } = await client.auth.getUser()
+  if (userError || !userData.user) throw userError ?? new Error('You are not signed in.')
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, display_name, avatar_color, avatar_path, onboarding_completed_at')
+    .eq('id', userData.user.id)
+    .single()
+  if (error) throw error
+
+  let avatarUrl: string | undefined
+  if (data.avatar_path) {
+    const signed = await client.storage.from('avatars').createSignedUrl(data.avatar_path, 3600)
+    if (!signed.error) avatarUrl = signed.data.signedUrl
+  }
+
+  return {
+    id: data.id,
+    displayName: data.display_name,
+    avatarColor: data.avatar_color,
+    avatarPath: data.avatar_path ?? undefined,
+    avatarUrl,
+    onboardingCompletedAt: data.onboarding_completed_at ?? undefined,
+  }
+}
+
+export async function updateCurrentProfile({
+  displayName,
+  avatar,
+  completeOnboarding = false,
+}: ProfileUpdate): Promise<void> {
+  const client = requireClient()
+  const normalizedName = displayName.trim()
+  if (normalizedName.length < 2 || normalizedName.length > 80) {
+    throw new Error('Username must be between 2 and 80 characters.')
+  }
+
+  const { data: userData, error: userError } = await client.auth.getUser()
+  if (userError || !userData.user) throw userError ?? new Error('You are not signed in.')
+
+  const { data: existing, error: profileError } = await client
+    .from('profiles')
+    .select('avatar_path')
+    .eq('id', userData.user.id)
+    .single()
+  if (profileError) throw profileError
+
+  let nextAvatarPath = existing.avatar_path as string | null
+  let uploadedPath: string | undefined
+  if (avatar instanceof File) {
+    const extension = avatarTypes.get(avatar.type)
+    if (!extension) throw new Error('Choose a JPG, PNG, or WebP image.')
+    if (avatar.size > 5 * 1024 * 1024) throw new Error('Profile pictures must be 5 MB or smaller.')
+    uploadedPath = `${userData.user.id}/${crypto.randomUUID()}.${extension}`
+    const { error } = await client.storage.from('avatars').upload(uploadedPath, avatar, {
+      cacheControl: '3600',
+      contentType: avatar.type,
+      upsert: false,
+    })
+    if (error) throw error
+    nextAvatarPath = uploadedPath
+  } else if (avatar === null) {
+    nextAvatarPath = null
+  }
+
+  const updates: Record<string, unknown> = {
+    display_name: normalizedName,
+    avatar_path: nextAvatarPath,
+    updated_at: new Date().toISOString(),
+  }
+  if (completeOnboarding) updates.onboarding_completed_at = new Date().toISOString()
+
+  const { error: updateError } = await client
+    .from('profiles')
+    .update(updates)
+    .eq('id', userData.user.id)
+  if (updateError) {
+    if (uploadedPath) await client.storage.from('avatars').remove([uploadedPath])
+    throw updateError
+  }
+
+  const previousPath = existing.avatar_path as string | null
+  if (previousPath && previousPath !== nextAvatarPath) {
+    await client.storage.from('avatars').remove([previousPath])
+  }
+}
+
+export async function sendAdminMagicLink(email: string) {
+  const { error } = await requireClient().auth.signInWithOtp({
     email,
-    token,
-    type: 'email',
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: new URL('/', window.location.origin).toString(),
+    },
   })
   if (error) throw error
 }
@@ -81,6 +185,16 @@ export const rotateHouseholdShareCode = (householdId: UUID) =>
     p_household_id: householdId,
   })
 
+export const issueMemberRecoveryCode = (memberId: UUID) =>
+  invokeRpc<string>('issue_member_recovery_code', {
+    p_member_id: memberId,
+  })
+
+export const removeHouseholdMember = (memberId: UUID) =>
+  invokeRpc<void>('remove_household_member', {
+    p_member_id: memberId,
+  })
+
 export async function updateHouseholdFeatures(
   householdId: UUID,
   enabledFeatures: HouseholdFeature[],
@@ -114,11 +228,20 @@ export const updateCourse = (courseId: UUID, name: string, color: string) =>
     p_color: color,
   })
 
+export const saveSharedCourse = (input: SaveSharedCourseInput) =>
+  invokeRpc<UUID>('save_shared_course', { p_input: input })
+
 export async function createTask(
   input: Omit<TaskDefinition, 'id' | 'householdId'> & { householdId?: UUID },
 ) {
   return invokeRpc<UUID>('create_task', { p_input: input })
 }
+
+export const ensureRollingQueueOccurrences = (householdId: UUID, horizonDays = 30) =>
+  invokeRpc<number>('ensure_rolling_queue_occurrences', {
+    p_household_id: householdId,
+    p_horizon_days: horizonDays,
+  })
 
 export const updateTask = (taskId: UUID, input: Record<string, unknown>) =>
   invokeRpc('update_task', { p_task_id: taskId, p_input: input })
@@ -276,7 +399,7 @@ export async function subscribePush(subscription: PushSubscription) {
   const { error } = await requireClient().functions.invoke('push-subscribe', {
     body: subscription.toJSON(),
   })
-  if (error) throw error
+  if (error) throw new Error(await edgeFunctionErrorMessage(error))
 }
 
 export async function unsubscribePush(subscription: PushSubscription) {
@@ -284,15 +407,26 @@ export async function unsubscribePush(subscription: PushSubscription) {
     method: 'DELETE',
     body: { endpoint: subscription.endpoint },
   })
-  if (error) throw error
+  if (error) throw new Error(await edgeFunctionErrorMessage(error))
 }
 
 export async function sendTestPush() {
   const { data, error } = await requireClient().functions.invoke('push-dispatch', {
     body: { test: true },
   })
-  if (error) throw error
+  if (error) throw new Error(await edgeFunctionErrorMessage(error))
   return data
+}
+
+async function edgeFunctionErrorMessage(error: unknown) {
+  if (error && typeof error === 'object' && 'context' in error) {
+    const context = (error as { context?: unknown }).context
+    if (context instanceof Response) {
+      const payload = await context.clone().json().catch(() => null) as { error?: unknown } | null
+      if (typeof payload?.error === 'string') return payload.error
+    }
+  }
+  return error instanceof Error ? error.message : 'The Edge Function request failed.'
 }
 
 export async function loadSnapshot(): Promise<AppSnapshot | null> {
@@ -302,12 +436,13 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
 
   const { data: memberRows, error: memberError } = await client
     .from('household_members')
-    .select('id, household_id, role, active, profile_id, profiles(display_name,email,avatar_color)')
+    .select('id, household_id, role, active, profile_id, profiles(display_name,email,avatar_color,avatar_path)')
     .eq('active', true)
   if (memberError) throw memberError
   if (!memberRows?.length) return null
 
   const householdId = memberRows[0].household_id
+  await ensureRollingQueueOccurrences(householdId)
   const results = await Promise.all([
     client.from('households').select('*').eq('id', householdId).single(),
     client.from('task_definitions').select('*').eq('household_id', householdId),
@@ -323,6 +458,10 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('calendar_events').select('*, event_audiences(member_id)').eq('household_id', householdId).order('start_at'),
     client.from('courses').select('*').eq('household_id', householdId),
     client.from('schedule_items').select('*').eq('household_id', householdId).is('archived_at', null).order('start_at'),
+    client.from('shared_courses').select('*').eq('household_id', householdId).order('code'),
+    client.from('shared_course_enrollments').select('*').eq('household_id', householdId),
+    client.from('shared_course_meetings').select('*').eq('household_id', householdId).order('weekday').order('start_time'),
+    client.from('shared_course_assessments').select('*').eq('household_id', householdId).order('starts_at'),
     client.from('vehicles').select('*').eq('household_id', householdId).eq('active', true),
     client.from('driveway_state').select('*, driveway_positions(*)').eq('household_id', householdId).single(),
     client.from('departure_occurrences').select('*, departure_rules(source,label,warning_minutes,schedule_item_id)').eq('household_id', householdId).gte('required_at', new Date().toISOString()),
@@ -335,7 +474,9 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
   const [
     householdResult, taskResult, rotationResult, occurrenceResult, infractionResult,
     expenseResult, settlementResult, fundPaymentResult, billResult, billPeriodResult, balanceResult, eventResult,
-    courseResult, scheduleResult, vehicleResult, drivewayResult, departureResult, auditResult, pushResult,
+    courseResult, scheduleResult, sharedCourseResult, sharedEnrollmentResult,
+    sharedMeetingResult, sharedAssessmentResult, vehicleResult, drivewayResult,
+    departureResult, auditResult, pushResult,
   ] = results
   const rowData = <T,>(result: { data: T | null }) => result.data
   const household = rowData(householdResult)!
@@ -351,6 +492,19 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       display_name: string
       email: string
       avatar_color: string
+      avatar_path: string | null
+    }
+  }
+  const avatarPaths = memberRows
+    .map((row) => profileOf(row).avatar_path)
+    .filter((path): path is string => Boolean(path))
+  const avatarUrls = new Map<string, string>()
+  if (avatarPaths.length) {
+    const { data: signedAvatars } = await client.storage
+      .from('avatars')
+      .createSignedUrls(avatarPaths, 3600)
+    for (const avatar of signedAvatars ?? []) {
+      if (avatar.path && avatar.signedUrl) avatarUrls.set(avatar.path, avatar.signedUrl)
     }
   }
   const taskMap = new Map(tasks.map((task) => [task.id, task]))
@@ -401,6 +555,8 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         email: profile.email,
         initials: initials(profile.display_name),
         color: profile.avatar_color,
+        avatarPath: profile.avatar_path ?? undefined,
+        avatarUrl: profile.avatar_path ? avatarUrls.get(profile.avatar_path) : undefined,
         role: row.role,
         active: row.active,
       }
@@ -572,6 +728,38 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       location: scheduleResult.data?.find((item) => item.course_id === row.id)?.location ?? undefined,
       itemCount: scheduleResult.data?.filter((item) => item.course_id === row.id).length ?? 0,
     })),
+    sharedCourses: (sharedCourseResult.data ?? []).map((row) => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      color: row.color,
+      createdByMemberId: row.created_by_member_id,
+      enrollmentMemberIds: (sharedEnrollmentResult.data ?? [])
+        .filter((enrollment) => enrollment.course_id === row.id)
+        .map((enrollment) => enrollment.member_id),
+      meetings: (sharedMeetingResult.data ?? [])
+        .filter((meeting) => meeting.course_id === row.id)
+        .map((meeting) => ({
+          id: meeting.id,
+          memberId: meeting.member_id,
+          kind: meeting.kind,
+          weekday: meeting.weekday,
+          startTime: String(meeting.start_time).slice(0, 5),
+          durationMinutes: meeting.duration_minutes,
+          location: meeting.location ?? undefined,
+        })),
+      assessments: (sharedAssessmentResult.data ?? [])
+        .filter((assessment) => assessment.course_id === row.id)
+        .map((assessment) => ({
+          id: assessment.id,
+          memberId: assessment.member_id,
+          kind: assessment.kind,
+          title: assessment.title,
+          startsAt: assessment.starts_at,
+          durationMinutes: assessment.duration_minutes,
+          location: assessment.location ?? undefined,
+        })),
+    })),
     vehicles: orderedVehicles.map((row) => ({
       id: row.id,
       ownerMemberId: row.owner_member_id,
@@ -611,6 +799,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
 function recurrenceLabel(value: Record<string, unknown> | null) {
   if (!value) return 'Custom schedule'
   const frequency = String(value.frequency ?? 'weekly')
+  if (frequency === 'rolling_queue') return 'Rolling queue · one per day'
   const interval = Number(value.interval ?? 1)
   const unit = frequency.replace(/ly$/, '')
   return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`
