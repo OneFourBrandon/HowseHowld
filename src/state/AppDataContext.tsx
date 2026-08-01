@@ -761,16 +761,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           }))
           if (!demoMode) {
             try {
-              await api.reorderDriveway(
-                data.household.id,
-                orderedIds,
-              )
+              await api.reorderDriveway(data.household.id, orderedIds)
             } catch (error) {
               await refresh()
-              throw new Error(
-                'Someone else changed the driveway. The latest lineup is loaded; try again.',
-                { cause: error },
-              )
+              throw error
             }
           }
         },

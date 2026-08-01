@@ -330,12 +330,10 @@ export async function upsertCalendarEvent(
 
 export const reorderDriveway = (
   householdId: UUID,
-  expectedVersion: number,
   orderedVehicleIds: UUID[],
 ) =>
-  invokeRpc<number>('reorder_driveway', {
+  invokeRpc<void>('reorder_driveway', {
     p_household_id: householdId,
-    p_expected_version: expectedVersion,
     p_ordered_vehicle_ids: orderedVehicleIds,
   })
 

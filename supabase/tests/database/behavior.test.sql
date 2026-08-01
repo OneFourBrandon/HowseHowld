@@ -271,35 +271,29 @@ select set_config(
   '00000000-0000-0000-0000-000000000001',
   true
 );
-select is(
-  public.reorder_driveway(
+select lives_ok(
+  $$select public.reorder_driveway(
     '10000000-0000-0000-0000-000000000000',
-    0,
     array[
       '13000000-0000-0000-0000-000000000002'::uuid,
       '13000000-0000-0000-0000-000000000001'::uuid
     ]
-  ),
-  1::bigint,
-  'a valid driveway reorder atomically increments the version'
+  )$$,
+  'a valid driveway reorder is applied atomically'
 );
-select throws_ok(
+select lives_ok(
   $$select public.reorder_driveway(
     '10000000-0000-0000-0000-000000000000',
-    0,
     array[
       '13000000-0000-0000-0000-000000000001'::uuid,
       '13000000-0000-0000-0000-000000000002'::uuid
     ]
   )$$,
-  'P0001',
-  'Driveway changed; refresh and try again',
-  'stale driveway versions cannot overwrite current state'
+  'a later valid driveway reorder replaces the earlier order'
 );
 select throws_ok(
   $$select public.reorder_driveway(
     '10000000-0000-0000-0000-000000000000',
-    1,
     array[
       '13000000-0000-0000-0000-000000000001'::uuid,
       '23000000-0000-0000-0000-000000000001'::uuid

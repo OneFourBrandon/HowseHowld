@@ -60,7 +60,11 @@ export function DrivewayPage() {
     const oldIndex = data.vehicles.findIndex((item) => item.id === active.id)
     const newIndex = data.vehicles.findIndex((item) => item.id === over.id)
     const ordered = arrayMove(data.vehicles, oldIndex, newIndex).map((item) => item.id)
-    await reorderVehicles(ordered)
+    try {
+      await reorderVehicles(ordered)
+    } catch {
+      // The shared mutation handler restores the latest lineup and shows the error.
+    }
   }
 
   const openDeparture = (quick: boolean) => {

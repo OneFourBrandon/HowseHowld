@@ -31,7 +31,7 @@ select has_function('public', 'create_household_v2', array['jsonb'], 'configured
 select has_function('public', 'join_household_by_code', array['text','text'], 'share-code join RPC exists');
 select has_function('public', 'complete_task_occurrence', array['uuid'], 'completion RPC exists');
 select has_function('public', 'create_expense', array['jsonb'], 'expense RPC exists');
-select has_function('public', 'reorder_driveway', array['uuid','bigint','uuid[]'], 'optimistic driveway RPC exists');
+select has_function('public', 'reorder_driveway', array['uuid','uuid[]'], 'driveway reorder RPC exists');
 select has_function('public', 'propose_fund_payment', array['integer'], 'fund payment RPC exists');
 select has_function('public', 'upsert_household_bill', array['jsonb'], 'bill upsert RPC exists');
 select has_function('public', 'set_household_bill_paid', array['uuid','boolean'], 'self payment RPC exists');
