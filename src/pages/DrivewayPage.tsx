@@ -1,9 +1,11 @@
 import { cn } from '../lib/cn'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   closestCenter,
   DndContext,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -51,19 +53,58 @@ export function DrivewayPage() {
   const [vehicleColor, setVehicleColor] = useState('#3e6d2d')
   const [vehicleSubmitting, setVehicleSubmitting] = useState(false)
   const vehicleSubmitLock = useRef(false)
+  const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null)
+  const [previewOrder, setPreviewOrder] = useState(() => data.vehicles.map((vehicle) => vehicle.id))
+  const previewOrderRef = useRef(previewOrder)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
 
-  const dragEnd = async ({ active, over }: DragEndEvent) => {
+  useEffect(() => {
+    if (activeVehicleId) return
+    const nextOrder = data.vehicles.map((vehicle) => vehicle.id)
+    previewOrderRef.current = nextOrder
+    setPreviewOrder(nextOrder)
+  }, [activeVehicleId, data.vehicles])
+
+  const previewVehicles = previewOrder
+    .map((id) => data.vehicles.find((vehicle) => vehicle.id === id))
+    .filter((vehicle): vehicle is Vehicle => Boolean(vehicle))
+
+  const dragStart = ({ active }: DragStartEvent) => {
+    const nextOrder = data.vehicles.map((vehicle) => vehicle.id)
+    previewOrderRef.current = nextOrder
+    setPreviewOrder(nextOrder)
+    setActiveVehicleId(String(active.id))
+  }
+
+  const dragOver = ({ active, over }: DragOverEvent) => {
     if (!over || active.id === over.id) return
-    const oldIndex = data.vehicles.findIndex((item) => item.id === active.id)
-    const newIndex = data.vehicles.findIndex((item) => item.id === over.id)
-    const ordered = arrayMove(data.vehicles, oldIndex, newIndex).map((item) => item.id)
+    const currentOrder = previewOrderRef.current
+    const oldIndex = currentOrder.indexOf(String(active.id))
+    const newIndex = currentOrder.indexOf(String(over.id))
+    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
+    const nextOrder = arrayMove(currentOrder, oldIndex, newIndex)
+    previewOrderRef.current = nextOrder
+    setPreviewOrder(nextOrder)
+  }
+
+  const dragEnd = async ({ over }: DragEndEvent) => {
+    if (!over) {
+      setActiveVehicleId(null)
+      return
+    }
+    const ordered = previewOrderRef.current
+    if (ordered.every((id, index) => id === data.vehicles[index]?.id)) {
+      setActiveVehicleId(null)
+      return
+    }
     try {
       await reorderVehicles(ordered)
     } catch {
       // The shared mutation handler restores the latest lineup and shows the error.
+    } finally {
+      setActiveVehicleId(null)
     }
   }
 
@@ -133,14 +174,17 @@ export function DrivewayPage() {
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              onDragStart={dragStart}
+              onDragOver={dragOver}
               onDragEnd={dragEnd}
+              onDragCancel={() => setActiveVehicleId(null)}
             >
               <SortableContext
-                items={data.vehicles.map((vehicle) => vehicle.id)}
+                items={previewOrder}
                 strategy={verticalListSortingStrategy}
               >
                 <div className={"driveway-lane w-full m-[18px_auto] p-[12px_17px] border-2  rounded-[10px] border-[#bfc9c2] bg-[#eef1ed]"}>
-                  {data.vehicles.map((vehicle, index) => (
+                  {previewVehicles.map((vehicle, index) => (
                     <SortableVehicle
                       key={vehicle.id}
                       vehicle={vehicle}
@@ -263,7 +307,7 @@ export function DrivewayPage() {
                 />
                 <div className="flex justify-between px-1" aria-hidden="true">
                   {Array.from({ length: 12 }, (_, index) => (
-                    <span className={cn('h-1.5 w-1.5 rounded-full bg-(--line-strong)', index === Math.round(((quickDepartureMinutes ?? 60) - 30) / 30) && 'bg-(--forest)')} key={index} />
+                    <span className={cn('h-1.5 w-1.5 rounded-full bg-(--line-strong)', index === Math.round(((quickDepartureMinutes ?? 60) - 30) / 30) && 'bg-(--forest)!')} key={index} />
                   ))}
                 </div>
                 <div className="flex items-center justify-between text-[.7rem] text-(--muted)">
@@ -428,7 +472,7 @@ function SortableVehicle({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         'vehicle-row grid min-h-19.5 cursor-grab touch-manipulation grid-cols-[auto_25px_auto_1fr_auto_60px] items-center gap-2.5 rounded-none border-b border-b-(--line) bg-transparent px-1.5 py-3.75 shadow-none active:cursor-grabbing max-[640px]:grid-cols-[auto_20px_auto_1fr_auto]',
-        isDragging && 'is-dragging z-[5] bg-(--surface-strong) opacity-[.85] shadow-[0_12px_28px_rgba(30,48,40,.14)]',
+        isDragging && 'is-dragging z-[5] bg-(--surface-strong)! opacity-[.85] shadow-[0_12px_28px_rgba(30,48,40,.14)]',
       )}
       {...attributes}
       {...listeners}
@@ -436,7 +480,7 @@ function SortableVehicle({
       <span className={"drag-handle p-0.75 text-[#9fa49f]"} aria-hidden="true">
         <GripVertical />
       </span>
-      <span className={"position-number text-(--muted) font-extrabold text-center text-[.75rem]"}>{index + 1}</span>
+      <PositionNumber value={index + 1} />
       <div className={"vehicle-art w-10.5 h-8 grid place-items-center text-white rounded-[7px]"} style={{ background: vehicle.color }}>
         <CarFront />
       </div>
@@ -447,6 +491,30 @@ function SortableVehicle({
       <Avatar initials={owner.initials} color={owner.color} imageUrl={owner.avatarUrl} size="sm" />
       <span className={"owner-name text-(--muted) max-[640px]:hidden text-[.75rem]"}>{owner.displayName}</span>
     </div>
+  )
+}
+
+function PositionNumber({ value }: { value: number }) {
+  const numberRef = useRef<HTMLSpanElement>(null)
+  const previousValue = useRef(value)
+
+  useEffect(() => {
+    if (previousValue.current === value) return
+    previousValue.current = value
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    numberRef.current?.animate(
+      [
+        { opacity: 0.45, transform: 'translateY(3px) scale(0.82)' },
+        { opacity: 1, transform: 'translateY(0) scale(1)' },
+      ],
+      { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' },
+    )
+  }, [value])
+
+  return (
+    <span ref={numberRef} className="position-number text-center text-[.75rem] font-extrabold tabular-nums text-(--muted)">
+      {value}
+    </span>
   )
 }
 

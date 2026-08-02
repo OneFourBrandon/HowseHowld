@@ -91,8 +91,8 @@ export function FeatureChecklist({
             />
             <span className={cn(
               "feature-checkbox w-4.75 h-4.75 grid place-items-center border border-[#9aa8a1] rounded-[5px] text-transparent transition-[background_.15s_ease,border-color_.15s_ease,color_.15s_ease] peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[rgba(43,75,31,.2)]",
-              checked && 'text-white',
-              checked ? 'border-(--forest) bg-(--forest)' : 'border-[#9aa8a1] bg-transparent'
+              checked && 'text-white!',
+              checked ? 'border-(--forest)! bg-(--forest)!' : 'border-[#9aa8a1] bg-transparent'
             )} aria-hidden="true">
               <Check size={14} strokeWidth={3} />
             </span>

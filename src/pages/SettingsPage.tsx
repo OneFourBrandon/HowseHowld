@@ -254,7 +254,7 @@ export function SettingsPage() {
                 <div
                   className={cn(
                     'health-ring w-11.25 h-11.25 grid place-items-center text-[#9b6a23] bg-(--gold-soft) rounded-lg',
-                    data.notificationHealth.subscribed && 'health-good text-white bg-(--green)',
+                    data.notificationHealth.subscribed && 'health-good bg-(--green)! text-white!',
                   )}
                 >
                   {data.notificationHealth.subscribed ? <CheckCircle2 /> : <BellRing />}

@@ -64,7 +64,7 @@ export function ChoresPage() {
   } = useForm<TaskForm>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
-      area: 'Kitchen',
+      area: '',
       frequency: 'weekly',
       interval: 1,
       startsOn: new Date().toISOString().slice(0, 10),
@@ -167,7 +167,7 @@ export function ChoresPage() {
                 <div
                   className={cn(
                     'status-check w-9 h-9 grid place-items-center text-[#8a7444] bg-(--gold-soft) rounded-lg',
-                    occurrence.status === 'completed' && 'text-white bg-(--green)',
+                    occurrence.status === 'completed' && 'bg-(--green)! text-white!',
                   )}
                 >
                   {occurrence.status === 'completed' ? <Check size={18} /> : <Clock3 size={18} />}
@@ -324,7 +324,8 @@ export function ChoresPage() {
             {errors.title && <span className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{errors.title.message}</span>}
           </label>
           <label>Area
-            <input {...register('area')} placeholder="Bathroom" />
+            <input {...register('area')} placeholder="e.g. Bathroom" />
+            {errors.area && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.area.message}</span>}
           </label>
           <label>Assignment
             <select {...register('assignmentMode')} disabled={frequency === 'rolling_queue'}>
@@ -359,13 +360,24 @@ export function ChoresPage() {
             <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
               <legend>Weekdays</legend>
               <div className="weekday-picker grid grid-cols-7 gap-2 max-[560px]:gap-1">
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => {
-                  const day = index + 1
+                {[
+                  { label: 'Su', day: 7 },
+                  { label: 'M', day: 1 },
+                  { label: 'T', day: 2 },
+                  { label: 'W', day: 3 },
+                  { label: 'Th', day: 4 },
+                  { label: 'F', day: 5 },
+                  { label: 'Sa', day: 6 },
+                ].map(({ label, day }) => {
                   return (
                     <button
                       type="button"
                       key={`${label}-${day}`}
-                      className={cn('min-h-10 rounded-full border border-(--line) bg-transparent font-[inherit] font-bold text-(--muted)', weekdays.includes(day) && 'is-selected border-(--forest) bg-(--forest) text-white')}
+                      aria-pressed={weekdays.includes(day)}
+                      className={cn(
+                        'min-h-10 rounded-full border border-(--line) bg-transparent font-[inherit] font-bold text-(--muted) transition-[background-color,color,border-color,box-shadow] duration-150 hover:border-(--forest-2) hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--forest)',
+                        weekdays.includes(day) && 'is-selected border-(--forest)! bg-(--forest)! text-white! shadow-[0_5px_14px_rgba(43,75,31,.18)] hover:border-(--forest)! hover:bg-(--forest-2)!',
+                      )}
                       onClick={() => setWeekdays((current) =>
                         current.includes(day)
                           ? current.filter((item) => item !== day)

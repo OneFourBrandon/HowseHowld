@@ -148,8 +148,8 @@ export function TodayPage() {
                 <span
                   className={cn(
                     'timeline-dot w-2.25 h-2.25 rounded-full bg-(--green)',
-                    event.kind === 'class' && 'timeline-dot-class bg-(--blue)',
-                    event.kind === 'exam' && 'timeline-dot-exam bg-(--coral)',
+                    event.kind === 'class' && 'timeline-dot-class bg-(--blue)!',
+                    event.kind === 'exam' && 'timeline-dot-exam bg-(--coral)!',
                   )}
                   aria-hidden="true"
                 />

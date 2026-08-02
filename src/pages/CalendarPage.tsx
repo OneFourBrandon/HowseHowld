@@ -225,9 +225,9 @@ export function CalendarPage() {
                       key={event.id}
                     >
                       <div className="calendar-timeline-rail relative flex justify-center after:absolute after:top-6.25 after:-bottom-0.25 after:w-0.25 after:bg-[#a8cf9a] after:content-['']">
-                        <span className={cn('relative z-1 mt-5.5 h-2.5 w-2.5 rounded-full border-2 border-(--surface) bg-(--green) shadow-[0_0_0_1px_var(--green)]', event.kind === 'class' && 'bg-(--blue) shadow-[0_0_0_1px_var(--blue)]', event.kind === 'exam' && 'bg-(--coral) shadow-[0_0_0_1px_var(--coral)]')} />
+                        <span className={cn('relative z-1 mt-5.5 h-2.5 w-2.5 rounded-full border-2 border-(--surface) bg-(--green) shadow-[0_0_0_1px_var(--green)]', event.kind === 'class' && 'bg-(--blue)! shadow-[0_0_0_1px_var(--blue)]', event.kind === 'exam' && 'bg-(--coral)! shadow-[0_0_0_1px_var(--coral)]')} />
                       </div>
-                      <div className={cn('calendar-event-block mb-2.5 grid min-h-23 grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-4.25 rounded-[5px] border-l-[3px] border-l-(--green) bg-[#eaf4e6] p-[17px_18px] max-[760px]:grid-cols-[76px_minmax(0,1fr)] max-[760px]:gap-3 max-[420px]:grid-cols-1', event.kind === 'class' && 'border-(--blue) bg-(--blue-soft)', event.kind === 'exam' && 'border-(--coral) bg-(--coral-soft)')}>
+                      <div className={cn('calendar-event-block mb-2.5 grid min-h-23 grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-4.25 rounded-[5px] border-l-[3px] border-l-(--green) bg-[#eaf4e6] p-[17px_18px] max-[760px]:grid-cols-[76px_minmax(0,1fr)] max-[760px]:gap-3 max-[420px]:grid-cols-1', event.kind === 'class' && 'border-(--blue) bg-(--blue-soft)!', event.kind === 'exam' && 'border-(--coral) bg-(--coral-soft)!')}>
                         <div className="calendar-event-time max-[420px]:flex max-[420px]:items-center max-[420px]:gap-1.5">
                           <strong className="block text-[.76rem] tabular-nums">
                             {event.allDay ? 'All day' : formatShortTime(event.startAt)}

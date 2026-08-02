@@ -107,9 +107,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null)
   const demoMode = !hasSupabaseConfig
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showLoading = true) => {
     if (demoMode) return
-    setInitializing(true)
+    if (showLoading) setInitializing(true)
     setBootstrapError(null)
     try {
       const timeout = new Promise<never>((_, reject) => {
@@ -136,7 +136,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
             : 'Could not open the household.',
       )
     } finally {
-      setInitializing(false)
+      if (showLoading) setInitializing(false)
     }
   }, [demoMode])
 
@@ -148,9 +148,26 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     if (demoMode || !supabase || !data.household.id) return
     const client = supabase
     let timer: number | undefined
+    let refreshing = false
+    let refreshAgain = false
+    const runRefresh = async () => {
+      if (refreshing) {
+        refreshAgain = true
+        return
+      }
+      refreshing = true
+      try {
+        do {
+          refreshAgain = false
+          await refresh(false)
+        } while (refreshAgain)
+      } finally {
+        refreshing = false
+      }
+    }
     const queueRefresh = () => {
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => void refresh(), 250)
+      timer = window.setTimeout(() => void runRefresh(), 750)
     }
     const tables = [
       'task_definitions', 'task_occurrences', 'infractions', 'infraction_votes',

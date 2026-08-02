@@ -255,7 +255,7 @@ export function SharedCourseSchedule() {
                     return next
                   })}
                 />
-                <span className={cn('grid h-4.5 w-4.5 place-items-center rounded-[4px] border border-(--line-strong) bg-white text-transparent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--forest)', checked && 'border-(--forest) bg-(--forest) text-white')}><Check size={12} strokeWidth={3} /></span>
+                <span className={cn('grid h-4.5 w-4.5 place-items-center rounded-[4px] border border-(--line-strong) bg-white text-transparent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--forest)', checked && 'border-(--forest)! bg-(--forest)! text-white!')}><Check size={12} strokeWidth={3} /></span>
                 <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                 <span className="text-[.78rem] font-bold">{member.displayName}</span>
               </label>
@@ -366,7 +366,7 @@ export function SharedCourseSchedule() {
               <div className="mt-3 grid grid-cols-5 gap-2">
                 {weekdays.map((day) => {
                   const active = meetings.some((meeting) => meeting.kind === kind && meeting.weekday === day.value)
-                  return <button className={cn('min-h-10 rounded-[7px] border border-(--line) bg-transparent text-[.76rem] font-bold text-(--muted)', active && 'border-(--forest) bg-(--forest) text-white')} type="button" key={day.value} onClick={() => toggleMeetingDay(kind, day.value)}>{day.short}</button>
+                  return <button aria-pressed={active} className={cn('min-h-10 rounded-[7px] border border-(--line) bg-transparent text-[.76rem] font-bold text-(--muted)', active && 'border-(--forest)! bg-(--forest)! text-white!')} type="button" key={day.value} onClick={() => toggleMeetingDay(kind, day.value)}>{day.short}</button>
                 })}
               </div>
               <div className="mt-3 grid gap-3">

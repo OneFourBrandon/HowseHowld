@@ -172,7 +172,7 @@ export function AuthGate({ children }: PropsWithChildren) {
             type="button"
             className={cn(
               'min-h-10.5 p-[8px_10px] inline-flex items-center justify-center gap-1.75 border-0 rounded-[7px] text-(--muted) bg-transparent text-[.76rem] font-[750] max-[640px]:text-[.7rem]',
-              mode === 'join' && 'is-active text-(--forest) bg-(--surface-strong) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
+              mode === 'join' && 'is-active bg-(--surface-strong)! text-(--forest) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
             )}
             onClick={() => selectMode('join')}
           >
@@ -182,7 +182,7 @@ export function AuthGate({ children }: PropsWithChildren) {
               type="button"
               className={cn(
                 'min-h-10.5 p-[8px_10px] inline-flex items-center justify-center gap-1.75 border-0 rounded-[7px] text-(--muted) bg-transparent text-[.76rem] font-[750] max-[640px]:text-[.7rem]',
-                mode === 'owner' && 'is-active text-(--forest) bg-(--surface-strong) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
+                mode === 'owner' && 'is-active bg-(--surface-strong)! text-(--forest) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
               )}
               onClick={() => selectMode('owner')}
           >

@@ -62,10 +62,10 @@ export function Badge({
 }>) {
   return <span className={cn(
     'w-fit inline-flex items-center gap-1 p-[5px_8px] rounded-full text-[#5c6661] bg-[#eeeee8] font-extrabold uppercase text-[.75rem] tracking-[.035em]',
-    tone === 'green' && 'text-[#28644f] bg-(--green-soft)',
-    tone === 'amber' && 'text-[#8b6522] bg-(--gold-soft)',
-    tone === 'red' && 'text-[#99402f] bg-(--coral-soft)',
-    tone === 'blue' && 'text-[#495b91] bg-(--blue-soft)',
+    tone === 'green' && 'bg-(--green-soft)! text-[#28644f]',
+    tone === 'amber' && 'bg-(--gold-soft)! text-[#8b6522]',
+    tone === 'red' && 'bg-(--coral-soft)! text-[#99402f]',
+    tone === 'blue' && 'bg-(--blue-soft)! text-[#495b91]',
   )}>{children}</span>
 }
 

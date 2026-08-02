@@ -118,7 +118,7 @@ export function AppShell() {
             cn(
               'mobile-settings-link hidden max-[980px]:absolute max-[980px]:top-4.5 max-[980px]:right-5 max-[980px]:z-[35] max-[980px]:grid max-[980px]:w-10.5 max-[980px]:h-10.5 max-[980px]:place-items-center max-[980px]:border max-[980px]:rounded-[10px] max-[980px]:text-(--forest) max-[980px]:bg-[rgba(244,241,232,.78)] max-[980px]:shadow-[0_8px_24px_rgba(29,46,24,.09)]  max-[980px]:backdrop-blur-[14px] max-[980px]:backdrop-saturate-[1.35]',
               demoMode && 'mobile-settings-link-with-banner max-[980px]:top-12.5',
-              isActive && 'is-active max-[980px]:text-white max-[980px]:bg-(--forest)',
+              isActive && 'is-active max-[980px]:bg-(--forest)! max-[980px]:text-white',
             )}
         >
           <Settings size={21} strokeWidth={1.9} />
@@ -161,7 +161,7 @@ style={{ '--mobile-nav-count': mobileNavItems.length, position: 'fixed', top: 'a
 function desktopNavClass(active: boolean) {
   return cn(
     "nav-link relative flex min-h-13 items-center gap-3 overflow-hidden rounded-lg bg-transparent p-[0_13px] pl-4.5 text-[.96rem] font-[650] text-[#d0dfca] shadow-none transition-[background-color_.18s_ease,color_.18s_ease,transform_.18s_ease] before:absolute before:left-0 before:h-[calc(100%-8px)] before:w-0.75 before:scale-y-[.45] before:rounded-[0_3px_3px_0] before:bg-[#efcf88] before:opacity-0 before:transition-[opacity_.18s_ease,transform_.18s_ease] before:content-[''] hover:translate-x-1 hover:bg-[rgba(255,255,255,.045)] hover:text-white",
-    active && 'nav-link-active bg-[linear-gradient(90deg,rgba(255,255,255,.13),rgba(255,255,255,.09))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.035),inset_0_-1px_0_rgba(0,0,0,.035)] before:scale-y-100 before:opacity-100',
+    active && 'nav-link-active bg-[linear-gradient(90deg,rgba(255,255,255,.13),rgba(255,255,255,.09))]! text-white shadow-[inset_0_1px_0_rgba(255,255,255,.035),inset_0_-1px_0_rgba(0,0,0,.035)] before:scale-y-100 before:opacity-100',
   )
 }
 

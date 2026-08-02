@@ -203,11 +203,11 @@ export function MoneyPage() {
                 <div
                   className={cn(
                     'bill-icon grid h-10.5 w-10.5 place-items-center rounded-[10px] bg-(--sage-2) text-(--forest) max-[760px]:row-[1]',
-                    bill.category === 'electricity' && 'bg-[#fff3c8] text-[#8a6a00]',
-                    bill.category === 'gas' && 'bg-[#fbe8dd] text-[#a34e28]',
-                    bill.category === 'internet' && 'bg-[#e8e6f7] text-[#5c5795]',
-                    bill.category === 'rent' && 'bg-(--gold-soft) text-[#8b6413]',
-                    bill.category === 'water' && 'bg-[#e2f3f6] text-[#287488]',
+                    bill.category === 'electricity' && 'bg-[#fff3c8]! text-[#8a6a00]',
+                    bill.category === 'gas' && 'bg-[#fbe8dd]! text-[#a34e28]',
+                    bill.category === 'internet' && 'bg-[#e8e6f7]! text-[#5c5795]',
+                    bill.category === 'rent' && 'bg-(--gold-soft)! text-[#8b6413]',
+                    bill.category === 'water' && 'bg-[#e2f3f6]! text-[#287488]',
                   )}
                 >
                   <BillIcon category={bill.category} />
