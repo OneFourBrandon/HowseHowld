@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Pause,
   Pencil,
@@ -29,6 +31,7 @@ const taskSchema = z.object({
   penaltyEnabled: z.boolean(),
 })
 type TaskForm = z.infer<typeof taskSchema>
+const UPCOMING_PAGE_SIZE = 5
 
 export function ChoresPage() {
   const {
@@ -53,6 +56,7 @@ export function ChoresPage() {
   const [assignTaskId, setAssignTaskId] = useState('')
   const [assignMemberId, setAssignMemberId] = useState(data.members[0]?.id ?? '')
   const [assignDate, setAssignDate] = useState(new Date().toISOString().slice(0, 10))
+  const [upcomingPageIndex, setUpcomingPageIndex] = useState(0)
   const currentMemberId = data.household.currentMemberId
   const {
     register,
@@ -84,11 +88,23 @@ export function ChoresPage() {
 
   const upcoming = useMemo(
     () =>
-      [...data.occurrences].sort(
+      data.occurrences.filter((occurrence) => occurrence.status === 'assigned').sort(
         (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime(),
       ),
     [data.occurrences],
   )
+  const upcomingPageCount = Math.max(1, Math.ceil(upcoming.length / UPCOMING_PAGE_SIZE))
+  const safeUpcomingPageIndex = Math.min(upcomingPageIndex, upcomingPageCount - 1)
+  const visibleUpcoming = upcoming.slice(
+    safeUpcomingPageIndex * UPCOMING_PAGE_SIZE,
+    (safeUpcomingPageIndex + 1) * UPCOMING_PAGE_SIZE,
+  )
+
+  useEffect(() => {
+    if (upcomingPageIndex !== safeUpcomingPageIndex) {
+      setUpcomingPageIndex(safeUpcomingPageIndex)
+    }
+  }, [safeUpcomingPageIndex, upcomingPageIndex])
 
   const submitTask = handleSubmit(async (values) => {
     const rollingQueue = values.frequency === 'rolling_queue'
@@ -125,12 +141,11 @@ export function ChoresPage() {
   }).length
 
   return (
-    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
-      <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
+    <div className={"page-stack grid gap-10 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
+      <header className="page-header flex items-end justify-between gap-4 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-4 max-[640px]:pb-4.5">
         <div className="grid gap-3.75">
-          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>FAIR TURNS, CLEAR EXPECTATIONS</p>
           <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Chores</h1>
-          <p>Everyone knows what’s next—and what happens if it’s missed.</p>
+          <p className="pl-2">Do your chores... or else.</p>
         </div>
         <Button className="max-[640px]:w-full" onClick={() => setTaskModal(true)}>
           <Plus size={18} /> New chore
@@ -159,7 +174,7 @@ export function ChoresPage() {
           description="Server-confirmed deadlines in Toronto time."
         />
         <div className={"occurrence-list grid gap-0"}>
-          {upcoming.map((occurrence) => {
+          {visibleUpcoming.map((occurrence) => {
             const member = data.members.find((item) => item.id === occurrence.assigneeId)!
             const isMine = member.id === currentMemberId
             return (
@@ -198,6 +213,41 @@ export function ChoresPage() {
             )
           })}
         </div>
+        {upcomingPageCount > 1 && (
+          <nav className="mt-4 flex items-center justify-end gap-1 border-t border-(--line) pt-4" aria-label="Coming up pages">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={safeUpcomingPageIndex === 0}
+              onClick={() => setUpcomingPageIndex((page) => Math.max(0, page - 1))}
+              aria-label="Previous assignments page"
+            >
+              <ChevronLeft size={16} />
+            </Button>
+            {Array.from({ length: upcomingPageCount }, (_, page) => (
+              <Button
+                className="min-w-8 px-2"
+                size="sm"
+                variant={page === safeUpcomingPageIndex ? 'primary' : 'ghost'}
+                onClick={() => setUpcomingPageIndex(page)}
+                aria-current={page === safeUpcomingPageIndex ? 'page' : undefined}
+                aria-label={`Assignments page ${page + 1}`}
+                key={page}
+              >
+                {page + 1}
+              </Button>
+            ))}
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={safeUpcomingPageIndex === upcomingPageCount - 1}
+              onClick={() => setUpcomingPageIndex((page) => Math.min(upcomingPageCount - 1, page + 1))}
+              aria-label="Next assignments page"
+            >
+              <ChevronRight size={16} />
+            </Button>
+          </nav>
+        )}
       </section>
 
       <div className={"content-grid-two grid grid-cols-[minmax(0,1.12fr)_minmax(300px,.88fr)] gap-6.25 items-start max-[980px]:grid-cols-1 max-[980px]:gap-12.5"}>
@@ -207,44 +257,41 @@ export function ChoresPage() {
             {data.tasks.map((task) => {
               const next = data.members.find((member) => member.id === task.nextMemberId)
               return (
-                <div className="routine-row grid min-h-24 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.75 border-t border-(--line) px-1 first:border-t-0" key={task.id}>
-                  <div className={"routine-icon w-8.5 h-8.5 grid place-items-center text-(--green) bg-(--green-soft) rounded-[7px]"}><RotateCw size={18} /></div>
-                  <div>
-                    <strong className="block text-[.88rem]">{task.title}</strong>
-                    <span>{task.recurrenceLabel} · due {task.dueTime}</span>
+                <div className="routine-row grid min-h-34 grid-cols-[64px_minmax(0,1fr)_minmax(280px,1fr)] items-center gap-4 border-t border-(--line) px-1 py-4 first:border-t-0 max-[700px]:grid-cols-[52px_minmax(0,1fr)] max-[700px]:gap-x-3" key={task.id}>
+                  <div className="routine-frequency flex h-full min-h-24 flex-col items-center justify-center gap-2 border-l-[3px] border-(--forest) text-(--forest)">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-(--sage-2)" aria-hidden="true"><RotateCw size={18} /></span>
+                    <span className="text-[.62rem] font-extrabold uppercase tracking-[.08em]">{routineFrequencyLabel(task.recurrence.frequency)}</span>
                   </div>
-                  <div className={"routine-next flex items-center gap-1.75"}>
-                    {next && <Avatar initials={next.initials} color={next.color} imageUrl={next.avatarUrl} size="sm" />}
-                    <span>Next: {next?.displayName ?? 'Manual'}</span>
+                  <div className="min-w-0 max-[700px]:self-center">
+                    <strong className="block text-[.94rem] leading-snug">{task.title}</strong>
+                    <span className="mt-1 block text-[.78rem] text-(--muted)">{task.area}</span>
+                    <span className="mt-1.5 block text-[.8rem] font-semibold text-(--forest-2)">{task.recurrenceLabel}</span>
                   </div>
-                  <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
-                    {task.assignmentMode === 'manual' && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setAssignTaskId(task.id)}
-                      >
-                        Assign
+                  <div className="routine-right grid min-w-0 grid-cols-1 gap-y-3 border-l border-(--line) pl-4 max-[700px]:col-start-2 max-[700px]:mt-2 max-[700px]:border-l-0 max-[700px]:border-t max-[700px]:pl-0 max-[700px]:pt-3">
+                    <div className="flex min-h-10 min-w-0 items-center justify-between gap-4">
+                      <div className="routine-assignee flex min-w-0 items-center gap-2">
+                        {next && <Avatar initials={next.initials} color={next.color} imageUrl={next.avatarUrl} size="sm" />}
+                        <span className="text-[.78rem]"><span className="block text-[.68rem] font-bold uppercase tracking-[.06em] text-(--muted)">Next up</span>{next?.displayName ?? 'Manual assignment'}</span>
+                      </div>
+                      <div className="inline-flex min-h-10 items-center justify-self-start gap-2 self-center text-[.8rem] font-bold text-(--forest-2) tabular-nums">
+                        <Clock3 size={16} /> {formatRoutineDueTime(task.dueTime)}
+                      </div>
+                    </div>
+                    <div className="flex flex-nowrap items-center justify-start gap-x-1 border-t border-(--line) pt-1.5">
+                      {task.assignmentMode === 'manual' && (
+                        <Button size="sm" variant="ghost" onClick={() => setAssignTaskId(task.id)}>Assign</Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => updateTask(task.id, { active: !task.active })}>
+                        {task.active ? <Pause size={15} /> : <RotateCw size={15} />}
+                        {task.active ? 'Pause' : 'Resume'}
                       </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => updateTask(task.id, { active: !task.active })}
-                    >
-                      {task.active ? <Pause size={15} /> : <RotateCw size={15} />}
-                      {task.active ? 'Pause' : 'Resume'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
+                      <Button size="sm" variant="ghost" onClick={() => {
                         const title = window.prompt('Rename this chore', task.title)
                         if (title?.trim()) updateTask(task.id, { title: title.trim() })
-                      }}
-                    >
-                      <Pencil size={15} /> Edit
-                    </Button>
+                      }}>
+                        <Pencil size={15} /> Edit
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )
@@ -540,4 +587,19 @@ function recurrenceSummary(recurrence: {
   }
   const unit = recurrence.frequency === 'daily' ? 'day' : recurrence.frequency === 'monthly' ? 'month' : 'week'
   return recurrence.interval === 1 ? `Every ${unit}` : `Every ${recurrence.interval} ${unit}s`
+}
+
+function routineFrequencyLabel(frequency: string) {
+  if (frequency === 'rolling_queue') return 'Queue'
+  if (frequency === 'once') return 'Once'
+  if (frequency === 'daily') return 'Daily'
+  if (frequency === 'monthly') return 'Monthly'
+  return 'Weekly'
+}
+
+function formatRoutineDueTime(time: string) {
+  const [hour = 0, minute = 0] = time.split(':').map(Number)
+  const suffix = hour >= 12 ? 'PM' : 'AM'
+  const displayHour = hour % 12 || 12
+  return `${displayHour}:${String(minute).padStart(2, '0')} ${suffix}`
 }

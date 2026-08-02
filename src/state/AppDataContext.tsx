@@ -229,7 +229,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       run(
         `complete:${id}`,
         async () => {
-          if (!demoMode) await api.completeOccurrence(id)
+          if (!demoMode) {
+            await api.completeOccurrence(id)
+            await refresh(false)
+            return
+          }
           setData((current) => ({
             ...current,
             occurrences: current.occurrences.map((occurrence) =>
@@ -260,7 +264,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         },
         'Task checked off. Nice work.',
       ),
-    [demoMode, run],
+    [demoMode, refresh, run],
   )
 
   const addTask = useCallback(
