@@ -151,29 +151,38 @@ export function Modal({
   onClose,
   title,
   description,
+  className,
+  headerClassName,
+  closeButtonClassName,
   children,
 }: PropsWithChildren<{
   open: boolean
   onClose: () => void
   title: string
   description?: string
+  className?: string
+  headerClassName?: string
+  closeButtonClassName?: string
 }>) {
   if (!open) return null
   return (
     <div className={"modal-backdrop fixed inset-0 z-[60] grid place-items-center p-5 bg-[rgba(18,32,28,.58)] backdrop-blur-[5px]"} role="presentation" onMouseDown={onClose}>
       <section
-        className={"modal w-[min(620px,100%)] max-h-[min(850px,92vh)] overflow-auto p-6.25 shadow-[0_30px_100px_rgba(0,0,0,.22)] border border-(--line) rounded-xl bg-(--surface-strong)"}
+        className={cn(
+          'modal w-[min(620px,100%)] max-h-[min(850px,92vh)] overflow-auto p-6.25 shadow-[0_30px_100px_rgba(0,0,0,.22)] border border-(--line) rounded-xl bg-(--surface-strong)',
+          className,
+        )}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className={"modal-header flex justify-between items-start gap-4.5 mb-5.5"}>
+        <div className={cn('modal-header flex justify-between items-start gap-4.5 mb-5.5', headerClassName)}>
           <div className="grid gap-1.25">
             <h2 id="modal-title">{title}</h2>
             {description && <p className={"muted text-[.8rem] text-(--muted)"}>{description}</p>}
           </div>
-          <button className={"icon-button w-8.75 h-8.75 grid place-items-center border-0 rounded-full text-(--muted) bg-[#eeeee8]"} onClick={onClose} aria-label="Close">
+          <button className={cn('icon-button w-8.75 h-8.75 grid place-items-center border-0 rounded-full text-(--muted) bg-[#eeeee8]', closeButtonClassName)} onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>

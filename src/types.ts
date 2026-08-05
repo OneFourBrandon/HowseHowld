@@ -103,6 +103,7 @@ export interface TaskOccurrence {
   taskTitle: string
   area: string
   assigneeId: UUID
+  scheduledDate: string
   dueAt: ISODateTime
   status: TaskOccurrenceStatus
   completedAt?: ISODateTime
@@ -127,9 +128,20 @@ export interface ExpenseShare {
   amountCents: MoneyCents
 }
 
+export type ExpenseCategory =
+  | 'groceries'
+  | 'household'
+  | 'dining'
+  | 'transportation'
+  | 'utilities'
+  | 'entertainment'
+  | 'health'
+  | 'other'
+
 export interface Expense {
   id: UUID
   title: string
+  category: ExpenseCategory
   purchasedAt: ISODateTime
   createdBy: UUID
   amountCents: MoneyCents

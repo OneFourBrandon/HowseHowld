@@ -13,9 +13,11 @@ import { Link } from 'react-router-dom'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, SectionHeader } from '../components/ui'
 import {
+  dateKeyInTimeZone,
   formatDateTime,
   formatMoney,
   formatShortTime,
+  taskCompletionAvailability,
   timeUntil,
 } from '../lib/utils'
 
@@ -24,12 +26,20 @@ export function TodayPage() {
   const currentMember = data.members.find(
     (member) => member.id === data.household.currentMemberId,
   )!
+  const householdToday = dateKeyInTimeZone(new Date(), data.household.timezone)
   const myTask = data.occurrences.find(
     (item) =>
       item.assigneeId === currentMember.id &&
       item.status === 'assigned' &&
-      new Date(item.dueAt).toDateString() === new Date().toDateString(),
+      item.scheduledDate === householdToday,
   )
+  const myTaskAvailability = myTask
+    ? taskCompletionAvailability(
+        myTask.scheduledDate,
+        myTask.dueAt,
+        data.household.timezone,
+      )
+    : null
   const myBalance = data.balances.find(
     (balance) => balance.memberId === currentMember.id,
   )!
@@ -109,13 +119,20 @@ export function TodayPage() {
                 <Button
                   className="max-[640px]:w-full"
                   size="lg"
-                  disabled={busy === `complete:${myTask.id}`}
+                  disabled={
+                    busy === `complete:${myTask.id}` ||
+                    myTaskAvailability !== 'available'
+                  }
                   onClick={() => completeOccurrence(myTask.id)}
                 >
                   <Check size={19} />
-                  {busy === `complete:${myTask.id}` ? 'Saving…' : 'Mark complete'}
+                  {busy === `complete:${myTask.id}`
+                    ? 'Saving…'
+                    : myTaskAvailability === 'expired'
+                      ? 'Expired'
+                      : 'Mark complete'}
                 </Button>
-                <span className="text-[.78rem] text-[#84908a]">Checked by the server before midnight</span>
+                <span className="text-[.78rem] text-[#84908a]">Available only today and checked by the server</span>
               </div>
             </div>
           </Card>

@@ -1,5 +1,7 @@
 import { format, formatDistanceToNowStrict, isToday, isTomorrow } from 'date-fns'
-import type { ISODateTime, MoneyCents } from '../types'
+import type { ISODateTime, MoneyCents, TaskOccurrenceStatus } from '../types'
+
+export type TaskCompletionAvailability = 'early' | 'available' | 'expired'
 
 export function cents(value: number): MoneyCents {
   return Math.round(value) as MoneyCents
@@ -26,6 +28,48 @@ export function formatDateTime(value: ISODateTime | string) {
 
 export function formatShortTime(value: ISODateTime | string) {
   return format(new Date(value), 'h:mm a')
+}
+
+export function dateKeyInTimeZone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  return `${value('year')}-${value('month')}-${value('day')}`
+}
+
+export function taskCompletionAvailability(
+  scheduledDate: string,
+  dueAt: ISODateTime | string,
+  timeZone: string,
+  now = new Date(),
+): TaskCompletionAvailability {
+  const today = dateKeyInTimeZone(now, timeZone)
+  if (today < scheduledDate) return 'early'
+  if (today > scheduledDate || now.getTime() > new Date(dueAt).getTime()) return 'expired'
+  return 'available'
+}
+
+export function nextOpenOccurrencePerTask<
+  T extends { taskId: string; dueAt: string; status: TaskOccurrenceStatus },
+>(occurrences: T[]) {
+  const nextByTask = new Map<string, T>()
+
+  for (const occurrence of occurrences) {
+    if (occurrence.status !== 'assigned') continue
+    const current = nextByTask.get(occurrence.taskId)
+    if (!current || new Date(occurrence.dueAt).getTime() < new Date(current.dueAt).getTime()) {
+      nextByTask.set(occurrence.taskId, occurrence)
+    }
+  }
+
+  return [...nextByTask.values()].sort(
+    (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime(),
+  )
 }
 
 export function timeUntil(value: ISODateTime | string) {

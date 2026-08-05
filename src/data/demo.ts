@@ -1,5 +1,5 @@
 import type { AppSnapshot } from '../types'
-import { blockerIds, cents, toIso } from '../lib/utils'
+import { blockerIds, cents, dateKeyInTimeZone, toIso } from '../lib/utils'
 
 const now = new Date()
 const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
@@ -146,6 +146,7 @@ export const demoSnapshot: AppSnapshot = {
       taskTitle: 'Stove & counters',
       area: 'Kitchen',
       assigneeId: 'member-brandon',
+      scheduledDate: dateKeyInTimeZone(new Date(at(0, 23, 59)), 'America/Toronto'),
       dueAt: at(0, 23, 59),
       status: 'assigned',
       reminderLabel: 'Next reminder at 10:00 PM',
@@ -156,6 +157,7 @@ export const demoSnapshot: AppSnapshot = {
       taskTitle: 'Garbage to the curb',
       area: 'Outside',
       assigneeId: 'member-noah',
+      scheduledDate: dateKeyInTimeZone(new Date(at(0, 22)), 'America/Toronto'),
       dueAt: at(0, 22),
       status: 'assigned',
       reminderLabel: 'Next reminder at 6:00 PM',
@@ -166,6 +168,7 @@ export const demoSnapshot: AppSnapshot = {
       taskTitle: 'Clean the bathroom',
       area: 'Bathroom',
       assigneeId: 'member-maya',
+      scheduledDate: dateKeyInTimeZone(new Date(at(-1, 23, 59)), 'America/Toronto'),
       dueAt: at(-1, 23, 59),
       status: 'completed',
       completedAt: at(-1, 20, 14),
@@ -190,6 +193,7 @@ export const demoSnapshot: AppSnapshot = {
     {
       id: 'expense-paper',
       title: 'Toilet paper & paper towel',
+      category: 'household',
       purchasedAt: at(-2, 18, 25),
       createdBy: 'member-brandon',
       amountCents: cents(4_836),
@@ -206,6 +210,7 @@ export const demoSnapshot: AppSnapshot = {
     {
       id: 'expense-spices',
       title: 'Kitchen spices',
+      category: 'groceries',
       purchasedAt: at(-5, 12, 10),
       createdBy: 'member-maya',
       amountCents: cents(2_400),

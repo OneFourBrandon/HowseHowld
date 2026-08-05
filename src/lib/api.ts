@@ -591,6 +591,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       taskTitle: taskMap.get(row.task_id)?.title ?? 'House chore',
       area: taskMap.get(row.task_id)?.area ?? 'House',
       assigneeId: row.assignee_member_id,
+      scheduledDate: row.scheduled_date,
       dueAt: row.due_at,
       status: row.status,
       completedAt: row.completed_at ?? undefined,
@@ -619,6 +620,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     expenses: (expenseResult.data ?? []).map((row) => ({
       id: row.id,
       title: row.title,
+      category: row.category ?? 'other',
       purchasedAt: row.purchased_at,
       createdBy: row.created_by,
       amountCents: row.amount_cents,

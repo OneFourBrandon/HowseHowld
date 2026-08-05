@@ -29,7 +29,7 @@ type NewTask = Omit<
   TaskDefinition,
   'id' | 'householdId' | 'active' | 'nextMemberId'
 >
-type NewExpense = Pick<Expense, 'title' | 'amountCents'> & {
+type NewExpense = Pick<Expense, 'title' | 'category' | 'amountCents'> & {
   payers: Expense['payers']
   beneficiaries: Expense['beneficiaries']
   receipt?: File
@@ -402,6 +402,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           const expense: Expense = {
             id,
             title: input.title,
+            category: input.category,
             purchasedAt: toIso(new Date()),
             createdBy: data.household.currentMemberId,
             amountCents: cents(input.amountCents),
@@ -412,6 +413,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           if (!demoMode) {
             const createdId = await api.createExpense({
               title: expense.title,
+              category: expense.category,
               purchasedAt: expense.purchasedAt,
               createdBy: expense.createdBy,
               amountCents: expense.amountCents,

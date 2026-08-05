@@ -18,7 +18,12 @@ import {
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
-import { formatDateTime, formatMoney } from '../lib/utils'
+import {
+  formatDateTime,
+  formatMoney,
+  nextOpenOccurrencePerTask,
+  taskCompletionAvailability,
+} from '../lib/utils'
 
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Give the chore a name.'),
@@ -87,10 +92,7 @@ export function ChoresPage() {
   }, [assignmentMode, frequency, setValue])
 
   const upcoming = useMemo(
-    () =>
-      data.occurrences.filter((occurrence) => occurrence.status === 'assigned').sort(
-        (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime(),
-      ),
+    () => nextOpenOccurrencePerTask(data.occurrences),
     [data.occurrences],
   )
   const upcomingPageCount = Math.max(1, Math.ceil(upcoming.length / UPCOMING_PAGE_SIZE))
@@ -177,6 +179,11 @@ export function ChoresPage() {
           {visibleUpcoming.map((occurrence) => {
             const member = data.members.find((item) => item.id === occurrence.assigneeId)!
             const isMine = member.id === currentMemberId
+            const completionAvailability = taskCompletionAvailability(
+              occurrence.scheduledDate,
+              occurrence.dueAt,
+              data.household.timezone,
+            )
             return (
               <Card key={occurrence.id} className="occurrence-card grid min-h-25.5 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3.25 border-b border-b-(--line) px-1 py-5 max-[640px]:grid-cols-[auto_1fr_auto] max-[640px]:px-0">
                 <div
@@ -203,10 +210,25 @@ export function ChoresPage() {
                   <Button
                     className="max-[640px]:col-[3] max-[640px]:row-[1/span_2]"
                     variant="secondary"
-                    disabled={busy === `complete:${occurrence.id}`}
+                    disabled={
+                      busy === `complete:${occurrence.id}` ||
+                      completionAvailability !== 'available'
+                    }
+                    title={
+                      completionAvailability === 'early'
+                        ? `Available on ${occurrence.scheduledDate}`
+                        : completionAvailability === 'expired'
+                          ? 'This task has expired'
+                          : 'Mark this task complete'
+                    }
                     onClick={() => completeOccurrence(occurrence.id)}
                   >
-                    <Check size={17} /> Done
+                    <Check size={17} />
+                    {completionAvailability === 'early'
+                      ? 'Not yet'
+                      : completionAvailability === 'expired'
+                        ? 'Expired'
+                        : 'Done'}
                   </Button>
                 )}
               </Card>

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   blockerIds,
+  dateKeyInTimeZone,
   isLedgerBalanced,
+  nextOpenOccurrencePerTask,
   nextRotationMember,
   penaltyForPriorMisses,
   resolvePeerVote,
   splitEvenly,
+  taskCompletionAvailability,
 } from './utils'
 
 describe('shared expense splitting', () => {
@@ -79,5 +82,94 @@ describe('Toronto daylight-saving boundaries', () => {
   it('keeps a 23:59 local deadline while its UTC offset changes', () => {
     expect(formatter.format(new Date('2026-03-08T04:59:00Z'))).toContain('03-07, 23:59')
     expect(formatter.format(new Date('2026-03-09T03:59:00Z'))).toContain('03-08, 23:59')
+  })
+})
+
+describe('task completion window', () => {
+  it('uses the household date rather than the browser or UTC date', () => {
+    expect(dateKeyInTimeZone(new Date('2026-08-03T02:00:00Z'), 'America/Toronto')).toBe('2026-08-02')
+    expect(
+      taskCompletionAvailability(
+        '2026-08-03',
+        '2026-08-04T03:59:00Z',
+        'America/Toronto',
+        new Date('2026-08-03T02:00:00Z'),
+      ),
+    ).toBe('early')
+  })
+
+  it('allows only the scheduled day before its deadline', () => {
+    expect(
+      taskCompletionAvailability(
+        '2026-08-03',
+        '2026-08-04T03:59:00Z',
+        'America/Toronto',
+        new Date('2026-08-03T15:00:00Z'),
+      ),
+    ).toBe('available')
+    expect(
+      taskCompletionAvailability(
+        '2026-08-03',
+        '2026-08-04T03:59:00Z',
+        'America/Toronto',
+        new Date('2026-08-04T04:00:00Z'),
+      ),
+    ).toBe('expired')
+  })
+})
+
+describe('coming-up chores', () => {
+  it('keeps only the nearest assigned occurrence for each routine', () => {
+    const occurrences = [
+      {
+        id: 'weekly-later',
+        taskId: 'weekly',
+        taskTitle: 'Bins',
+        area: 'Outside',
+        assigneeId: 'member-a',
+        scheduledDate: '2026-08-12',
+        dueAt: '2026-08-13T03:59:00Z',
+        status: 'assigned' as const,
+        reminderLabel: 'Scheduled',
+      },
+      {
+        id: 'rolling-next',
+        taskId: 'rolling-b',
+        taskTitle: 'Vacuum',
+        area: 'House',
+        assigneeId: 'member-b',
+        scheduledDate: '2026-08-04',
+        dueAt: '2026-08-05T03:59:00Z',
+        status: 'assigned' as const,
+        reminderLabel: 'Scheduled',
+      },
+      {
+        id: 'weekly-next',
+        taskId: 'weekly',
+        taskTitle: 'Bins',
+        area: 'Outside',
+        assigneeId: 'member-a',
+        scheduledDate: '2026-08-05',
+        dueAt: '2026-08-06T03:59:00Z',
+        status: 'assigned' as const,
+        reminderLabel: 'Scheduled',
+      },
+      {
+        id: 'finished',
+        taskId: 'finished-task',
+        taskTitle: 'Done',
+        area: 'House',
+        assigneeId: 'member-a',
+        scheduledDate: '2026-08-02',
+        dueAt: '2026-08-03T03:59:00Z',
+        status: 'completed' as const,
+        reminderLabel: 'Completed',
+      },
+    ]
+
+    expect(nextOpenOccurrencePerTask(occurrences).map((item) => item.id)).toEqual([
+      'rolling-next',
+      'weekly-next',
+    ])
   })
 })
