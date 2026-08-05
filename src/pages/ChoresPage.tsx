@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
+import { ChoreOccurrenceIcon } from '../components/ChoreOccurrenceIcon'
 import {
   formatDateTime,
   formatMoney,
@@ -186,14 +187,7 @@ export function ChoresPage() {
             )
             return (
               <Card key={occurrence.id} className="occurrence-card grid min-h-25.5 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3.25 border-b border-b-(--line) px-1 py-5 max-[640px]:grid-cols-[auto_1fr_auto] max-[640px]:px-0">
-                <div
-                  className={cn(
-                    'status-check w-9 h-9 grid place-items-center text-[#8a7444] bg-(--gold-soft) rounded-lg',
-                    occurrence.status === 'completed' && 'bg-(--green)! text-white!',
-                  )}
-                >
-                  {occurrence.status === 'completed' ? <Check size={18} /> : <Clock3 size={18} />}
-                </div>
+                <ChoreOccurrenceIcon status={occurrence.status} />
                 <div className="occurrence-detail grid gap-1.25">
                   <div className="flex gap-1.25">
                     <Badge>{occurrence.area}</Badge>

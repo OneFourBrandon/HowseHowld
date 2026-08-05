@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { AppDataProvider } from '../state/AppDataContext'
@@ -51,8 +51,11 @@ describe('Today page', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('heading', { name: 'Stove & counters' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /mark complete/i }))
-    expect(await screen.findByText('You’re all clear.')).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { name: 'Stove & counters' })
+    const row = heading.closest('[data-agenda-item]') as HTMLElement | null
+    expect(row).not.toBeNull()
+    fireEvent.click(within(row!).getByRole('button', { name: /mark complete/i }))
+    expect(await within(row!).findByText('Done')).toBeInTheDocument()
+    expect(within(row!).queryByRole('button', { name: /mark complete/i })).not.toBeInTheDocument()
   })
 })
