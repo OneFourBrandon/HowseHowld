@@ -35,7 +35,7 @@ export function MoneyPage() {
   const currentMemberId = data.household.currentMemberId
 
   return (
-    <div className="page-stack">
+    <>
       <MoneyDashboard
         selectedMonth={selectedMonth}
         onMonthChange={setSelectedMonth}
@@ -51,7 +51,7 @@ export function MoneyPage() {
         description="A payment check is tracked separately for every assigned roommate each month."
       >
         <form
-          className="form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"
+          className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1"
           onSubmit={async (event) => {
             event.preventDefault()
             if (!billName.trim() || !billMembers.size) return
@@ -89,11 +89,11 @@ export function MoneyPage() {
           <label className="col-span-full">Due day
             <input type="number" min="1" max="28" value={billDueDay} onChange={(event) => setBillDueDay(event.target.value)} required />
           </label>
-          <fieldset className="col-span-full border-0 border-b border-(--line) px-3.5 py-2">
+          <fieldset className="col-span-full grid gap-1 border-0 py-1">
             <legend>Remind unpaid roommates</legend>
-            <div className="mt-1.5 grid grid-cols-2 max-[420px]:grid-cols-1">
+            <div className="mt-1 grid grid-cols-2 gap-x-5 max-[420px]:grid-cols-1">
               {[7, 3, 1, 0].map((day) => (
-                <label className="flex min-h-10.5 items-center gap-2 border-b border-(--line) text-[.84rem] font-semibold" key={day}>
+                <label className="flex min-h-11 items-center gap-2.5 border-b border-(--line) text-[.84rem] font-semibold" key={day}>
                   <input
                     type="checkbox"
                     checked={billReminders.has(day)}
@@ -109,11 +109,11 @@ export function MoneyPage() {
               ))}
             </div>
           </fieldset>
-          <fieldset className="col-span-full border-0 border-b border-(--line) px-3.5 py-2">
+          <fieldset className="col-span-full grid gap-1 border-0 py-1">
             <legend>Who needs to pay?</legend>
-            <div className="mt-1.5 grid">
+            <div className="mt-1 grid">
               {data.members.map((member) => (
-                <label className="flex min-h-10.5 items-center gap-2 border-b border-(--line) text-[.84rem] font-semibold" key={member.id}>
+                <label className="flex min-h-11 items-center gap-2.5 border-b border-(--line) text-[.84rem] font-semibold" key={member.id}>
                   <input
                     type="checkbox"
                     checked={billMembers.has(member.id)}
@@ -149,7 +149,7 @@ export function MoneyPage() {
         description="The recipient must confirm before balances change."
       >
         <form
-          className="form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"
+          className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1"
           onSubmit={async (event) => {
             event.preventDefault()
             const amountCents = Math.round(Number(settleAmount) * 100)
@@ -179,6 +179,6 @@ export function MoneyPage() {
           </div>
         </form>
       </Modal>
-    </div>
+    </>
   )
 }

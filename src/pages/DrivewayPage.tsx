@@ -31,7 +31,17 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
-import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
+import {
+  Avatar,
+  Button,
+  Card,
+  CardHead,
+  EmptyState,
+  FeatureCard,
+  Modal,
+  PageHeader,
+  Pill,
+} from '../components/ui'
 import { formatDateTime, timeUntil, toIso } from '../lib/utils'
 import type { Vehicle } from '../types'
 
@@ -137,42 +147,45 @@ export function DrivewayPage() {
   }
 
   return (
-    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
-      <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
-        <div className="grid gap-3.75">
-          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>NO MORE DRIVEWAY TEXT CHAINS</p>
-          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Driveway</h1>
-          <p>The current lineup decides exactly who needs to move.</p>
-        </div>
-        <div className="button-row flex flex-wrap items-center gap-2.25 max-[640px]:grid max-[640px]:w-full max-[640px]:grid-cols-2 max-[640px]:gap-2">
-          <Button className="max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.78rem]" variant="secondary" onClick={() => {
-            resetVehicleEditor()
-            setVehicleModal(true)
-          }}>
-            <CarFront className="shrink-0" size={18} /> <span className="whitespace-nowrap">Manage vehicles</span>
-          </Button>
-          <Button className="max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.78rem]" variant="secondary" disabled={!data.vehicles.length} onClick={() => openDeparture(true)}>
-            <LogOut className="shrink-0" size={18} />
-            <span className="whitespace-nowrap"><span className="max-[480px]:hidden">Quick remove vehicle</span><span className="hidden max-[480px]:inline">Quick remove</span></span>
-          </Button>
-          <Button className="max-[640px]:col-span-2 max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.8rem]" disabled={!data.vehicles.length} onClick={() => openDeparture(false)}>
-            <Plus className="shrink-0" size={18} /> <span className="whitespace-nowrap">Schedule exit</span>
-          </Button>
-        </div>
-      </header>
+    <>
+      <PageHeader
+        title="Driveway"
+        description="The current lineup decides exactly who needs to move."
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => {
+              resetVehicleEditor()
+              setVehicleModal(true)
+            }}>
+              <CarFront className="shrink-0" size={16} /> <span className="whitespace-nowrap">Manage vehicles</span>
+            </Button>
+            <Button variant="secondary" disabled={!data.vehicles.length} onClick={() => openDeparture(true)}>
+              <LogOut className="shrink-0" size={16} />
+              <span className="whitespace-nowrap">Quick remove</span>
+            </Button>
+            <Button disabled={!data.vehicles.length} onClick={() => openDeparture(false)}>
+              <Plus className="shrink-0" size={16} /> <span className="whitespace-nowrap">Schedule exit</span>
+            </Button>
+          </>
+        }
+      />
 
-      <div className={"driveway-layout grid grid-cols-[minmax(0,1.45fr)_minmax(300px,.65fr)] items-start max-[980px]:grid-cols-1 gap-14.5 max-[980px]:gap-12.5"}>
-        <section>
-          <SectionHeader
-            eyebrow="LIVE LINEUP"
+      <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.65fr)] items-start gap-5 max-[1100px]:grid-cols-1">
+        <Card className="relative overflow-hidden pb-6">
+          <CardHead
             title="Street to back"
-            description={`drag cars to update`}
+            description="Drag cars to update the lineup. Everyone sees the same order."
+            action={
+              <Pill className="border-[rgba(61,220,151,.25)] bg-(--green-soft) text-(--green)">
+                <Route size={13} /> Live
+              </Pill>
+            }
           />
-          <Card className={"driveway-card relative overflow-hidden p-[22px_0_26px] py-[28px_34px]"}>
-            <div className="street-label flex items-center justify-center gap-3 text-[.75rem] font-extrabold tracking-[.07em] text-(--muted)">
-              <span className="h-0.25 flex-1 bg-(--line)" />
+          <div className="px-5 max-[640px]:px-3">
+            <div className="flex items-center justify-center gap-3 text-[.68rem] font-extrabold tracking-[.14em] text-(--text-3)">
+              <span className="h-px flex-1 bg-(--line-2)" />
               STREET / EXIT
-              <span className="h-0.25 flex-1 bg-(--line)" />
+              <span className="h-px flex-1 bg-(--line-2)" />
             </div>
             <DndContext
               sensors={sensors}
@@ -186,7 +199,7 @@ export function DrivewayPage() {
                 items={previewOrder}
                 strategy={verticalListSortingStrategy}
               >
-                <div className={"driveway-lane w-full m-[18px_auto] p-[12px_17px] border-2  rounded-[10px] border-[#bfc9c2] bg-[#eef1ed]"}>
+                <div className="hh-inner my-3.5 w-full p-1.5">
                   {previewVehicles.map((vehicle, index) => (
                     <SortableVehicle
                       key={vehicle.id}
@@ -198,14 +211,20 @@ export function DrivewayPage() {
                 </div>
               </SortableContext>
             </DndContext>
-            <div className={"back-label flex items-center justify-center gap-3 font-extrabold text-[#919890] text-[.75rem] tracking-[.07em]"}><ArrowDown size={16} /> BACK OF DRIVEWAY</div>
-            {busy === 'driveway:reorder' && <div className={"driveway-saving absolute inset-[auto_16px_12px_auto] text-(--muted) text-[.75rem]"}>Updating lineup…</div>}
-          </Card>
-        </section>
+            <div className="flex items-center justify-center gap-2 text-[.68rem] font-extrabold tracking-[.14em] text-(--text-4)"><ArrowDown size={14} /> BACK OF DRIVEWAY</div>
+            {!data.vehicles.length && (
+              <EmptyState
+                icon={CarFront}
+                title="No vehicles yet"
+                description="Add a car and the lineup shows who has to move."
+                action={<Button size="sm" onClick={() => { resetVehicleEditor(); setVehicleModal(true) }}><Plus size={15} /> Add a vehicle</Button>}
+              />
+            )}
+          </div>
+          {busy === 'driveway:reorder' && <div className="absolute right-5 bottom-3 text-[.75rem] text-(--text-3)">Updating lineup…</div>}
+        </Card>
 
-        <section>
-          <SectionHeader eyebrow="DEPARTURES" title="Who needs out" />
-          <div className={"departure-list grid gap-0"}>
+        <div className="grid content-start gap-5">
             {data.departures.map((departure) => {
               const vehicle = data.vehicles.find((item) => item.id === departure.vehicleId)!
               const owner = data.members.find((item) => item.id === departure.ownerMemberId)!
@@ -213,46 +232,62 @@ export function DrivewayPage() {
                 .map((id) => data.vehicles.find((item) => item.id === id))
                 .filter(Boolean)
               return (
-                <Card className={"departure-card grid gap-3.5 p-[22px_4px] border-b border-b-(--line) max-[640px]:pl-0 max-[640px]:pr-0 py-6.75"} key={departure.id}>
-                  <div className="departure-card-top grid grid-cols-[auto_1fr_auto] items-center gap-2.5">
-                    <div className={"car-swatch w-10.5 h-8.75 grid place-items-center text-white rounded-[7px]"} style={{ background: vehicle.color }}>
-                      <CarFront />
+                <FeatureCard tone="pink" className="grid gap-3.5 p-5" key={departure.id}>
+                  <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+                    <div className="grid h-9 w-11 place-items-center rounded-xl text-white" style={{ background: vehicle.color }}>
+                      <CarFront size={19} />
                     </div>
-                    <div>
-                      <strong className="block text-[.88rem]">{vehicle.label}</strong>
-                      <span>{owner.displayName} · {departure.sourceLabel}</span>
+                    <div className="grid min-w-0 gap-0.5">
+                      <strong className="truncate text-[.95rem]">{vehicle.label}</strong>
+                      <span className="truncate text-[.78rem] text-[rgba(255,255,255,.8)]">{owner.displayName} · {departure.sourceLabel}</span>
                     </div>
-                    <Badge tone="blue">{timeUntil(departure.requiredAt)}</Badge>
+                    <span className="hh-badge shrink-0 border-transparent bg-white text-(--bg)">{timeUntil(departure.requiredAt)}</span>
                   </div>
-                  <div className="departure-time flex items-start gap-2.25 rounded-none border-y border-[#d3d9ed] bg-transparent py-3 font-sans text-[#4d6098] tabular-nums">
-                    <Clock3 size={17} />
-                    <div className="grid min-w-0 gap-1">
-                      <strong className="block leading-tight">{formatDateTime(departure.requiredAt)}</strong>
-                      <span className="block text-[.76rem] leading-snug text-[#6878a6]">Alert {departure.warningMinutes} minutes before</span>
+                  <div className="flex items-start gap-2.5 border-y border-[rgba(255,255,255,.22)] py-3">
+                    <Clock3 size={17} className="mt-0.5 shrink-0" />
+                    <div className="grid min-w-0 gap-0.5">
+                      <strong className="block leading-tight tabular-nums">{formatDateTime(departure.requiredAt)}</strong>
+                      <span className="block text-[.76rem] text-[rgba(255,255,255,.8)]">Alert {departure.warningMinutes} minutes before</span>
                     </div>
                   </div>
-                  <div className="blocker-box grid gap-2.25">
-                    <div className="flex items-center gap-1.5 text-[.75rem] font-bold text-(--muted)"><Route size={17} /><span>{blockers.length} blocking car{blockers.length === 1 ? '' : 's'}</span></div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center gap-1.5 text-[.76rem] font-bold text-[rgba(255,255,255,.85)]"><Route size={15} /><span>{blockers.length} blocking car{blockers.length === 1 ? '' : 's'}</span></div>
                     {blockers.length ? (
-                      blockers.map((blocker) => {
+                      blockers.map((blocker, blockerIndex) => {
                         const blockerOwner = data.members.find((member) => member.id === blocker!.ownerMemberId)!
                         return (
-                          <div className="blocker-person grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[.75rem]" key={blocker!.id}>
+                          <div
+                            className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-2.5 text-(--bg)"
+                            style={{ marginLeft: blockerIndex * 14 }}
+                            key={blocker!.id}
+                          >
                             <Avatar initials={blockerOwner.initials} color={blockerOwner.color} imageUrl={blockerOwner.avatarUrl} size="sm" />
-                            <span>{blockerOwner.displayName} moves {blocker!.label}</span>
-                            <BellRing className="text-(--gold)" size={15} />
+                            <span className="min-w-0 flex-1 truncate text-[.8rem] font-bold">{blockerOwner.displayName} moves {blocker!.label}</span>
+                            <BellRing size={15} className="shrink-0" />
                           </div>
                         )
                       })
                     ) : (
-                      <span className={"all-clear-text text-(--green) text-[.75rem]"}>Clear path to the street.</span>
+                      <span className="rounded-xl bg-white px-3 py-2.5 text-[.8rem] font-bold text-(--bg)">Clear path to the street.</span>
                     )}
                   </div>
-                </Card>
+                </FeatureCard>
               )
             })}
-          </div>
-        </section>
+          {!data.departures.length && (
+            <Card className="grid content-start gap-3 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2>Who needs out</h2>
+                <Pill>Departures</Pill>
+              </div>
+              <EmptyState
+                icon={LogOut}
+                title="No exits scheduled"
+                description="Schedule an exit and blockers get a reminder before it."
+              />
+            </Card>
+          )}
+        </div>
       </div>
 
       <Modal
@@ -262,7 +297,7 @@ export function DrivewayPage() {
         description="The current blockers will be notified one hour beforehand."
       >
         <form
-          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
+          className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1"
           onSubmit={async (event) => {
             event.preventDefault()
             if (!vehicleId || !requiredAt) return
@@ -291,8 +326,8 @@ export function DrivewayPage() {
             </select>
           </label>
           {departureQuickMode && (
-            <fieldset className="field-span-2 col-span-full grid gap-2.5 border-0 p-0 max-[640px]:col-[1]">
-              <legend className="text-[.78rem] font-extrabold text-(--ink)">When should it be out?</legend>
+            <fieldset className="col-span-full grid gap-2.5 border-0 p-0 max-[640px]:col-[1]">
+              <legend className="text-[.78rem] font-extrabold text-(--text)">When should it be out?</legend>
               <div className="grid gap-1.5">
                 <input
                   className="m-0 w-full accent-(--forest)"
@@ -313,17 +348,17 @@ export function DrivewayPage() {
                     <span className={cn('h-1.5 w-1.5 rounded-full bg-(--line-strong)', index === Math.round(((quickDepartureMinutes ?? 60) - 30) / 30) && 'bg-(--forest)!')} key={index} />
                   ))}
                 </div>
-                <div className="flex items-center justify-between text-[.7rem] text-(--muted)">
+                <div className="flex items-center justify-between text-[.7rem] text-(--text-3)">
                   <span>30 min</span>
-                  <strong className="text-(--forest)">{formatQuickOffset(quickDepartureMinutes ?? 60)}</strong>
+                  <strong className="text-(--text)">{formatQuickOffset(quickDepartureMinutes ?? 60)}</strong>
                   <span>6 hours</span>
                 </div>
               </div>
             </fieldset>
           )}
           {departureQuickMode ? (
-            <div className="grid content-center gap-1 rounded-lg border border-(--line) bg-(--sage-2) p-3">
-              <span className="text-[.7rem] font-extrabold uppercase tracking-[.06em] text-(--muted)">Scheduled for</span>
+            <div className="grid content-center gap-1 rounded-lg border border-(--line) bg-(--inner) p-3">
+              <span className="text-[.7rem] font-extrabold uppercase tracking-[.06em] text-(--text-3)">Scheduled for</span>
               <strong className="text-[.86rem]">{requiredAt ? formatDateTime(toIso(new Date(requiredAt))) : 'Choose a quick time'}</strong>
             </div>
           ) : (
@@ -359,7 +394,7 @@ export function DrivewayPage() {
               <option value="weekly">Weekly</option>
             </select>
           </label>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <div className="col-span-full mt-1.5 flex justify-end gap-2 max-[640px]:col-[1]">
             <Button type="button" variant="ghost" onClick={() => setDepartureModal(false)}>Cancel</Button>
             <Button type="submit">{departureQuickMode ? 'Schedule quick exit' : 'Schedule exit'}</Button>
           </div>
@@ -386,16 +421,16 @@ export function DrivewayPage() {
                   </div>
                   <div className="min-w-0">
                     <strong className="block truncate text-[.9rem]">{vehicle.label}</strong>
-                    <span className="block truncate text-[.75rem] text-(--muted)">
+                    <span className="block truncate text-[.75rem] text-(--text-3)">
                       {[vehicle.plate, owner.displayName].filter(Boolean).join(' · ')}
                     </span>
                   </div>
                   {canManage && (
                     <div className="flex items-center gap-1.5">
-                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => openVehicleEditor(vehicle)} aria-label={`Edit ${vehicle.label}`}>
+                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--text-3) transition-colors hover:bg-(--inner) hover:text-(--text)" type="button" onClick={() => openVehicleEditor(vehicle)} aria-label={`Edit ${vehicle.label}`}>
                         <Pencil size={16} />
                       </button>
-                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:border-[#d9aaa3] hover:bg-[#fff1ef] hover:text-[#a34135]" type="button" onClick={() => {
+                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--text-3) transition-colors hover:border-[rgba(255,93,93,.4)] hover:bg-(--red-soft) hover:text-[#ff8080]" type="button" onClick={() => {
                         if (window.confirm(`Delete ${vehicle.label}?`)) void removeVehicle(vehicle.id)
                       }} aria-label={`Delete ${vehicle.label}`}>
                         <Trash2 size={16} />
@@ -405,7 +440,7 @@ export function DrivewayPage() {
                 </div>
               )
             }) : (
-              <p className="py-5 text-[.82rem] text-(--muted)">No vehicles have been added yet.</p>
+              <p className="py-5 text-[.82rem] text-(--text-3)">No vehicles have been added yet.</p>
             )}
           </div>
           {!vehicleEditorOpen ? (
@@ -446,7 +481,7 @@ export function DrivewayPage() {
               <label>Color
                 <input type="color" value={vehicleColor} onChange={(event) => setVehicleColor(event.target.value)} />
               </label>
-              <div className="modal-actions col-span-full mt-1.5 flex justify-end gap-2.25 max-[640px]:col-[1]">
+              <div className="col-span-full mt-1.5 flex justify-end gap-2 max-[640px]:col-[1]">
                 <Button type="button" variant="ghost" onClick={resetVehicleEditor}>Cancel</Button>
                 <Button type="submit" disabled={vehicleSubmitting}>{vehicleSubmitting ? 'Saving…' : editingVehicleId ? 'Save changes' : 'Add vehicle'}</Button>
               </div>
@@ -454,7 +489,7 @@ export function DrivewayPage() {
           )}
         </div>
       </Modal>
-    </div>
+    </>
   )
 }
 
@@ -474,25 +509,25 @@ function SortableVehicle({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'vehicle-row grid min-h-19.5 cursor-grab touch-none select-none grid-cols-[auto_25px_auto_1fr_auto_60px] items-center gap-2.5 rounded-none border-b border-b-(--line) bg-transparent px-1.5 py-3.75 shadow-none active:cursor-grabbing max-[640px]:grid-cols-[auto_20px_auto_1fr_auto]',
-        isDragging && 'is-dragging z-[5] bg-(--surface-strong)! opacity-[.85] shadow-[0_12px_28px_rgba(30,48,40,.14)]',
+        'grid min-h-16 cursor-grab touch-none grid-cols-[auto_22px_auto_1fr_auto_auto] items-center gap-3 rounded-xl border-0 bg-transparent px-3 py-3 transition-colors select-none hover:bg-[rgba(255,255,255,.035)] active:cursor-grabbing max-[640px]:grid-cols-[auto_20px_auto_1fr_auto]',
+        isDragging && 'z-5 bg-(--raise)! shadow-[0_16px_36px_-12px_rgba(0,0,0,.7)]',
       )}
       {...attributes}
       {...listeners}
     >
-      <span className={"drag-handle p-0.75 text-[#9fa49f]"} aria-hidden="true">
+      <span className="p-0.5 text-(--text-4)" aria-hidden="true">
         <GripVertical />
       </span>
       <PositionNumber value={index + 1} />
-      <div className={"vehicle-art w-10.5 h-8 grid place-items-center text-white rounded-[7px]"} style={{ background: vehicle.color }}>
+      <div className="grid h-9 w-11 place-items-center rounded-xl text-white" style={{ background: vehicle.color }}>
         <CarFront />
       </div>
-      <div className="vehicle-name">
+      <div className="min-w-0">
         <strong className="block text-[.88rem]">{vehicle.label}</strong>
-        <span className="mt-0.75 block text-[.75rem] tracking-[.02em] text-(--muted)">{vehicle.plate}</span>
+        <span className="mt-0.75 block text-[.75rem] tracking-[.02em] text-(--text-3)">{vehicle.plate}</span>
       </div>
       <Avatar initials={owner.initials} color={owner.color} imageUrl={owner.avatarUrl} size="sm" />
-      <span className={"owner-name text-(--muted) max-[640px]:hidden text-[.75rem]"}>{owner.displayName}</span>
+      <span className="text-[.78rem] font-semibold text-(--text-3) max-[640px]:hidden">{owner.displayName}</span>
     </div>
   )
 }
@@ -515,7 +550,7 @@ function PositionNumber({ value }: { value: number }) {
   }, [value])
 
   return (
-    <span ref={numberRef} className="position-number text-center text-[.75rem] font-extrabold tabular-nums text-(--muted)">
+    <span ref={numberRef} className="text-center text-[.78rem] font-extrabold text-(--text-3) tabular-nums">
       {value}
     </span>
   )

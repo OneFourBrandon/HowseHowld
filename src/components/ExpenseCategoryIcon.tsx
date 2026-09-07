@@ -13,37 +13,42 @@ import type { ExpenseCategory } from '../types'
 
 export function ExpenseCategoryIcon({
   category,
+  size = 40,
   className,
 }: {
   category: ExpenseCategory
+  size?: number
   className?: string
 }) {
-  const iconClassName = 'size-[19px]'
+  const iconSize = Math.round(size * 0.47)
   const icon = category === 'groceries'
-    ? <ShoppingCart className={iconClassName} />
+    ? <ShoppingCart size={iconSize} />
     : category === 'household'
-      ? <Home className={iconClassName} />
+      ? <Home size={iconSize} />
       : category === 'dining'
-        ? <Utensils className={iconClassName} />
+        ? <Utensils size={iconSize} />
         : category === 'transportation'
-          ? <CarFront className={iconClassName} />
+          ? <CarFront size={iconSize} />
           : category === 'utilities'
-            ? <Lightbulb className={iconClassName} />
+            ? <Lightbulb size={iconSize} />
             : category === 'entertainment'
-              ? <Film className={iconClassName} />
+              ? <Film size={iconSize} />
               : category === 'health'
-                ? <HeartPulse className={iconClassName} />
-                : <Package className={iconClassName} />
+                ? <HeartPulse size={iconSize} />
+                : <Package size={iconSize} />
 
   return (
     <span
+      aria-hidden="true"
+      style={{ width: size, height: size }}
       className={cn(
-        'grid size-10 shrink-0 place-items-center rounded-full bg-(--sage) text-(--forest)',
-        category === 'dining' && 'bg-(--gold-soft) text-[#8b6413]',
-        category === 'transportation' && 'bg-(--blue-soft) text-(--blue)',
-        category === 'utilities' && 'bg-[#fff3c8] text-[#8a6a00]',
-        category === 'entertainment' && 'bg-[#e8e6f7] text-[#5c5795]',
-        category === 'health' && 'bg-(--coral-soft) text-(--coral)',
+        'grid shrink-0 place-items-center rounded-full bg-(--blue-soft) text-[#7d9cff]',
+        category === 'groceries' && 'bg-(--green-soft) text-(--green)',
+        category === 'dining' && 'bg-(--amber-soft) text-(--amber)',
+        category === 'transportation' && 'bg-(--pink-soft) text-[#ff7fae]',
+        category === 'utilities' && 'bg-(--amber-soft) text-(--amber)',
+        category === 'entertainment' && 'bg-(--violet-soft) text-(--violet)',
+        category === 'health' && 'bg-(--red-soft) text-[#ff8080]',
         className,
       )}
     >

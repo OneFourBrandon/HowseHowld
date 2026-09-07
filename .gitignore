@@ -46,3 +46,6 @@ playwright-report
 *.njsproj
 *.sln
 *.sw?
+
+# Generated design-canvas artboards (rebuild with: node design/ledger/build.mjs)
+design/ledger/artboards

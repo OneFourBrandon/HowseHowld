@@ -3,7 +3,6 @@ import {
   Bell,
   CalendarDays,
   Car,
-  Check,
   ClipboardCheck,
   GraduationCap,
   WalletMinimal,
@@ -65,7 +64,7 @@ export function FeatureChecklist({
   disabled?: boolean
 }) {
   return (
-    <div className={"feature-options feature-checklist flex flex-col gap-0 border-t border-t-(--line)"}>
+    <div className="grid grid-cols-2 gap-2.5 max-[720px]:grid-cols-1">
       {householdFeatureOptions.map((feature) => {
         const FeatureIcon = feature.icon
         const checked = enabledFeatures.includes(feature.id)
@@ -73,14 +72,24 @@ export function FeatureChecklist({
           <label
             key={feature.id}
             className={cn(
-              'feature-option grid min-h-16.5 cursor-pointer grid-cols-[28px_minmax(0,1fr)_20px] items-center gap-3 border-0 border-b border-b-(--line) bg-transparent p-[11px_2px]',
-              disabled && 'is-disabled cursor-default opacity-[.64]',
+              'hh-inner grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3.5 p-3.5 transition-colors hover:border-(--line-2)',
+              disabled && 'cursor-default opacity-60 hover:border-(--line)',
             )}
           >
-            <FeatureIcon className={"feature-icon text-(--forest-2)"} size={21} aria-hidden="true" />
-            <span className={"feature-copy"}>
-              <strong className="block text-[.86rem] text-(--ink)">{feature.label}</strong>
-              <small className="mt-0.5 block text-[.76rem] leading-[1.35] font-medium text-(--muted)">{feature.description}</small>
+            <span
+              className={cn(
+                'grid size-9.5 shrink-0 place-items-center rounded-xl transition-colors',
+                checked ? 'bg-(--blue-soft) text-[#7d9cff]' : 'bg-(--raise) text-(--text-3)',
+              )}
+              aria-hidden="true"
+            >
+              <FeatureIcon size={18} strokeWidth={1.9} />
+            </span>
+            <span className="grid min-w-0 gap-0.5">
+              <strong className="text-[.86rem] text-(--text)">{feature.label}</strong>
+              <small className="text-[.74rem] leading-snug font-medium text-(--text-3)">
+                {feature.description}
+              </small>
             </span>
             <input
               className="peer sr-only"
@@ -89,12 +98,19 @@ export function FeatureChecklist({
               disabled={disabled}
               onChange={() => onToggle(feature.id)}
             />
-            <span className={cn(
-              "feature-checkbox w-4.75 h-4.75 grid place-items-center border border-[#9aa8a1] rounded-[5px] text-transparent transition-[background_.15s_ease,border-color_.15s_ease,color_.15s_ease] peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[rgba(43,75,31,.2)]",
-              checked && 'text-white!',
-              checked ? 'border-(--forest)! bg-(--forest)!' : 'border-[#9aa8a1] bg-transparent'
-            )} aria-hidden="true">
-              <Check size={14} strokeWidth={3} />
+            <span
+              className={cn(
+                'flex h-6 w-10.5 shrink-0 items-center rounded-full border p-0.75 transition-colors duration-200 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[rgba(59,107,255,.6)]',
+                checked ? 'border-transparent bg-(--green)' : 'border-(--line) bg-(--raise)',
+              )}
+              aria-hidden="true"
+            >
+              <span
+                className={cn(
+                  'block size-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.4)] transition-transform duration-200 ease-[cubic-bezier(.34,1.56,.64,1)]',
+                  checked && 'translate-x-4.5',
+                )}
+              />
             </span>
           </label>
         )

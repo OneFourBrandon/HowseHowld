@@ -19,7 +19,7 @@ import type {
   SharedCourseAssessmentKind,
   SharedCourseMeetingKind,
 } from '../types'
-import { Avatar, Badge, Button, Modal, SectionHeader } from './ui'
+import { Avatar, Badge, Button, Card, CardHead, EmptyState, Inner, Modal, Pill } from './ui'
 
 const weekdays = [
   { value: 1 as const, short: 'Mon', label: 'Monday' },
@@ -191,26 +191,25 @@ export function SharedCourseSchedule() {
   const selectedDayLabel = weekdays.find((day) => day.value === selectedDay)!.label
 
   return (
-    <div className="grid gap-12">
-      <section>
-        <SectionHeader
-          eyebrow="CLASS IMPORTER"
+    <>
+      <Card className="pb-4">
+        <CardHead
           title="Build your class list"
           description="Add your weekly lectures and labs, or join a class a roommate already entered."
-          action={<Button size="sm" onClick={openNew}><Plus size={16} /> Add class</Button>}
+          action={<Button size="sm" variant="secondary" onClick={openNew}><Plus size={15} /> Add class</Button>}
         />
-        <div className="grid border-t border-(--line)">
+        <div className="grid gap-2.5 px-5 max-[640px]:px-3">
           {data.sharedCourses.map((course) => {
             const enrolled = course.enrollmentMemberIds.includes(currentMemberId)
             return (
-              <div className="grid min-h-22 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-(--line) py-4" key={course.id}>
-                <span className="h-11 w-1 rounded-full" style={{ backgroundColor: course.color }} />
+              <Inner className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3.5" key={course.id}>
+                <span className="h-10 w-1 rounded-full" style={{ backgroundColor: course.color }} />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <strong className="text-[.92rem]">{course.code}</strong>
                     <Badge tone={enrolled ? 'green' : 'neutral'}>{enrolled ? 'Your class' : `${course.enrollmentMemberIds.length} enrolled`}</Badge>
                   </div>
-                  <p className="mt-1 text-[.78rem] text-(--muted)">{course.name}</p>
+                  <p className="mt-1 text-[.78rem] text-(--text-3)">{course.name}</p>
                   <div className="mt-2 flex items-center">
                     {course.enrollmentMemberIds.map((memberId) => {
                       const member = data.members.find((item) => item.id === memberId)
@@ -222,24 +221,26 @@ export function SharedCourseSchedule() {
                   {enrolled ? <Pencil size={15} /> : <Plus size={15} />}
                   {enrolled ? 'Edit mine' : "I'm in this class"}
                 </Button>
-              </div>
+              </Inner>
             )
           })}
           {!data.sharedCourses.length && (
-            <button className="flex min-h-28 items-center justify-center gap-2 border-0 border-b border-(--line) bg-transparent text-[.84rem] font-bold text-(--forest)" onClick={openNew}>
-              <Plus size={18} /> Add the first class
-            </button>
+            <EmptyState
+              icon={Users}
+              title="No classes yet"
+              description="Add your weekly lectures and labs so the house can see your week."
+              action={<Button size="sm" onClick={openNew}><Plus size={15} /> Add the first class</Button>}
+            />
           )}
         </div>
-      </section>
+      </Card>
 
-      <section>
-        <SectionHeader
-          eyebrow="HOUSEHOLD WEEK"
-          title="Everyone's classes"
-          description="Filter roommates, then select a weekday for the combined agenda."
+      <Card className="pb-5">
+        <CardHead
+          title="Everyone’s classes"
+          description="Filter roommates, then pick a weekday for the combined agenda."
         />
-        <div className="mb-6 flex flex-wrap gap-x-5 gap-y-3 border-y border-(--line) py-4" aria-label="Filter schedule by roommate">
+        <div className="flex flex-wrap gap-x-5 gap-y-3 px-5 pb-4 max-[640px]:px-3" aria-label="Filter schedule by roommate">
           {data.members.map((member) => {
             const checked = selectedMembers.has(member.id)
             return (
@@ -255,7 +256,7 @@ export function SharedCourseSchedule() {
                     return next
                   })}
                 />
-                <span className={cn('grid h-4.5 w-4.5 place-items-center rounded-[4px] border border-(--line-strong) bg-white text-transparent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--forest)', checked && 'border-(--forest)! bg-(--forest)! text-white!')}><Check size={12} strokeWidth={3} /></span>
+                <span className={cn('grid size-4.5 place-items-center rounded-md border border-(--line-2) bg-(--inner) text-transparent transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[rgba(59,107,255,.6)]', checked && 'border-(--text)! bg-(--text)! text-(--bg)!')}><Check size={12} strokeWidth={3} /></span>
                 <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                 <span className="text-[.78rem] font-bold">{member.displayName}</span>
               </label>
@@ -263,23 +264,23 @@ export function SharedCourseSchedule() {
           })}
         </div>
 
-        <div className="overflow-x-auto border-b border-(--line)">
+        <div className="overflow-x-auto border-y border-(--line)">
           <div className="grid min-w-225 grid-cols-5">
             {weekdays.map((day) => {
               const dayMeetings = groupedMeetings.filter((meeting) => meeting.weekday === day.value)
               return (
                 <button
-                  className={cn('min-h-65 border-0 border-l border-(--line) bg-transparent p-3 text-left first:border-l-0 hover:bg-(--sage-2)', selectedDay === day.value && 'bg-(--sage-2)')}
+                  className={cn('min-h-52 border-0 border-l border-(--line) bg-transparent p-3 text-left transition-colors first:border-l-0 hover:bg-[rgba(255,255,255,.03)]', selectedDay === day.value && 'bg-[rgba(255,255,255,.04)]')}
                   type="button"
                   key={day.value}
                   onClick={() => setSelectedDay(day.value)}
                 >
-                  <span className="mb-3 block text-[.72rem] font-extrabold uppercase tracking-[.08em] text-(--muted)">{day.label}</span>
+                  <span className="mb-3 block text-[.68rem] font-bold tracking-[.08em] text-(--text-3) uppercase">{day.label}</span>
                   <span className="grid gap-2">
                     {dayMeetings.map((meeting) => (
-                      <span className="grid gap-1 rounded-[5px] border-l-[3px] bg-white p-2.5 shadow-[0_5px_16px_rgba(30,48,40,.06)]" style={{ borderLeftColor: meeting.course.color }} key={`${meeting.course.id}-${meeting.kind}-${meeting.startTime}-${meeting.location}`}>
-                        <strong className="text-[.75rem]">{formatTime(meeting.startTime)} · {meeting.course.code}</strong>
-                        <span className="text-[.68rem] capitalize text-(--muted)">{meeting.kind} · {meeting.durationMinutes} min</span>
+                      <span className="grid gap-1 rounded-xl border border-(--line) bg-(--card) p-2.5" style={{ boxShadow: `inset 3px 0 0 ${meeting.course.color}` }} key={`${meeting.course.id}-${meeting.kind}-${meeting.startTime}-${meeting.location}`}>
+                        <strong className="pl-1.5 text-[.75rem]">{formatTime(meeting.startTime)} · {meeting.course.code}</strong>
+                        <span className="pl-1.5 text-[.68rem] text-(--text-3) capitalize">{meeting.kind} · {meeting.durationMinutes} min</span>
                         <span className="flex items-center">
                           {meeting.memberIds.map((memberId) => {
                             const member = data.members.find((item) => item.id === memberId)
@@ -288,7 +289,7 @@ export function SharedCourseSchedule() {
                         </span>
                       </span>
                     ))}
-                    {!dayMeetings.length && <span className="py-8 text-center text-[.72rem] text-(--muted)">No classes</span>}
+                    {!dayMeetings.length && <span className="py-8 text-center text-[.72rem] text-(--text-3)">No classes</span>}
                   </span>
                 </button>
               )
@@ -296,21 +297,21 @@ export function SharedCourseSchedule() {
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="mb-3 flex items-end justify-between border-b border-(--line) pb-3">
-            <div>
-              <p className="text-[.72rem] font-extrabold tracking-[.08em] text-(--gold)">DAY VIEW</p>
-              <h3 className="mt-1 text-[1.7rem]">{selectedDayLabel}</h3>
+        <div className="px-5 pt-5 max-[640px]:px-3">
+          <div className="mb-2 flex items-end justify-between gap-3 pb-2">
+            <div className="grid gap-0.5">
+              <p className="text-[.7rem] font-bold tracking-[.06em] text-(--text-3) uppercase">Day view</p>
+              <h3 className="text-[1.35rem] font-extrabold tracking-[-.02em]">{selectedDayLabel}</h3>
             </div>
-            <span className="text-[.75rem] text-(--muted)">{selectedDayMeetings.length} session{selectedDayMeetings.length === 1 ? '' : 's'}</span>
+            <Pill>{selectedDayMeetings.length} session{selectedDayMeetings.length === 1 ? '' : 's'}</Pill>
           </div>
           <div className="grid">
             {selectedDayMeetings.map((meeting) => (
-              <div className="grid min-h-22 grid-cols-[84px_1fr_auto] items-center gap-4 border-b border-(--line) py-3" key={`day-${meeting.course.id}-${meeting.kind}-${meeting.startTime}-${meeting.location}`}>
+              <div className="grid min-h-18 grid-cols-[84px_1fr_auto] items-center gap-4 border-t border-(--line) py-3 first:border-t-0" key={`day-${meeting.course.id}-${meeting.kind}-${meeting.startTime}-${meeting.location}`}>
                 <strong className="font-sans text-[.84rem] tabular-nums">{formatTime(meeting.startTime)}</strong>
                 <div>
-                  <div className="flex items-center gap-2"><strong className="text-[.88rem]">{meeting.course.code}</strong><Badge tone={meeting.kind === 'lab' ? 'blue' : 'green'}>{meeting.kind}</Badge></div>
-                  <p className="mt-1 flex flex-wrap gap-3 text-[.74rem] text-(--muted)"><span className="inline-flex items-center gap-1"><Clock3 size={13} /> {meeting.durationMinutes} minutes</span>{meeting.location && <span className="inline-flex items-center gap-1"><MapPin size={13} /> {meeting.location}</span>}</p>
+                  <div className="flex items-center gap-2"><strong className="text-[.88rem]">{meeting.course.code}</strong><Badge tone={meeting.kind === 'lab' ? 'violet' : 'green'}>{meeting.kind}</Badge></div>
+                  <p className="mt-1 flex flex-wrap gap-3 text-[.74rem] text-(--text-3)"><span className="inline-flex items-center gap-1"><Clock3 size={13} /> {meeting.durationMinutes} minutes</span>{meeting.location && <span className="inline-flex items-center gap-1"><MapPin size={13} /> {meeting.location}</span>}</p>
                 </div>
                 <div className="flex">
                   {meeting.memberIds.map((memberId) => {
@@ -320,23 +321,23 @@ export function SharedCourseSchedule() {
                 </div>
               </div>
             ))}
-            {!selectedDayMeetings.length && <p className="py-10 text-center text-[.8rem] text-(--muted)">No selected roommates have classes this day.</p>}
+            {!selectedDayMeetings.length && <EmptyState title="No classes this day" description="No selected roommates have classes on this weekday." />}
           </div>
         </div>
 
         {upcomingAssessments.length > 0 && (
-          <div className="mt-10">
-            <div className="mb-3 border-b border-(--line) pb-3">
-              <p className="text-[.72rem] font-extrabold tracking-[.08em] text-(--gold)">UPCOMING</p>
-              <h3 className="mt-1 text-[1.7rem]">Midterms & exams</h3>
+          <div className="px-5 pt-6 max-[640px]:px-3">
+            <div className="mb-2 grid gap-0.5 pb-2">
+              <p className="text-[.7rem] font-bold tracking-[.06em] text-(--text-3) uppercase">Upcoming</p>
+              <h3 className="text-[1.35rem] font-extrabold tracking-[-.02em]">Midterms &amp; exams</h3>
             </div>
             <div className="grid">
               {upcomingAssessments.map(({ course, assessment, memberIds }) => (
                 <div className="grid min-h-22 grid-cols-[120px_1fr_auto] items-center gap-4 border-b border-(--line) py-3 max-[560px]:grid-cols-[1fr_auto]" key={`${course.id}-${assessment.kind}-${assessment.startsAt}-${assessment.title}`}>
                   <strong className="font-sans text-[.8rem] tabular-nums max-[560px]:col-span-2">{formatAssessmentDate(assessment.startsAt)}</strong>
                   <div>
-                    <div className="flex flex-wrap items-center gap-2"><strong className="text-[.88rem]">{course.code} · {assessment.title}</strong><Badge tone={assessment.kind === 'exam' ? 'blue' : 'green'}>{assessment.kind}</Badge></div>
-                    <p className="mt-1 flex flex-wrap gap-3 text-[.74rem] text-(--muted)"><span className="inline-flex items-center gap-1"><Clock3 size={13} /> {assessment.durationMinutes} minutes</span>{assessment.location && <span className="inline-flex items-center gap-1"><MapPin size={13} /> {assessment.location}</span>}</p>
+                    <div className="flex flex-wrap items-center gap-2"><strong className="text-[.88rem]">{course.code} · {assessment.title}</strong><Badge tone={assessment.kind === 'exam' ? 'red' : 'violet'}>{assessment.kind}</Badge></div>
+                    <p className="mt-1 flex flex-wrap gap-3 text-[.74rem] text-(--text-3)"><span className="inline-flex items-center gap-1"><Clock3 size={13} /> {assessment.durationMinutes} minutes</span>{assessment.location && <span className="inline-flex items-center gap-1"><MapPin size={13} /> {assessment.location}</span>}</p>
                   </div>
                   <div className="flex">
                     {memberIds.map((memberId) => {
@@ -349,7 +350,7 @@ export function SharedCourseSchedule() {
             </div>
           </div>
         )}
-      </section>
+      </Card>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={courseId ? 'Your class schedule' : 'Add a class'} description="Lectures and labs can occur on the same day. Add a time and duration for every selected day.">
         <form className="grid gap-6" onSubmit={submit}>
@@ -362,11 +363,11 @@ export function SharedCourseSchedule() {
           {(['lecture', 'lab'] as const).map((kind) => (
             <fieldset className="border-0 border-t border-(--line) p-0 pt-5" key={kind}>
               <legend className="flex items-center gap-2 text-[.9rem] font-extrabold capitalize">{kind === 'lecture' ? <BookOpen size={17} /> : <Beaker size={17} />}{kind}s</legend>
-              <p className="mt-1 text-[.74rem] text-(--muted)">Choose every weekday this {kind} meets.</p>
+              <p className="mt-1 text-[.74rem] text-(--text-3)">Choose every weekday this {kind} meets.</p>
               <div className="mt-3 grid grid-cols-5 gap-2">
                 {weekdays.map((day) => {
                   const active = meetings.some((meeting) => meeting.kind === kind && meeting.weekday === day.value)
-                  return <button aria-pressed={active} className={cn('min-h-10 rounded-[7px] border border-(--line) bg-transparent text-[.76rem] font-bold text-(--muted)', active && 'border-(--forest)! bg-(--forest)! text-white!')} type="button" key={day.value} onClick={() => toggleMeetingDay(kind, day.value)}>{day.short}</button>
+                  return <button aria-pressed={active} className={cn('min-h-10 rounded-[7px] border border-(--line) bg-transparent text-[.76rem] font-bold text-(--text-3)', active && 'border-(--forest)! bg-(--forest)! text-white!')} type="button" key={day.value} onClick={() => toggleMeetingDay(kind, day.value)}>{day.short}</button>
                 })}
               </div>
               <div className="mt-3 grid gap-3">
@@ -375,7 +376,7 @@ export function SharedCourseSchedule() {
                     <strong className="self-center text-[.78rem]">{weekdays.find((day) => day.value === meeting.weekday)!.label}</strong>
                     <label>Starts<input type="time" value={meeting.startTime} onChange={(event) => updateMeeting(kind, meeting.weekday, { startTime: event.target.value })} required /></label>
                     <label>Minutes<input type="number" min="5" max="720" step="5" value={meeting.durationMinutes} onChange={(event) => updateMeeting(kind, meeting.weekday, { durationMinutes: Number(event.target.value) })} required /></label>
-                    <label>Location <span className="text-(--muted)">Optional</span><input value={meeting.location} onChange={(event) => updateMeeting(kind, meeting.weekday, { location: event.target.value })} placeholder="Room" /></label>
+                    <label>Location <span className="text-(--text-3)">Optional</span><input value={meeting.location} onChange={(event) => updateMeeting(kind, meeting.weekday, { location: event.target.value })} placeholder="Room" /></label>
                   </div>
                 ))}
               </div>
@@ -384,7 +385,7 @@ export function SharedCourseSchedule() {
 
           <fieldset className="border-0 border-t border-(--line) p-0 pt-5">
             <div className="flex items-center justify-between gap-3">
-              <div><legend className="flex items-center gap-2 text-[.9rem] font-extrabold"><CalendarClock size={17} /> Midterms & exams</legend><p className="mt-1 text-[.74rem] text-(--muted)">Optional now; add or edit these whenever dates are announced.</p></div>
+              <div><legend className="flex items-center gap-2 text-[.9rem] font-extrabold"><CalendarClock size={17} /> Midterms & exams</legend><p className="mt-1 text-[.74rem] text-(--text-3)">Optional now; add or edit these whenever dates are announced.</p></div>
               <Button type="button" size="sm" variant="secondary" onClick={() => setAssessments((current) => [...current, { key: crypto.randomUUID(), kind: 'midterm', title: 'Midterm', startsAt: '', durationMinutes: 120, location: '' }])}><Plus size={15} /> Add</Button>
             </div>
             <div className="mt-3 grid gap-3">
@@ -400,14 +401,14 @@ export function SharedCourseSchedule() {
             </div>
           </fieldset>
 
-          {error && <p className="text-[.76rem] font-bold text-(--coral)">{error}</p>}
+          {error && <p className="text-[.76rem] font-bold text-[#ff8080]">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={busy?.startsWith('shared-course:save')}><Users size={17} /> Save my schedule</Button>
           </div>
         </form>
       </Modal>
-    </div>
+    </>
   )
 }
 

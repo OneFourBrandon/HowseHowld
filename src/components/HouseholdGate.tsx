@@ -4,6 +4,7 @@ import { HOUSEHOLD_FEATURES, type HouseholdFeature } from '../types'
 import { signOut } from '../lib/api'
 import { useAppData } from '../state/AppDataContext'
 import { Button, Card } from './ui'
+import { BrandMark } from './BrandMark'
 import { FeatureChecklist } from './FeatureChecklist'
 
 export function HouseholdGate({ children }: PropsWithChildren) {
@@ -27,7 +28,7 @@ export function HouseholdGate({ children }: PropsWithChildren) {
   const [error, setError] = useState('')
 
   if (demoMode) return children
-  if (initializing) return <div className={"app-loading min-h-screen grid place-items-center text-(--forest) bg-(--paper) font-display"}>Opening your house…</div>
+  if (initializing) return <div className={"app-loading min-h-screen grid place-items-center text-(--text) bg-(--bg) font-display"}>Opening your house…</div>
   if (bootstrapError) {
     return (
       <div className={"gate-page min-h-screen grid place-items-center p-5 bg-[radial-gradient(circle_at_50%_0,#e8eadf,var(--paper)_45%)]"}>
@@ -73,19 +74,19 @@ export function HouseholdGate({ children }: PropsWithChildren) {
   }
 
   return (
-    <div className={"gate-page household-setup-page min-h-screen block p-[clamp(28px,4vw,64px)] bg-(--paper) max-[640px]:p-[22px_18px_36px]"}>
+    <div className={"gate-page household-setup-page min-h-screen block p-[clamp(28px,4vw,64px)] bg-(--bg) max-[640px]:p-[22px_18px_36px]"}>
       <main className={"household-setup-shell w-[min(1240px,100%)] mx-auto"}>
         <header className="household-setup-header border-b border-b-(--line) pb-[clamp(28px,4vw,52px)]">
           <div className="brand gate-brand mb-[clamp(32px,5vw,64px)] flex items-center justify-start gap-3 max-[640px]:mb-8.5">
-            <div className={"brand-mark w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"}>H</div>
-            <strong className="block font-display text-[1.18rem] tracking-[-.02em] text-(--ink)">HowseHowld</strong>
+            <BrandMark size={38} />
+            <strong className="block font-display text-[1.18rem] tracking-[-.02em] text-(--text)">HowseHowld</strong>
           </div>
           <div className="setup-intro grid grid-cols-[56px_minmax(0,720px)] items-start gap-5.5 max-[640px]:grid-cols-1 max-[640px]:gap-4">
-            <div className="gate-icon m-0 grid h-13 w-13 place-items-center justify-center rounded-[10px] bg-(--sage) text-(--forest) max-[640px]:h-10.5 max-[640px]:w-10.5" aria-hidden="true"><Home className="m-0 block" /></div>
+            <div className="gate-icon m-0 grid h-13 w-13 place-items-center justify-center rounded-[10px] bg-(--violet-soft) text-(--text) max-[640px]:h-10.5 max-[640px]:w-10.5" aria-hidden="true"><Home className="m-0 block" /></div>
             <div>
-              <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>SET UP YOUR HOUSE</p>
+              <p className={"eyebrow text-(--amber) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>SET UP YOUR HOUSE</p>
               <h1 className="mt-1.5 text-[clamp(2.4rem,4.4vw,4.6rem)] leading-[.98] max-[640px]:text-[2.25rem] max-[640px]:leading-[1.02]">Create your private household.</h1>
-              <p className="muted mt-3.25 max-w-162.5 text-[.92rem] leading-[1.6] text-(--muted)">
+              <p className="muted mt-3.25 max-w-162.5 text-[.92rem] leading-[1.6] text-(--text-3)">
                 You’ll be the admin. After setup, share the generated house code with
                 everyone who lives here.
               </p>
@@ -119,7 +120,7 @@ export function HouseholdGate({ children }: PropsWithChildren) {
               />
             </label>
             <label className="col-span-full text-[.76rem]">
-              Unit or apartment <span className={"optional-label ml-1.25 text-(--muted) font-medium"}>Optional</span>
+              Unit or apartment <span className={"optional-label ml-1.25 text-(--text-3) font-medium"}>Optional</span>
               <input
                 value={addressLine2}
                 onChange={(event) => setAddressLine2(event.target.value)}
@@ -156,8 +157,8 @@ export function HouseholdGate({ children }: PropsWithChildren) {
           </div>
 
           <fieldset className="feature-picker col-auto m-0 border-0 p-0">
-            <legend className="mb-2 text-[1.35rem] font-[750] text-(--ink)">Choose your features</legend>
-            <p className="mb-3.5 text-[.8rem] font-medium text-(--muted)">Today and Settings are always included.</p>
+            <legend className="mb-2 text-[1.35rem] font-[750] text-(--text)">Choose your features</legend>
+            <p className="mb-3.5 text-[.8rem] font-medium text-(--text-3)">Today and Settings are always included.</p>
             <FeatureChecklist
               enabledFeatures={enabledFeatures}
               onToggle={toggleFeature}
@@ -165,11 +166,11 @@ export function HouseholdGate({ children }: PropsWithChildren) {
           </fieldset>
 
           <div className="setup-actions col-[2] grid self-start gap-3 max-[980px]:col-[1]">
-            {error && <p className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{error}</p>}
+            {error && <p className={"form-error mt-1.25 text-[#ff8080] text-[.75rem]"}>{error}</p>}
             <Button className="w-full" type="submit" size="lg" disabled={Boolean(busy)}>
               <Plus size={18} /> Create household
             </Button>
-            <button className="gate-switch m-0 justify-self-start border-0 bg-transparent p-2.5 text-[.78rem] font-bold text-(--forest-2)" type="button" onClick={() => signOut()}>
+            <button className="gate-switch m-0 justify-self-start border-0 bg-transparent p-2.5 text-[.78rem] font-bold text-[#7d9cff]" type="button" onClick={() => signOut()}>
               Sign out and use another account
             </button>
           </div>

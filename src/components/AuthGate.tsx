@@ -1,10 +1,11 @@
 import { cn } from '../lib/cn'
 import { type PropsWithChildren, type SubmitEvent, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { Home, ShieldCheck, Users } from 'lucide-react'
+import { Home, ShieldCheck, Sparkles, Users } from 'lucide-react'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import { joinHouseWithCode, sendAdminMagicLink } from '../lib/api'
 import { Button } from './ui'
+import { BrandMark } from './BrandMark'
 
 type AuthMode = 'owner' | 'join'
 
@@ -88,18 +89,18 @@ export function AuthGate({ children }: PropsWithChildren) {
   }, [authAttempt])
 
   if (!hasSupabaseConfig) return children
-  if (loading || joining) return <div className={"app-loading min-h-screen grid place-items-center text-(--forest) bg-(--paper) font-display"}>Opening your house…</div>
+  if (loading || joining) return <div className="grid min-h-dvh place-items-center bg-(--bg) text-[.95rem] font-semibold text-(--text-3)">Opening your house…</div>
   if (authError) {
     return (
-      <main className={"backend-unavailable grid content-center justify-items-start gap-8.5 w-[min(620px,calc(100%-40px))] min-h-svh mx-auto"}>
+      <main className="mx-auto grid min-h-dvh w-[min(620px,calc(100%-40px))] content-center justify-items-start gap-7">
         <div className={"brand flex items-center gap-3"}>
-          <div className={"brand-mark w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"}>H</div>
-          <strong className={"block font-display text-[1.18rem] tracking-[-.02em]"}>HowseHowld</strong>
+          <BrandMark size={38} />
+          <strong className="text-[1.05rem] font-extrabold tracking-[-.02em]">HowseHowld</strong>
         </div>
         <div className={"grid gap-2.5"}>
-          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>LOCAL BACKEND OFFLINE</p>
-          <h1 className={"text-[clamp(2.2rem,6vw,4.5rem)] leading-[.98]"}>Your house couldn’t open.</h1>
-          <p className={"max-w-135 text-(--muted) leading-[1.6]"}>{authError}</p>
+          <p className="text-[.74rem] font-bold tracking-[.08em] text-(--text-3) uppercase">LOCAL BACKEND OFFLINE</p>
+          <h1 className="text-[clamp(2rem,5vw,3.2rem)] leading-[1.02]">Your house couldn’t open.</h1>
+          <p className={"max-w-135 text-(--text-3) leading-[1.6]"}>{authError}</p>
         </div>
         <Button onClick={() => setAuthAttempt((attempt) => attempt + 1)}>
           Try again
@@ -145,34 +146,54 @@ export function AuthGate({ children }: PropsWithChildren) {
   }
 
   return (
-    <div className={"auth-page min-h-screen grid grid-cols-[0.9fr_1.1fr] bg-(--paper) max-[640px]:grid-cols-1 max-[640px]:items-center max-[640px]:p-3.5 max-[980px]:block max-[980px]:p-0"}>
-      <div className={"auth-story p-[clamp(32px,6vw,88px)] flex flex-col justify-between text-white bg-(--forest) max-[640px]:hidden"}>
-        <div className={"brand brand-light flex items-center gap-3"}>
-          <div className={"brand-mark mr-0.5 w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"}>H</div>
-          <strong className={"block font-display text-[1.18rem] tracking-[-.02em]"}>HowseHowld</strong>
+    <div className="relative grid min-h-dvh grid-cols-[0.95fr_1.05fr] overflow-hidden bg-(--bg) max-[980px]:block">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-55 -left-45 size-180 rounded-full"
+        style={{ background: 'radial-gradient(closest-side, rgba(242,80,140,.42), rgba(242,80,140,0))' }}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-80 left-75 size-190 rounded-full"
+        style={{ background: 'radial-gradient(closest-side, rgba(59,107,255,.38), rgba(59,107,255,0))' }}
+      />
+      <div className="relative flex flex-col justify-between p-[clamp(32px,6vw,72px)] text-(--text) max-[980px]:hidden">
+        <div className="flex items-center gap-3">
+          <BrandMark size={38} />
+          <strong className="text-[1.05rem] font-extrabold tracking-[-.02em]">HowseHowld</strong>
         </div>
         <div>
-          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>ONE APP, EVERY HOUSE</p>
-          <h1 className={"mt-3.5 text-[clamp(3.2rem,7vw,6.4rem)] leading-[.91]"}>Less chasing.<br />More living.</h1>
-          <p className={"max-w-135 mt-6.25 text-[#cadac4] text-[1rem] leading-[1.6]"}>
+          <span className="hh-pill mb-5">
+            <Sparkles size={14} className="text-(--pink)" /> One app, every house
+          </span>
+          <h1 className="text-[clamp(3rem,6vw,5.4rem)] leading-[.94]">
+            Less chasing.<br />
+            <span className="text-(--text-3)">More living.</span>
+          </h1>
+          <p className="mt-6 max-w-115 text-[1rem] leading-relaxed text-(--text-3)">
             Each house gets its own private space for chores, money, schedules,
             vehicles and the routines that keep everyone moving.
           </p>
+          <div className="mt-7 flex flex-wrap gap-2">
+            {['Chores', 'Shared money', 'Calendar', 'Driveway'].map((label) => (
+              <span className="hh-pill bg-[rgba(255,255,255,.05)]" key={label}>{label}</span>
+            ))}
+          </div>
         </div>
-        <div className={"auth-trust flex items-center gap-2 text-[#cadac4] text-[.8rem]"}>
+        <div className="relative flex items-center gap-2 text-[.82rem] text-(--text-3)">
           <ShieldCheck size={18} />
           Every household is isolated and private
         </div>
       </div>
 
-      <main className={"auth-panel min-w-0 grid items-center p-[clamp(10px,3vw,96px)] max-[980px]:min-h-screen max-[980px]:p-[clamp(28px,8vw,72px)] max-[640px]:p-[24px_20px_40px]"}>
-        <div className={"auth-content w-[min(600px,80%)] h-[min(620px,calc(100vh-48px))] overflow-y-auto scrollbar-gutter-stable mx-auto max-[980px]:w-[min(620px,100%)] max-[980px]:h-auto max-[980px]:overflow-visible max-[980px]:scrollbar-gutter-auto"}>
-        <div className={"auth-mode-switch grid grid-cols-2 gap-1 mb-7 p-1 border border-(--line) rounded-[10px] bg-[#edf1ed] max-[640px]:mb-5.5"} aria-label="Choose how to continue">
+      <main className="relative z-1 grid min-w-0 items-center p-[clamp(20px,3vw,72px)] max-[980px]:min-h-dvh max-[980px]:p-[clamp(24px,7vw,56px)] max-[640px]:p-[24px_18px_40px]">
+        <div className="hh-card mx-auto w-[min(520px,100%)] rounded-3xl bg-[rgba(21,22,26,.92)] p-7 backdrop-blur-xl max-[640px]:p-5">
+        <div className="hh-navpill mb-6 grid grid-cols-2 p-1 max-[640px]:mb-5" aria-label="Choose how to continue">
           <button
             type="button"
             className={cn(
-              'min-h-10.5 p-[8px_10px] inline-flex items-center justify-center gap-1.75 border-0 rounded-[7px] text-(--muted) bg-transparent text-[.76rem] font-[750] max-[640px]:text-[.7rem]',
-              mode === 'join' && 'is-active bg-(--surface-strong)! text-(--forest) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
+              'hh-navitem h-10 px-3 text-[.8rem] max-[640px]:text-[.74rem]',
+              mode === 'join' && 'hh-navitem-on',
             )}
             onClick={() => selectMode('join')}
           >
@@ -181,8 +202,8 @@ export function AuthGate({ children }: PropsWithChildren) {
           <button
               type="button"
               className={cn(
-                'min-h-10.5 p-[8px_10px] inline-flex items-center justify-center gap-1.75 border-0 rounded-[7px] text-(--muted) bg-transparent text-[.76rem] font-[750] max-[640px]:text-[.7rem]',
-                mode === 'owner' && 'is-active bg-(--surface-strong)! text-(--forest) shadow-[0_1px_4px_rgba(28,48,40,.1)]',
+                'hh-navitem h-10 px-3 text-[.8rem] max-[640px]:text-[.74rem]',
+                mode === 'owner' && 'hh-navitem-on',
               )}
               onClick={() => selectMode('owner')}
           >
@@ -190,14 +211,14 @@ export function AuthGate({ children }: PropsWithChildren) {
           </button>
         </div>
 
-        <h2 className={"max-w-full mt-2.5 text-[clamp(2.15rem,3.1vw,3.25rem)] leading-[1.02] max-[640px]:text-[2.25rem]"}>
+        <h2 className="mt-1 max-w-full text-[clamp(1.6rem,2.4vw,2rem)] leading-[1.05]">
           {mode === 'join'
             ? 'Use a house or recovery code'
             : stage === 'email'
               ? 'Admin Login/Creation'
               : 'Open your sign-in link'}
         </h2>
-        <p className={"muted max-w-full mt-3.5 text-(--muted) text-[.9rem] leading-[1.6]"}>
+        <p className="mt-3 max-w-full text-[.88rem] leading-relaxed text-(--text-3)">
           {mode === 'join'
             ? 'Join with your house share code, or use a one-time recovery code from your admin to restore your roommate account.'
             : stage === 'email'
@@ -206,11 +227,11 @@ export function AuthGate({ children }: PropsWithChildren) {
         </p>
 
         {mode === 'join' ? (
-          <form className={"grid gap-4 mt-8"} onSubmit={submitHouseCode}>
+          <form className="mt-6 grid gap-4" onSubmit={submitHouseCode}>
             <label className={"text-[.78rem]"}>
               House share or recovery code
               <input
-                className={"min-h-13 text-[.9rem]"}
+                className="min-h-12 text-[.92rem]"
                 value={shareCode}
                 onChange={(event) => setShareCode(event.target.value.toUpperCase())}
                 placeholder="ABC-123-DEF-456 or REC-1234-5678-9ABC-DEF0"
@@ -220,9 +241,9 @@ export function AuthGate({ children }: PropsWithChildren) {
               />
             </label>
             <label className={"text-[.78rem]"}>
-              Your name <span className={"field-hint ml-1.25 text-(--muted) text-[.72rem] font-medium"}>{recoveryCodeMode ? 'Optional for recovery' : 'Required for a new account'}</span>
+              Your name <span className="ml-1.5 text-[.74rem] font-medium text-(--text-3)">{recoveryCodeMode ? 'Optional for recovery' : 'Required for a new account'}</span>
               <input
-                className={"min-h-13 text-[.9rem]"}
+                className="min-h-12 text-[.92rem]"
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
                 placeholder="Brandon"
@@ -232,18 +253,18 @@ export function AuthGate({ children }: PropsWithChildren) {
                 required={!recoveryCodeMode}
               />
             </label>
-            {error && <p className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{error}</p>}
+            {error && <p className="mt-1 text-[.78rem] text-[#ff8080]">{error}</p>}
             <Button size="lg" type="submit" disabled={busy}>
               {busy ? 'Joining…' : recoveryCodeMode ? 'Restore my account' : 'Join the house'}
             </Button>
           </form>
         ) : (
-          <form className={"grid gap-4 mt-8"} onSubmit={submitEmail}>
+          <form className="mt-6 grid gap-4" onSubmit={submitEmail}>
             {stage === 'email' ? (
               <label className={"text-[.78rem]"}>
                 Email address
                 <input
-                  className={"min-h-13 text-[.9rem]"}
+                  className="min-h-12 text-[.92rem]"
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -253,7 +274,7 @@ export function AuthGate({ children }: PropsWithChildren) {
                 />
               </label>
             ) : null}
-            {error && <p className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{error}</p>}
+            {error && <p className="mt-1 text-[.78rem] text-[#ff8080]">{error}</p>}
             {stage === 'email' ? (
               <Button size="lg" type="submit" disabled={busy}>
                 {busy ? 'Sending link…' : 'Email me a sign-in link'}

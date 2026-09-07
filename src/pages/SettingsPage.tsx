@@ -22,7 +22,17 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { addRecoveryEmail, signOut } from '../lib/api'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { useAppData } from '../state/AppDataContext'
-import { Avatar, Badge, Button, Card, SectionHeader, Toggle } from '../components/ui'
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Inner,
+  PageHeader,
+  SectionHeader,
+  Tile,
+  Toggle,
+} from '../components/ui'
 import { FeatureChecklist } from '../components/FeatureChecklist'
 import { formatDateTime } from '../lib/utils'
 
@@ -84,26 +94,25 @@ export function SettingsPage() {
   )
 
   return (
-    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
-      <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
-        <div className="grid gap-3.75">
-          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>HOUSE RULES & DEVICES</p>
-          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Settings</h1>
-          <p>Manage people, reminders and the health of this installation.</p>
-        </div>
-        {hasSupabaseConfig && (
-          <Button className="max-[640px]:w-full" variant="ghost" onClick={() => signOut()}>
-            <LogOut size={18} /> Sign out
-          </Button>
-        )}
-      </header>
+    <>
+      <PageHeader
+        title="Settings"
+        description="Manage people, reminders and the health of this installation."
+        actions={
+          hasSupabaseConfig ? (
+            <Button variant="secondary" onClick={() => signOut()}>
+              <LogOut size={16} /> Sign out
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <div className={"settings-layout grid items-start grid-cols-[minmax(0,1.3fr)_minmax(300px,.7fr)] max-[980px]:grid-cols-1 gap-14.5 max-[980px]:gap-12.5"}>
-        <div className={"settings-main grid max-[980px]:gap-6.25 gap-14.5"}>
-          <section>
-            <SectionHeader eyebrow="YOUR ACCOUNT" title="Profile" />
+      <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(340px,.7fr)] items-start gap-5 max-[1100px]:grid-cols-1">
+        <div className="grid content-start gap-5">
+          <Card className="p-5">
+            <SectionHeader title="Profile" />
             <form
-              className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-5 py-4 border-b border-(--line) max-[640px]:grid-cols-1"
+              className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-5 max-[640px]:grid-cols-1"
               onSubmit={async (event) => {
                 event.preventDefault()
                 setProfileError('')
@@ -167,19 +176,19 @@ export function SettingsPage() {
                     </Button>
                   )}
                 </div>
-                <p className="text-(--muted) text-[.74rem]">JPG, PNG, or WebP up to 5 MB.</p>
+                <p className="text-(--text-3) text-[.74rem]">JPG, PNG, or WebP up to 5 MB.</p>
               </div>
-              {profileError && <p className="col-span-full text-(--coral) text-[.76rem]">{profileError}</p>}
+              {profileError && <p className="col-span-full text-[#ff8080] text-[.76rem]">{profileError}</p>}
               <Button className="col-2 justify-self-start max-640px:col-1" type="submit" disabled={busy === 'profile:update'}>
                 {busy === 'profile:update' ? 'Saving…' : 'Save profile'}
               </Button>
             </form>
-          </section>
+          </Card>
 
-          <section>
-            <SectionHeader eyebrow="HOUSEHOLD" title="Features" />
-            <div className="settings-feature-list">
-              <p className="mb-3.5 max-w-155 text-[.84rem] leading-[1.55] text-(--muted)">
+          <Card className="p-5">
+            <SectionHeader title="Features" />
+            <div>
+              <p className="mb-3.5 max-w-155 text-[.84rem] leading-[1.55] text-(--text-3)">
                 Choose which tools this household uses. Overview and Settings are
                 always available.
               </p>
@@ -197,20 +206,20 @@ export function SettingsPage() {
                 }}
               />
               {currentMember.role !== 'owner' && (
-                <p className="settings-note mt-3.5 flex items-center gap-1.5 text-[.75rem] text-(--muted)">
+                <p className="settings-note mt-3.5 flex items-center gap-1.5 text-[.75rem] text-(--text-3)">
                   Only the house owner can change available features.
                 </p>
               )}
             </div>
-          </section>
+          </Card>
 
           {!currentMember.email && hasSupabaseConfig && (
-            <section>
-              <SectionHeader eyebrow="ACCOUNT RECOVERY" title="Protect this account" />
-              <Card className="settings-card recovery-card grid grid-cols-[minmax(0,1fr)_minmax(240px,.75fr)] items-end gap-7 border-b border-b-(--line) px-1 py-6.5 max-[640px]:grid-cols-1">
+            <Card className="p-5">
+              <SectionHeader title="Protect this account" />
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(240px,.75fr)] items-end gap-6 max-[640px]:grid-cols-1">
                 <div>
                   <strong className="text-[.9rem]">Add a recovery email before changing devices.</strong>
-                  <p className="mt-1.25 text-[.75rem] leading-[1.5] text-(--muted)">
+                  <p className="mt-1.25 text-[.75rem] leading-[1.5] text-(--text-3)">
                     Your house-code account currently lives only on this device.
                     Supabase will send a verification message to link your identity.
                   </p>
@@ -242,29 +251,28 @@ export function SettingsPage() {
                   </label>
                   <Button type="submit" size="sm">Send verification</Button>
                 </form>
-                {recoveryStatus && <p className={"settings-note flex items-center gap-1.5 mt-2.25 text-(--muted) text-[.75rem]"}>{recoveryStatus}</p>}
-              </Card>
-            </section>
+                {recoveryStatus && <p className="col-span-full mt-2 flex items-center gap-1.5 text-[.78rem] text-(--text-3)">{recoveryStatus}</p>}
+              </div>
+            </Card>
           )}
 
-          {data.household.enabledFeatures.includes('notifications') && <section>
-            <SectionHeader eyebrow="THIS DEVICE" title="Notification health" />
-            <Card className={"notification-health-card p-[20px_4px] border-b border-b-(--line) py-6.5"}>
-              <div className="health-score flex items-center gap-3.25 border-b border-b-(--line) pb-4.5">
+          {data.household.enabledFeatures.includes('notifications') && (
+            <Card className="grid gap-4 p-5">
+              <div className="flex items-center gap-3.5">
                 <div
                   className={cn(
-                    'health-ring w-11.25 h-11.25 grid place-items-center text-[#9b6a23] bg-(--gold-soft) rounded-lg',
-                    data.notificationHealth.subscribed && 'health-good bg-(--green)! text-white!',
+                    'grid size-11 shrink-0 place-items-center rounded-2xl bg-(--amber-soft) text-(--amber)',
+                    data.notificationHealth.subscribed && 'bg-(--green)! text-(--bg)!',
                   )}
                 >
                   {data.notificationHealth.subscribed ? <CheckCircle2 /> : <BellRing />}
                 </div>
                 <div>
                   <strong className="block text-[.94rem]">{data.notificationHealth.subscribed ? 'Ready for reminders' : 'Reminders need setup'}</strong>
-                  <span className="mt-0.75 block text-[.75rem] text-(--muted)">Web Push is best-effort and cannot bypass Focus or silent mode.</span>
+                  <span className="mt-0.75 block text-[.75rem] text-(--text-3)">Web Push is best-effort and cannot bypass Focus or silent mode.</span>
                 </div>
               </div>
-              <div className={"health-checks grid p-[11px_0]"}>
+              <div className="grid">
                 <HealthRow label="Installed on Home Screen" ready={installed} />
                 <HealthRow
                   label="Notification permission"
@@ -307,23 +315,23 @@ export function SettingsPage() {
                 )}
               </div>
               {needRefresh && (
-                <button className={"update-notice w-full mt-3 p-2.5 flex items-center justify-center gap-1.75 border-0 text-[#465987] bg-(--blue-soft) font-bold rounded-[7px] min-h-10.5 text-[.76rem]"} onClick={() => updateServiceWorker(true)}>
+                <button type="button" className="mt-1 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-0 bg-(--violet-soft) p-2.5 text-[.8rem] font-bold text-(--violet)" onClick={() => updateServiceWorker(true)}>
                   <Download size={17} /> A new version is ready. Tap to update.
                 </button>
               )}
             </Card>
-          </section>}
+          )}
 
-          {data.household.enabledFeatures.includes('chores') && <section>
-            <SectionHeader eyebrow="DEFAULTS" title="Chore reminders" />
-            <Card className={"settings-card p-[20px_4px] border-b border-b-(--line) py-6.5"}>
+          {data.household.enabledFeatures.includes('chores') && (
+            <Card className="grid gap-1 p-5">
+              <SectionHeader title="Chore reminders" />
               <Toggle checked={morning} onChange={setMorning} label="Morning assignment · 9:00 AM" />
               <Toggle checked={evening} onChange={setEvening} label="Evening check-in · 6:00 PM" />
               <Toggle checked={lastCall} onChange={setLastCall} label="Last calls · 10:00 & 11:30 PM" />
-              <p className={"settings-note flex items-center gap-1.5 mt-2.25 text-(--muted) text-[.75rem]"}><Clock3 size={15} /> Individual chores can replace these household defaults.</p>
+              <p className="mt-3 flex items-center gap-1.5 border-t border-(--line) pt-3 text-[.78rem] text-(--text-3)"><Clock3 size={14} /> Individual chores can replace these household defaults.</p>
               {currentMember.role === 'owner' && (
                 <Button
-                  className={"m-4"}
+                  className="mt-3 justify-self-start"
                   size="sm"
                   disabled={busy === 'household:task-reminders'}
                   onClick={() => updateHouseholdTaskReminders([
@@ -336,58 +344,63 @@ export function SettingsPage() {
                 </Button>
               )}
             </Card>
-          </section>}
+          )}
 
-          <section>
-            <SectionHeader eyebrow="TRANSPARENCY" title="Recent audit history" />
-            <Card className={"audit-list p-0"}>
+          <Card className="p-5">
+            <SectionHeader title="Recent audit history" />
+            <div>
               {data.auditEvents.map((event) => {
                 const actor = data.members.find((member) => member.id === event.actorMemberId)
                 return (
-                  <div className="audit-row grid min-h-21 grid-cols-[auto_1fr_auto] items-center gap-2.25 border-t border-(--line) px-1 first:border-t-0" key={event.id}>
-                    <div className={"audit-icon w-7.75 h-7.75 grid place-items-center text-(--muted) bg-[#efeee8] rounded-[7px]"}><History size={16} /></div>
-                    <div><strong>{event.summary}</strong><span>{event.action} · {formatDateTime(event.createdAt)}</span></div>
+                  <div className="grid min-h-16 grid-cols-[auto_1fr_auto] items-center gap-3 border-t border-(--line) first:border-t-0" key={event.id}>
+                    <Tile icon={History} size={34} radius={10} />
+                    <div className="grid min-w-0 gap-0.5"><strong className="truncate text-[.86rem]">{event.summary}</strong><span className="truncate text-[.75rem] text-(--text-3)">{event.action} · {formatDateTime(event.createdAt)}</span></div>
                     {actor && <Avatar initials={actor.initials} color={actor.color} imageUrl={actor.avatarUrl} size="sm" />}
                   </div>
                 )
               })}
-            </Card>
-          </section>
+            </div>
+          </Card>
         </div>
 
-        <aside>
-          <SectionHeader eyebrow="MEMBERS" title={data.household.name} />
-          <Card className={"member-list-card p-0"}>
+        <aside className="grid content-start gap-5">
+          <Card className="p-5">
+            <SectionHeader title={data.household.name} description={`${data.members.length} members`} />
+            <div>
             {data.members.map((member) => (
-                <div className="member-row grid min-h-21 grid-cols-[auto_1fr_auto] items-center gap-2.25 border-t border-(--line) px-1 first:border-t-0" key={member.id}>
+                <div className="grid min-h-16 grid-cols-[auto_1fr_auto] items-center gap-3 border-t border-(--line) first:border-t-0" key={member.id}>
                 <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} />
                 <div>
                   <strong className="block text-[.82rem]">{member.displayName}</strong>
-                  <span className="mt-0.75 block text-[.75rem] text-(--muted)">{member.email || 'House-code account'}</span>
+                  <span className="mt-0.75 block text-[.75rem] text-(--text-3)">{member.email || 'House-code account'}</span>
                 </div>
                 <Badge tone={member.role === 'owner' ? 'amber' : 'neutral'}>{member.role}</Badge>
               </div>
             ))}
+            </div>
           </Card>
 
           {currentMember.role === 'owner' && data.members.some((member) => member.role !== 'owner') && (
-            <section className={"member-admin-section mt-8.5"}>
-              <SectionHeader eyebrow="OWNER CONTROLS" title="Roommate access" />
-              <div className={"member-admin-list border-t border-t-(--line)"}>
+            <Card className="p-5">
+              <SectionHeader title="Roommate access" description="Owner controls" />
+              <div className="grid gap-2.5">
                 {data.members
                   .filter((member) => member.role !== 'owner')
                   .map((member) => {
                     const recoveryCode = memberRecoveryCodes[member.id]
                     return (
-                      <div className={"member-admin-item grid gap-3 p-[18px_4px] border-b border-b-(--line)"} key={member.id}>
-                        <div className="member-admin-heading flex items-center justify-between gap-3 text-(--muted)">
-                          <div className="grid gap-0.75">
-                            <strong className="text-[.82rem] text-(--ink)">{member.displayName}</strong>
-                            <span className="text-[.72rem]">{member.email || 'Device-based account'}</span>
+                      <Inner className="grid gap-3 p-4" key={member.id}>
+                        <div className="flex items-center justify-between gap-3 text-(--text-3)">
+                          <div className="flex items-center gap-2.5">
+                            <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
+                            <div className="grid gap-0.5">
+                              <strong className="text-[.85rem] text-(--text)">{member.displayName}</strong>
+                              <span className="text-[.73rem]">{member.email || 'Device-based account'}</span>
+                            </div>
                           </div>
-                          <UserRoundX size={17} />
+                          <UserRoundX size={16} />
                         </div>
-                        <div className={"member-admin-actions flex flex-wrap gap-2"}>
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             size="sm"
                             variant="secondary"
@@ -424,42 +437,42 @@ export function SettingsPage() {
                           </Button>
                         </div>
                         {recoveryCode && (
-                          <div className="member-recovery-code grid grid-cols-[1fr_auto] items-center gap-[4px_10px] rounded-lg border border-(--line) bg-(--sage-2) p-[10px_12px]">
-                            <code className="font-mono text-[.78rem] font-extrabold tracking-[.08em] text-(--forest)">{recoveryCode}</code>
-                            <button className="inline-flex items-center gap-1.25 border-0 bg-transparent py-0.75 text-[.72rem] font-[750] text-(--forest)"
+                          <div className="grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-xl border border-[rgba(59,107,255,.3)] bg-(--blue-soft) px-3 py-2.5">
+                            <code className="font-mono text-[.78rem] font-extrabold tracking-[.08em] text-[#9db4ff]">{recoveryCode}</code>
+                            <button className="inline-flex items-center gap-1.25 border-0 bg-transparent py-0.75 text-[.72rem] font-[750] text-(--text)"
                               type="button"
                               onClick={() => navigator.clipboard.writeText(recoveryCode)}
                             >
                               <Copy size={14} /> Copy
                             </button>
-                            <span>Single use · expires in 30 days</span>
+                            <span className="col-span-full text-[.72rem] text-(--text-3)">Single use · expires in 30 days</span>
                           </div>
                         )}
-                      </div>
+                      </Inner>
                     )
                   })}
               </div>
-            </section>
+            </Card>
           )}
 
           {currentMember.role === 'owner' && (
-            <Card className="invite-card mt-8.5 border-t border-t-(--line) px-1 pt-6">
-              <div className={"invite-icon w-10 h-10 grid place-items-center text-(--blue) bg-(--blue-soft) rounded-lg"}><KeyRound /></div>
-              <h3 className="mt-3">House share code</h3>
-              <p className="mt-1.25 text-[.75rem] leading-[1.45] text-(--muted)">
+            <Card className="grid gap-2.5 p-5">
+              <Tile icon={KeyRound} tone="violet" />
+              <h3 className="mt-1 text-[1.15rem] font-extrabold tracking-[-.02em]">House share code</h3>
+              <p className="text-[.78rem] leading-relaxed text-(--text-3)">
                 Roommates can create a device-based account with this code.
                 Rotating it immediately disables the old one.
               </p>
               {shareCode ? (
                 <button
-                  className="share-code-display my-[15px] mb-3 grid w-full gap-1.25 rounded-lg border border-(--forest-2) bg-(--sage-2) p-4 text-left text-(--forest)"
+                  className="hh-inner mt-1 mb-1 grid w-full gap-1.5 p-4 text-left text-(--text)"
                   onClick={() => navigator.clipboard.writeText(shareCode)}
                 >
                   <strong className="text-[1.15rem] tracking-[.08em] tabular-nums">{shareCode}</strong>
-                  <span className="inline-flex items-center gap-1.25 text-[.75rem] text-(--muted)"><Copy size={14} /> Copy code</span>
+                  <span className="inline-flex items-center gap-1.25 text-[.75rem] text-(--text-3)"><Copy size={14} /> Copy code</span>
                 </button>
               ) : (
-                <p className={"masked-share-code !m-[14px_0_12px] p-[12px_0] border-t border-t-(--line) border-b border-b-(--line)"}>
+                <p className="my-1 border-y border-(--line) py-3 text-[.82rem] text-(--text-3)">
                   Current code ends in <strong>{data.household.shareCodeLast4 ?? '••••'}</strong>.
                   Rotate it to reveal a new code.
                 </p>
@@ -476,26 +489,26 @@ export function SettingsPage() {
             </Card>
           )}
 
-          <Card className="house-details mt-8.5 border-t border-t-(--line) px-1 pt-6">
-            <div className="flex items-center gap-1.75 text-[.82rem] font-[750]"><ShieldCheck /><span>Household security</span></div>
-            <dl className="my-3.5 grid grid-cols-[1fr_auto] gap-y-2 text-[.75rem]">
-              <dt className="text-(--muted)">Timezone</dt><dd className="m-0 max-w-45 text-right font-bold">{data.household.timezone}</dd>
-              <dt className="text-(--muted)">Currency</dt><dd className="m-0 max-w-45 text-right font-bold">{data.household.currency}</dd>
-              <dt className="text-(--muted)">Address</dt>
+          <Card className="grid gap-3 p-5">
+            <div className="flex items-center gap-2 text-[.9rem] font-bold"><ShieldCheck size={18} /><span>Household security</span></div>
+            <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-[.78rem]">
+              <dt className="text-(--text-3)">Timezone</dt><dd className="m-0 max-w-45 text-right font-bold">{data.household.timezone}</dd>
+              <dt className="text-(--text-3)">Currency</dt><dd className="m-0 max-w-45 text-right font-bold">{data.household.currency}</dd>
+              <dt className="text-(--text-3)">Address</dt>
               <dd className="m-0 max-w-45 text-right font-bold">
                 {data.household.address.line1}, {data.household.address.city},{' '}
                 {data.household.address.region}
               </dd>
-              <dt className="text-(--muted)">Features</dt>
+              <dt className="text-(--text-3)">Features</dt>
               <dd className="m-0 max-w-45 text-right font-bold">{data.household.enabledFeatures.length} enabled</dd>
             </dl>
-            <button className="flex items-center gap-1.25 border-0 bg-transparent text-[.75rem] text-(--muted)" onClick={() => navigator.clipboard.writeText(data.household.id)}>
+            <button type="button" className="flex items-center gap-1.5 border-0 bg-transparent p-0 text-[.78rem] text-(--text-3) hover:text-(--text)" onClick={() => navigator.clipboard.writeText(data.household.id)}>
               <Copy size={14} /> Copy household ID
             </button>
           </Card>
         </aside>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -509,10 +522,10 @@ function HealthRow({
   value?: string
 }) {
   return (
-    <div className="health-row grid min-h-11.25 grid-cols-[auto_1fr_auto] items-center gap-2 text-[.78rem]">
-      {ready ? <CheckCircle2 className="health-ok w-4 text-(--green)" /> : <CircleAlert className="health-warn w-4 text-(--gold)" />}
+    <div className="grid min-h-11 grid-cols-[auto_1fr_auto] items-center gap-2.5 border-t border-(--line) text-[.82rem] first:border-t-0">
+      {ready ? <CheckCircle2 size={16} className="text-(--green)" /> : <CircleAlert size={16} className="text-(--amber)" />}
       <span>{label}</span>
-      <strong className="text-[.75rem] font-semibold text-(--muted)">{value ?? (ready ? 'Ready' : 'Needs attention')}</strong>
+      <strong className="text-[.78rem] font-semibold text-(--text-3)">{value ?? (ready ? 'Ready' : 'Needs attention')}</strong>
     </div>
   )
 }

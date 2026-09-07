@@ -1,6 +1,7 @@
 import { cn } from '../lib/cn'
-import { type CSSProperties, useEffect } from 'react'
+import { useEffect } from 'react'
 import {
+  Bell,
   CalendarDays,
   Car,
   Home,
@@ -14,6 +15,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAppData } from '../state/AppDataContext'
 import type { HouseholdFeature } from '../types'
 import { Avatar } from './ui'
+import { BrandMark } from './BrandMark'
 
 const navItems: Array<{
   to: string
@@ -31,7 +33,6 @@ const navItems: Array<{
     feature: ['calendar', 'courses'],
   },
   { to: '/driveway', label: 'Driveway', icon: Car, feature: 'driveway' },
-  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function AppShell() {
@@ -45,7 +46,7 @@ export function AppShell() {
     const candidates = Array.isArray(feature) ? feature : [feature]
     return candidates.some((item) => data.household.enabledFeatures.includes(item))
   })
-  const mobileNavItems = visibleNavItems.filter((item) => item.to !== '/settings')
+  const notificationsOn = data.household.enabledFeatures.includes('notifications')
 
   useEffect(() => {
     if (!toast) return
@@ -54,123 +55,143 @@ export function AppShell() {
   }, [clearToast, toast])
 
   return (
-    <div className={"app-frame min-h-screen grid grid-cols-[238px_1fr] max-[980px]:block max-[980px]:min-h-dvh"}>
-      <aside className={"sidebar fixed inset-[0_auto_0_0] w-59.5 overflow-hidden p-[28px_18px] text-[#edf3ee] bg-(--forest) flex flex-col z-[20] border-r max-[980px]:hidden"}>
-        <div className={"brand flex items-center gap-3"}>
-          <div className={"brand-mark w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"} aria-hidden="true">
-            H
-          </div>
-          <div>
-            <strong className="block font-display text-[1.18rem] tracking-[-.02em]">HowseHowld</strong>
-            <span className="mt-0.5 block text-[.78rem] text-[#c3d5bc]">{data.household.name}</span>
-          </div>
+    <div className="min-h-dvh bg-(--bg)">
+      {demoMode && (
+        <div className="flex min-h-8 items-center justify-center gap-2 bg-(--amber-soft) text-[.76rem] font-bold text-(--amber)">
+          <span className="size-1.5 rounded-full bg-(--amber)" />
+          Demo house
+          <span className="font-medium text-(--text-3) max-[560px]:hidden">
+            Connect Supabase to use live household data.
+          </span>
         </div>
-
-        <nav className={"desktop-nav grid gap-0.5 mt-11"} aria-label="Primary">
-          {visibleNavItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) => desktopNavClass(isActive)}
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon size={20} strokeWidth={1.9} />
-                  <span className={cn('transition-[transform_.18s_ease,text-shadow_.18s_ease]', isActive && 'translate-x-1 text-shadow-[0_0_10px_rgba(239,207,136,.42)]')}>{label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className={"sidebar-footer mt-auto p-[15px_10px_0] border-t flex items-center gap-2.5"}>
-          <Avatar
-            initials={currentMember.initials}
-            color={currentMember.color}
-            imageUrl={currentMember.avatarUrl}
-            size="sm"
-          />
-          <div>
-            <strong className="block text-[.88rem]">{currentMember.displayName}</strong>
-            <span className="mt-0.5 block text-[.78rem] text-[#bdd0b5]">{currentMember.role === 'owner' ? 'Howse Admin' : 'Member'}</span>
-          </div>
+      )}
+      {!navigator.onLine && (
+        <div className="flex min-h-8 items-center justify-center gap-2 bg-(--red-soft) text-[.76rem] font-bold text-[#ff8080]">
+          <WifiOff size={15} />
+          Offline — viewing cached data. Changes are paused.
         </div>
-      </aside>
+      )}
 
-      <div className={"main-column col-[2] min-w-0 max-[980px]:relative max-[980px]:min-h-dvh"}>
-        {demoMode && (
-          <div className={"demo-banner flex items-center justify-center gap-2 font-bold tracking-[.02em] text-[#6f5420] bg-[#efdfb8] min-h-9 text-[.78rem]"}>
-            <span className={"demo-dot w-1.5 h-1.5 rounded-full bg-(--gold)"} />
-            Demo house
-            <span className="font-medium text-[#88764e]">Connect Supabase to use live household data.</span>
-          </div>
-        )}
-        {!navigator.onLine && (
-          <div className={"offline-banner flex items-center justify-center gap-2 font-bold tracking-[.02em] text-white bg-(--coral) min-h-9 text-[.78rem]"}>
-            <WifiOff size={16} />
-            Offline — viewing cached data. Changes are paused.
-          </div>
-        )}
-        {pathname !== '/' && (
-          <NavLink
-            to="/settings"
-            aria-label="Settings"
-            className={({ isActive }) =>
-              cn(
-                'mobile-settings-link hidden max-[980px]:absolute max-[980px]:top-4.5 max-[980px]:right-5 max-[980px]:z-[35] max-[980px]:grid max-[980px]:w-10.5 max-[980px]:h-10.5 max-[980px]:place-items-center max-[980px]:border max-[980px]:rounded-[10px] max-[980px]:text-(--forest) max-[980px]:bg-[rgba(244,241,232,.78)] max-[980px]:shadow-[0_8px_24px_rgba(29,46,24,.09)]  max-[980px]:backdrop-blur-[14px] max-[980px]:backdrop-saturate-[1.35]',
-                demoMode && 'mobile-settings-link-with-banner max-[980px]:top-12.5',
-                isActive && 'is-active max-[980px]:bg-(--forest)! max-[980px]:text-white',
-              )}
-          >
-            <Settings size={21} strokeWidth={1.9} />
+      <div className="mx-auto w-[min(1560px,100%)] px-8 max-[980px]:px-5 max-[640px]:px-4">
+        <header className="grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-6 max-[980px]:grid-cols-[1fr_auto] max-[980px]:gap-3">
+          <NavLink to="/" className="flex min-w-0 items-center gap-3">
+            <BrandMark size={36} />
+            <span className="grid min-w-0 leading-tight max-[360px]:hidden">
+              <span className="text-[1.05rem] font-extrabold tracking-[-.02em]">HowseHowld</span>
+              <span className="truncate text-[.72rem] font-semibold text-(--text-3)">
+                {data.household.name}
+              </span>
+            </span>
           </NavLink>
-        )}
-        <main className={"page-content m-[0_auto] pt-13.5 max-[980px]:pt-19 w-[min(1400px,100%)] p-[58px_64px_104px] max-[980px]:w-full max-[980px]:p-[48px_40px_calc(112px+env(safe-area-inset-bottom,0px))] max-[640px]:p-[32px_20px_calc(116px+env(safe-area-inset-bottom,0px))]"}>
+
+          <nav className="hh-navpill max-[980px]:hidden" aria-label="Primary">
+            {visibleNavItems.map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === '/'}
+                className={({ isActive }) => cn('hh-navitem', isActive && 'hh-navitem-on')}
+              >
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="flex items-center justify-end gap-2">
+            {notificationsOn && (
+              <NavLink
+                to="/settings"
+                aria-label="Notifications"
+                className="hh-btn hh-btn-icon relative size-10 max-[640px]:size-9"
+              >
+                <Bell size={17} />
+                {!data.notificationHealth.subscribed && (
+                  <i className="absolute top-2 right-2.5 size-1.75 rounded-full bg-(--pink) shadow-[0_0_0_2px_var(--bg)]" />
+                )}
+              </NavLink>
+            )}
+            <NavLink
+              to="/settings"
+              aria-label="Settings"
+              className={({ isActive }) =>
+                cn(
+                  'hh-btn hh-btn-icon size-10 max-[640px]:size-9',
+                  isActive && 'border-transparent bg-(--raise) text-(--text)',
+                )
+              }
+            >
+              <Settings size={17} />
+            </NavLink>
+            <NavLink
+              to="/settings"
+              aria-label={`Open settings for ${currentMember.displayName}`}
+              className="ml-1 inline-flex rounded-full"
+            >
+              <Avatar
+                initials={currentMember.initials}
+                color={currentMember.color}
+                imageUrl={currentMember.avatarUrl}
+                size="lg"
+                className="shadow-[0_0_0_2px_var(--bg),0_0_0_4px_var(--line-2)] max-[640px]:size-9!"
+              />
+            </NavLink>
+          </div>
+        </header>
+
+        <main
+          key={pathname}
+          className="hh-reveal grid content-start gap-5 pt-2 pb-16 max-[980px]:pb-[calc(104px+env(safe-area-inset-bottom,0px))]"
+        >
           <Outlet />
         </main>
       </div>
 
       <nav
-        className={"mobile-nav hidden max-[980px]:fixed! max-[980px]:top-auto! max-[980px]:left-1/2! max-[980px]:right-auto! max-[980px]:bottom-[calc(20px+env(safe-area-inset-bottom,0px))]! max-[980px]:m-0! max-[980px]:w-[calc(100%-24px)]! max-[980px]:min-w-0! max-[980px]:z-40 max-[980px]:grid max-[980px]:grid-cols-[repeat(var(--mobile-nav-count,5),1fr)] max-[980px]:p-1.75 max-[980px]:border max-[980px]:rounded-[19px] max-[980px]:text-[#f0f6ed] max-[980px]:bg-[rgba(32,57,23,.78)] max-[980px]:shadow-[0_12px_32px_rgba(18,35,14,.18),0_3px_10px_rgba(18,35,14,.12),inset_0_1px_0_rgba(255,255,255,.14)] max-[980px]:backdrop-blur-[22px] max-[980px]:backdrop-saturate-[1.45]"}
+        className="fixed bottom-[calc(14px+env(safe-area-inset-bottom,0px))] left-1/2 z-40 hidden w-[calc(100%-28px)] -translate-x-1/2 max-[980px]:grid"
         aria-label="Primary"
-style={{ '--mobile-nav-count': mobileNavItems.length, position: 'fixed', top: 'auto', left: '50%', right: 'auto', bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', margin: 0, width: 'calc(100% - 24px)', minWidth: 0, transform: 'translateX(-50%)' } as CSSProperties}
       >
-        {mobileNavItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) => mobileNavClass(isActive)}
-          >
-            <Icon className="flex-[0_0_auto] drop-shadow-[0_1px_2px_rgba(14,31,10,.2)]" size={21} strokeWidth={1.9} />
-            <span className="block w-full text-shadow-[0_1px_2px_rgba(14,31,10,.2)]">{label}</span>
-          </NavLink>
-        ))}
+        <div
+          className="hh-navpill grid p-1.25 shadow-[0_18px_40px_-16px_rgba(0,0,0,.8)] backdrop-blur-[14px]"
+          style={{
+            gridTemplateColumns: `repeat(${visibleNavItems.length}, minmax(0, 1fr))`,
+            background: 'rgba(29,30,35,.92)',
+          }}
+        >
+          {visibleNavItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'flex min-w-0 flex-col items-center justify-center gap-1 rounded-full py-2 text-[.62rem] font-bold transition-[color,background-color,transform] duration-150 active:scale-95',
+                  isActive ? 'bg-(--raise) text-(--text)' : 'text-(--text-3)',
+                )
+              }
+            >
+              <Icon size={19} strokeWidth={1.9} />
+              <span className="w-full truncate text-center">{label}</span>
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
       {toast && (
-        <div className={"toast fixed right-6 bottom-6 z-[80] max-w-90 p-[13px_15px] flex items-center gap-3 rounded-xl text-white bg-(--forest) shadow-[var(--shadow)] max-[640px]:left-3.5 max-[640px]:right-3.5 max-[640px]:bottom-21.75 max-[640px]:max-w-[none] text-[.82rem]"} role="status">
-          <span>{toast}</span>
-          <button className="ml-auto border-0 bg-transparent p-0.5 text-white" onClick={clearToast} aria-label="Dismiss">
-            <X size={16} />
+        <div
+          className="hh-anim-toast fixed right-6 bottom-6 z-80 flex max-w-90 items-center gap-3 rounded-full border border-(--line-2) bg-(--text) px-4 py-3 text-[.82rem] font-semibold text-(--bg) shadow-[0_20px_50px_-18px_rgba(0,0,0,.9)] max-[640px]:right-3.5 max-[640px]:bottom-27 max-[640px]:left-3.5 max-[640px]:max-w-none"
+          role="status"
+        >
+          <span className="min-w-0">{toast}</span>
+          <button
+            type="button"
+            className="ml-auto shrink-0 rounded-full p-0.5 text-(--bg) opacity-60 hover:opacity-100"
+            onClick={clearToast}
+            aria-label="Dismiss"
+          >
+            <X size={15} />
           </button>
         </div>
       )}
     </div>
-  )
-}
-
-function desktopNavClass(active: boolean) {
-  return cn(
-    "nav-link relative flex min-h-13 items-center gap-3 overflow-hidden rounded-lg bg-transparent p-[0_13px] pl-4.5 text-[.96rem] font-[650] text-[#d0dfca] shadow-none transition-[background-color_.18s_ease,color_.18s_ease,transform_.18s_ease] before:absolute before:left-0 before:h-[calc(100%-8px)] before:w-0.75 before:scale-y-[.45] before:rounded-[0_3px_3px_0] before:bg-[#efcf88] before:opacity-0 before:transition-[opacity_.18s_ease,transform_.18s_ease] before:content-[''] hover:translate-x-1 hover:bg-[rgba(255,255,255,.045)] hover:text-white",
-    active && 'nav-link-active bg-[linear-gradient(90deg,rgba(255,255,255,.13),rgba(255,255,255,.09))]! text-white shadow-[inset_0_1px_0_rgba(255,255,255,.035),inset_0_-1px_0_rgba(0,0,0,.035)] before:scale-y-100 before:opacity-100',
-  )
-}
-
-function mobileNavClass(active: boolean) {
-  return cn(
-    "nav-link relative flex min-h-13 min-w-0 flex-col items-center justify-center gap-1 rounded-none bg-transparent p-[4px_2px] text-center text-[.48rem] leading-none text-[#d0dfca] shadow-none transition-[.18s_ease] before:absolute before:left-0 before:top-1/2 before:h-7 before:w-0.25 before:-translate-y-1/2 before:bg-[rgba(255,255,255,.23)] before:content-[''] first:before:hidden after:absolute after:bottom-0.25 after:h-1 after:w-1 after:scale-50 after:rounded-full after:bg-[#f1d799] after:opacity-0 after:transition-[opacity_.18s_ease,transform_.18s_ease] max-[640px]:min-h-14.5 max-[640px]:gap-1.25 max-[640px]:py-1.5 max-[640px]:text-[.62rem]",
-    active && 'nav-link-active text-white after:scale-100 after:opacity-100',
   )
 }

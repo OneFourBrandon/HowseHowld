@@ -17,7 +17,19 @@ import {
   Scale,
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
-import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardHead,
+  EmptyState,
+  Inner,
+  Modal,
+  PageHeader,
+  Pill,
+  Tile,
+} from '../components/ui'
 import { ChoreOccurrenceIcon } from '../components/ChoreOccurrenceIcon'
 import {
   formatDateTime,
@@ -144,100 +156,128 @@ export function ChoresPage() {
   }).length
 
   return (
-    <div className={"page-stack grid gap-10 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
-      <header className="page-header flex items-end justify-between gap-4 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-4 max-[640px]:pb-4.5">
-        <div className="grid gap-3.75">
-          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Chores</h1>
-          <p className="pl-2">Do your chores... or else.</p>
-        </div>
-        <Button className="max-[640px]:w-full" onClick={() => setTaskModal(true)}>
-          <Plus size={18} /> New chore
-        </Button>
-      </header>
+    <>
+      <PageHeader
+        title="Chores"
+        description="Do your chores... or else."
+        actions={
+          <Button className="max-[760px]:w-full" onClick={() => setTaskModal(true)}>
+            <Plus size={16} /> New chore
+          </Button>
+        }
+      />
 
-      <div className={"stats-row grid grid-cols-3 gap-0 border-t border-t-(--line) border-b border-b-(--line)"}>
-        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-20 max-[640px]:gap-1.5 max-[640px]:px-2 max-[640px]:py-3">
-          <CheckCircle2 className="h-10 w-10 shrink-0 rounded-[7px] bg-(--green-soft) p-2 text-(--green) max-[640px]:h-8 max-[640px]:w-8 max-[640px]:p-1.5" />
-          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{completedThisMonth}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Completed this month</span></div>
-        </Card>
-        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-20 max-[640px]:gap-1.5 max-[640px]:px-2 max-[640px]:py-3">
-          <RotateCw className="h-10 w-10 shrink-0 rounded-[7px] bg-(--green-soft) p-2 text-(--green) max-[640px]:h-8 max-[640px]:w-8 max-[640px]:p-1.5" />
-          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{data.tasks.filter((task) => task.active).length}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Active rotations</span></div>
-        </Card>
-        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-20 max-[640px]:gap-1.5 max-[640px]:px-2 max-[640px]:py-3">
-          <AlertTriangle className="h-10 w-10 shrink-0 rounded-[7px] bg-(--green-soft) p-2 text-(--green) max-[640px]:h-8 max-[640px]:w-8 max-[640px]:p-1.5" />
-          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{data.infractions.filter((item) => item.status !== 'excused' && item.status !== 'paid').length}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Open infractions</span></div>
-        </Card>
-      </div>
+      <Card className="grid grid-cols-3 max-[640px]:grid-cols-1">
+        <div className="flex items-center gap-4 px-6 py-5 max-[640px]:px-4 max-[640px]:py-4">
+          <Tile icon={CheckCircle2} tone="green" size={44} radius={14} />
+          <div className="grid min-w-0 gap-0.5">
+            <strong className="font-display text-[1.9rem] leading-none font-extrabold">{completedThisMonth}</strong>
+            <span className="text-[.78rem] font-semibold text-(--text-3)">Completed this month</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 border-l border-(--line) px-6 py-5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:px-4 max-[640px]:py-4">
+          <Tile icon={RotateCw} tone="blue" size={44} radius={14} />
+          <div className="grid min-w-0 gap-0.5">
+            <strong className="font-display text-[1.9rem] leading-none font-extrabold">{data.tasks.filter((task) => task.active).length}</strong>
+            <span className="text-[.78rem] font-semibold text-(--text-3)">Active rotations</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 border-l border-(--line) px-6 py-5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:px-4 max-[640px]:py-4">
+          <Tile icon={AlertTriangle} tone="pink" size={44} radius={14} />
+          <div className="grid min-w-0 gap-0.5">
+            <strong className="font-display text-[1.9rem] leading-none font-extrabold">{data.infractions.filter((item) => item.status !== 'excused' && item.status !== 'paid').length}</strong>
+            <span className="text-[.78rem] font-semibold text-(--text-3)">Open infractions</span>
+          </div>
+        </div>
+      </Card>
 
       <section>
-        <SectionHeader
-          eyebrow="ASSIGNMENTS"
-          title="Coming up"
-          description="Server-confirmed deadlines in Toronto time."
-        />
-        <div className={"occurrence-list grid gap-0"}>
-          {visibleUpcoming.map((occurrence) => {
-            const member = data.members.find((item) => item.id === occurrence.assigneeId)!
-            const isMine = member.id === currentMemberId
-            const completionAvailability = taskCompletionAvailability(
-              occurrence.scheduledDate,
-              occurrence.dueAt,
-              data.household.timezone,
-            )
-            return (
-              <Card key={occurrence.id} className="occurrence-card grid min-h-25.5 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3.25 border-b border-b-(--line) px-1 py-5 max-[640px]:grid-cols-[auto_1fr_auto] max-[640px]:px-0">
-                <ChoreOccurrenceIcon status={occurrence.status} />
-                <div className="occurrence-detail grid gap-1.25">
-                  <div className="flex gap-1.25">
-                    <Badge>{occurrence.area}</Badge>
-                    {isMine && occurrence.status === 'assigned' && (
-                      <span className="max-[640px]:hidden"><Badge tone="amber">Your turn</Badge></span>
+        <Card className="pb-4">
+          <CardHead title="Coming up" description="Server-confirmed deadlines in Toronto time." />
+          <div className="grid grid-cols-3 gap-3 px-4 max-[1100px]:grid-cols-2 max-[720px]:grid-cols-1">
+            {visibleUpcoming.map((occurrence) => {
+              const member = data.members.find((item) => item.id === occurrence.assigneeId)!
+              const isMine = member.id === currentMemberId
+              const completionAvailability = taskCompletionAvailability(
+                occurrence.scheduledDate,
+                occurrence.dueAt,
+                data.household.timezone,
+              )
+              const mineNow = isMine && occurrence.status === 'assigned'
+              return (
+                <Inner key={occurrence.id} className="grid content-start gap-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    {occurrence.status === 'completed' ? (
+                      <Pill tone="green">Done</Pill>
+                    ) : occurrence.status === 'missed' ? (
+                      <Pill tone="red">Missed</Pill>
+                    ) : mineNow ? (
+                      <Pill tone="white">Your turn</Pill>
+                    ) : (
+                      <Pill tone="blue">Assigned</Pill>
+                    )}
+                    <span className="text-right text-[.72rem] leading-tight text-(--text-3)">
+                      {occurrence.area}
+                      <br />
+                      {formatDateTime(occurrence.dueAt)}
+                    </span>
+                  </div>
+                  <div className="grid gap-1">
+                    <h3 className="text-[.98rem]">{occurrence.taskTitle}</h3>
+                    <p className="text-[.78rem] leading-relaxed text-(--text-3)">
+                      {occurrence.reminderLabel}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2.5 border-t border-(--line) pt-3">
+                    <ChoreOccurrenceIcon status={occurrence.status} size={30} />
+                    <Avatar
+                      initials={member.initials}
+                      color={member.color}
+                      imageUrl={member.avatarUrl}
+                      size="sm"
+                    />
+                    <span className="min-w-0 truncate text-[.8rem] font-bold">{member.displayName}</span>
+                    {mineNow && (
+                      <Button
+                        className="ml-auto"
+                        size="sm"
+                        disabled={
+                          busy === `complete:${occurrence.id}` ||
+                          completionAvailability !== 'available'
+                        }
+                        title={
+                          completionAvailability === 'early'
+                            ? `Available on ${occurrence.scheduledDate}`
+                            : completionAvailability === 'expired'
+                              ? 'This task has expired'
+                              : 'Mark this task complete'
+                        }
+                        onClick={() => completeOccurrence(occurrence.id)}
+                      >
+                        <Check size={15} />
+                        {completionAvailability === 'early'
+                          ? 'Not yet'
+                          : completionAvailability === 'expired'
+                            ? 'Expired'
+                            : 'Done'}
+                      </Button>
                     )}
                   </div>
-                  <h3 className="text-[.94rem]">{occurrence.taskTitle}</h3>
-                  <span>{formatDateTime(occurrence.dueAt)} · {occurrence.reminderLabel}</span>
-                </div>
-                <div className={"occurrence-person flex items-center gap-1.75 text-(--muted) max-[640px]:col-[2] text-[.76rem]"}>
-                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
-                  <span>{member.displayName}</span>
-                  {isMine && occurrence.status === 'assigned' && (
-                    <span className="hidden whitespace-nowrap rounded-full bg-(--gold-soft) px-2 py-1 text-[.62rem] font-extrabold uppercase tracking-[.035em] text-[#8b6522] max-[640px]:inline-flex">
-                      Your turn
-                    </span>
-                  )}
-                </div>
-                {isMine && occurrence.status === 'assigned' && (
-                  <Button
-                    className="max-[640px]:col-[3] max-[640px]:row-[1/span_2]"
-                    variant="secondary"
-                    disabled={
-                      busy === `complete:${occurrence.id}` ||
-                      completionAvailability !== 'available'
-                    }
-                    title={
-                      completionAvailability === 'early'
-                        ? `Available on ${occurrence.scheduledDate}`
-                        : completionAvailability === 'expired'
-                          ? 'This task has expired'
-                          : 'Mark this task complete'
-                    }
-                    onClick={() => completeOccurrence(occurrence.id)}
-                  >
-                    <Check size={17} />
-                    {completionAvailability === 'early'
-                      ? 'Not yet'
-                      : completionAvailability === 'expired'
-                        ? 'Expired'
-                        : 'Done'}
-                  </Button>
-                )}
-              </Card>
-            )
-          })}
-        </div>
+                </Inner>
+              )
+            })}
+            {!visibleUpcoming.length && (
+              <EmptyState
+                className="col-span-full"
+                icon={CheckCircle2}
+                title="Nothing assigned"
+                description="Every chore in this house is done or paused."
+              />
+            )}
+          </div>
+        </Card>
         {upcomingPageCount > 1 && (
-          <nav className="mt-4 flex items-center justify-end gap-1 border-t border-(--line) pt-4" aria-label="Coming up pages">
+          <nav className="mt-3 flex items-center justify-end gap-1" aria-label="Coming up pages">
             <Button
               size="sm"
               variant="ghost"
@@ -273,113 +313,197 @@ export function ChoresPage() {
         )}
       </section>
 
-      <div className={"content-grid-two grid grid-cols-[minmax(0,1.12fr)_minmax(300px,.88fr)] gap-6.25 items-start max-[980px]:grid-cols-1 max-[980px]:gap-12.5"}>
-        <section>
-          <SectionHeader eyebrow="ROTATIONS" title="House routines" />
-          <Card className={"routine-list p-0"}>
-            {data.tasks.map((task) => {
+      <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)] items-start gap-5 max-[1100px]:grid-cols-1">
+        <Card className="pb-3">
+          <CardHead
+            title="House routines"
+            description={`${data.tasks.filter((task) => task.active).length} of ${data.tasks.length} running`}
+          />
+          <div className="px-5 max-[640px]:px-3">
+            {data.tasks.map((task, index) => {
               const next = data.members.find((member) => member.id === task.nextMemberId)
               return (
-                <div className="routine-row grid min-h-34 grid-cols-[64px_minmax(0,1fr)_minmax(280px,1fr)] items-center gap-4 border-t border-(--line) px-1 py-4 first:border-t-0 max-[700px]:grid-cols-[52px_minmax(0,1fr)] max-[700px]:gap-x-3" key={task.id}>
-                  <div className="routine-frequency flex h-full min-h-24 flex-col items-center justify-center gap-2 border-l-[3px] border-(--forest) text-(--forest)">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-(--sage-2)" aria-hidden="true"><RotateCw size={18} /></span>
-                    <span className="text-[.62rem] font-extrabold uppercase tracking-[.08em]">{routineFrequencyLabel(task.recurrence.frequency)}</span>
-                  </div>
-                  <div className="min-w-0 max-[700px]:self-center">
-                    <strong className="block text-[.94rem] leading-snug">{task.title}</strong>
-                    <span className="mt-1 block text-[.78rem] text-(--muted)">{task.area}</span>
-                    <span className="mt-1.5 block text-[.8rem] font-semibold text-(--forest-2)">{task.recurrenceLabel}</span>
-                  </div>
-                  <div className="routine-right grid min-w-0 grid-cols-1 gap-y-3 border-l border-(--line) pl-4 max-[700px]:col-start-2 max-[700px]:mt-2 max-[700px]:border-l-0 max-[700px]:border-t max-[700px]:pl-0 max-[700px]:pt-3">
-                    <div className="flex min-h-10 min-w-0 items-center justify-between gap-4">
-                      <div className="routine-assignee flex min-w-0 items-center gap-2">
-                        {next && <Avatar initials={next.initials} color={next.color} imageUrl={next.avatarUrl} size="sm" />}
-                        <span className="text-[.78rem]"><span className="block text-[.68rem] font-bold uppercase tracking-[.06em] text-(--muted)">Next up</span>{next?.displayName ?? 'Manual assignment'}</span>
-                      </div>
-                      <div className="inline-flex min-h-10 items-center justify-self-start gap-2 self-center text-[.8rem] font-bold text-(--forest-2) tabular-nums">
-                        <Clock3 size={16} /> {formatRoutineDueTime(task.dueTime)}
-                      </div>
+                <div
+                  key={task.id}
+                  className={cn(
+                    'hh-row grid grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-4 py-3.5 max-[860px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[860px]:gap-x-3',
+                    index > 0 && 'border-t border-(--line)',
+                    !task.active && 'opacity-60',
+                  )}
+                >
+                  <Tile icon={RotateCw} tone={task.active ? 'blue' : 'neutral'} />
+                  <div className="grid min-w-0 gap-0.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <strong className="truncate text-[.92rem]">{task.title}</strong>
+                      {!task.active && <Badge>Paused</Badge>}
                     </div>
-                    <div className="flex flex-nowrap items-center justify-start gap-x-1 border-t border-(--line) pt-1.5">
-                      {task.assignmentMode === 'manual' && (
-                        <Button size="sm" variant="ghost" onClick={() => setAssignTaskId(task.id)}>Assign</Button>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={() => updateTask(task.id, { active: !task.active })}>
-                        {task.active ? <Pause size={15} /> : <RotateCw size={15} />}
-                        {task.active ? 'Pause' : 'Resume'}
+                    <span className="truncate text-[.78rem] text-(--text-3)">
+                      {task.area} · {task.recurrenceLabel}
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 items-center gap-2 max-[860px]:col-start-2 max-[860px]:row-start-2">
+                    {next && (
+                      <Avatar
+                        initials={next.initials}
+                        color={next.color}
+                        imageUrl={next.avatarUrl}
+                        size="sm"
+                      />
+                    )}
+                    <span className="grid leading-tight">
+                      <span className="text-[.65rem] font-bold tracking-[.06em] text-(--text-3) uppercase">
+                        Next up
+                      </span>
+                      <span className="truncate text-[.8rem] font-bold">
+                        {next?.displayName ?? 'Manual assignment'}
+                      </span>
+                    </span>
+                  </div>
+                  <Pill className="max-[860px]:hidden">
+                    <Clock3 size={13} /> {formatRoutineDueTime(task.dueTime)}
+                  </Pill>
+                  <div className="flex items-center gap-1 max-[860px]:col-start-3 max-[860px]:row-start-2">
+                    <Badge className="mr-1 max-[1280px]:hidden">
+                      {routineFrequencyLabel(task.recurrence.frequency)}
+                    </Badge>
+                    {task.assignmentMode === 'manual' && (
+                      <Button size="sm" variant="ghost" onClick={() => setAssignTaskId(task.id)}>
+                        Assign
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => {
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="w-8 px-0"
+                      aria-label={task.active ? `Pause ${task.title}` : `Resume ${task.title}`}
+                      title={task.active ? 'Pause' : 'Resume'}
+                      onClick={() => updateTask(task.id, { active: !task.active })}
+                    >
+                      {task.active ? <Pause size={15} /> : <RotateCw size={15} />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="w-8 px-0"
+                      aria-label={`Rename ${task.title}`}
+                      title="Rename"
+                      onClick={() => {
                         const title = window.prompt('Rename this chore', task.title)
                         if (title?.trim()) updateTask(task.id, { title: title.trim() })
-                      }}>
-                        <Pencil size={15} /> Edit
-                      </Button>
-                    </div>
+                      }}
+                    >
+                      <Pencil size={15} />
+                    </Button>
                   </div>
                 </div>
               )
             })}
-          </Card>
-        </section>
+            {!data.tasks.length && (
+              <EmptyState
+                icon={RotateCw}
+                title="No routines yet"
+                description="Create a chore and the server handles every turn after that."
+                action={<Button size="sm" onClick={() => setTaskModal(true)}><Plus size={15} /> New chore</Button>}
+              />
+            )}
+          </div>
+        </Card>
 
-        <section>
-          <SectionHeader eyebrow="PEER REVIEW" title="Infractions" />
+        <Card className="grid content-start gap-4 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2>Infractions</h2>
+            <Pill>Peer review</Pill>
+          </div>
           {data.infractions.map((infraction) => {
             const member = data.members.find((item) => item.id === infraction.memberId)!
             const hasVoted =
               infraction.upholdVotes.includes(currentMemberId) ||
               infraction.excuseVotes.includes(currentMemberId)
             return (
-              <Card className="infraction-card grid gap-3.25 border-b border-b-(--line) px-7 py-6.25" key={infraction.id}>
-                <div className="infraction-heading grid grid-cols-[auto_1fr_auto] items-center gap-2.25">
-                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
-                  <div>
-                    <strong>{member.displayName} · {infraction.taskTitle}</strong>
-                    <span>{formatMoney(infraction.amountCents)} pending</span>
+              <Inner className="grid gap-3.5 p-4" key={infraction.id}>
+                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+                  <Avatar
+                    initials={member.initials}
+                    color={member.color}
+                    imageUrl={member.avatarUrl}
+                    size="md"
+                  />
+                  <div className="grid min-w-0 gap-0.5">
+                    <strong className="truncate text-[.88rem]">
+                      {member.displayName} · {infraction.taskTitle}
+                    </strong>
+                    <span className="text-[.76rem] text-(--text-3)">
+                      <span className="font-bold text-(--text) tabular-nums">
+                        {formatMoney(infraction.amountCents)}
+                      </span>{' '}
+                      pending
+                    </span>
                   </div>
-                  <Badge tone={infraction.status === 'excused' ? 'green' : 'red'}>
+                  <Pill tone={infraction.status === 'excused' ? 'green' : 'pink'}>
                     {infraction.status}
-                  </Badge>
+                  </Pill>
                 </div>
                 {infraction.disputeReason && (
-                  <blockquote>“{infraction.disputeReason}”</blockquote>
+                  <blockquote className="m-0 rounded-xl border border-(--line) bg-(--card) px-3.5 py-3 text-[.85rem] leading-relaxed text-(--text-2)">
+                    “{infraction.disputeReason}”
+                  </blockquote>
                 )}
-                <div className={"vote-meter flex justify-between text-(--muted) text-[.75rem]"}>
-                  <span>{infraction.excuseVotes.length} excuse</span>
-                  <span>{infraction.upholdVotes.length} uphold</span>
+                <div className="flex items-center gap-3">
+                  <span className="grid size-14 place-items-center rounded-full bg-(--green-soft) text-(--green)">
+                    <span className="font-display text-[1.15rem] leading-none font-extrabold">
+                      {infraction.excuseVotes.length}
+                    </span>
+                    <span className="text-[.6rem] font-bold">excuse</span>
+                  </span>
+                  <span className="grid size-14 place-items-center rounded-full bg-(--pink-soft) text-[#ff7fae]">
+                    <span className="font-display text-[1.15rem] leading-none font-extrabold">
+                      {infraction.upholdVotes.length}
+                    </span>
+                    <span className="text-[.6rem] font-bold">uphold</span>
+                  </span>
+                  <span className="ml-auto flex items-center gap-1.5 text-right text-[.73rem] text-(--text-3)">
+                    <Scale size={14} />
+                    Review closes
+                    <br />
+                    {formatDateTime(infraction.disputeDeadline)}
+                  </span>
                 </div>
-                {infraction.memberId === currentMemberId &&
-                  infraction.status === 'pending' && (
-                    <Button variant="secondary" onClick={() => setDisputeId(infraction.id)}>
-                      Open a dispute
-                    </Button>
-                  )}
+                {infraction.memberId === currentMemberId && infraction.status === 'pending' && (
+                  <Button variant="secondary" onClick={() => setDisputeId(infraction.id)}>
+                    Open a dispute
+                  </Button>
+                )}
                 {infraction.memberId !== currentMemberId &&
                   infraction.status === 'disputed' &&
                   !hasVoted && (
-                    <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
+                    <div className="flex gap-2">
                       <Button
+                        className="flex-1"
                         variant="secondary"
                         onClick={() => voteInfraction(infraction.id, 'excuse')}
                       >
                         Excuse
                       </Button>
                       <Button
-                        variant="danger"
+                        className="flex-1"
+                        variant="pink"
                         onClick={() => voteInfraction(infraction.id, 'uphold')}
                       >
                         Uphold
                       </Button>
                     </div>
                   )}
-                <div className={"deadline-note flex items-center gap-1.5 text-(--muted) text-[.75rem] font-sans tabular-nums"}>
-                  <Scale size={15} />
-                  Review closes {formatDateTime(infraction.disputeDeadline)}
-                </div>
-              </Card>
+              </Inner>
             )
           })}
-        </section>
+          {!data.infractions.length && (
+            <EmptyState
+              icon={Scale}
+              title="No infractions"
+              description="Nothing is up for peer review right now."
+            />
+          )}
+        </Card>
       </div>
 
       <Modal
@@ -388,14 +512,14 @@ export function ChoresPage() {
         title="Create a chore"
         description="Set the routine once. The server handles every turn."
       >
-        <form className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"} onSubmit={submitTask}>
-          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Chore name
+        <form className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1" onSubmit={submitTask}>
+          <label className="col-span-full max-[640px]:col-[1]">Chore name
             <input {...register('title')} placeholder="Clean the bathroom" />
-            {errors.title && <span className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{errors.title.message}</span>}
+            {errors.title && <span className="mt-1.5 text-[.75rem] text-[#ff8080]">{errors.title.message}</span>}
           </label>
           <label>Area
             <input {...register('area')} placeholder="e.g. Bathroom" />
-            {errors.area && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.area.message}</span>}
+            {errors.area && <span className="mt-1.5 text-[.75rem] text-[#ff8080]">{errors.area.message}</span>}
           </label>
           <label>Assignment
             <select {...register('assignmentMode')} disabled={frequency === 'rolling_queue'}>
@@ -415,7 +539,7 @@ export function ChoresPage() {
             </select>
           </label>
           {frequency === 'rolling_queue' ? (
-            <p className="self-end rounded-lg border border-(--line) bg-(--sage-2) p-3 text-[.74rem] leading-normal text-(--muted)">
+            <p className="hh-inner self-end p-3 text-[.76rem] leading-relaxed text-(--text-3)">
               This chore joins the household queue. One queued chore is selected each day, with assignees advancing through the selected rotation.
             </p>
           ) : (
@@ -427,7 +551,7 @@ export function ChoresPage() {
             </label>
           )}
           {frequency === 'weekly' && (
-            <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+            <fieldset className="col-span-full grid gap-1 border-0 py-2 max-[640px]:col-[1]">
               <legend>Weekdays</legend>
               <div className="weekday-picker grid grid-cols-7 gap-2 max-[560px]:gap-1">
                 {[
@@ -445,8 +569,8 @@ export function ChoresPage() {
                       key={`${label}-${day}`}
                       aria-pressed={weekdays.includes(day)}
                       className={cn(
-                        'min-h-10 rounded-full border border-(--line) bg-transparent font-[inherit] font-bold text-(--muted) transition-[background-color,color,border-color,box-shadow] duration-150 hover:border-(--forest-2) hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--forest)',
-                        weekdays.includes(day) && 'is-selected border-(--forest)! bg-(--forest)! text-white! shadow-[0_5px_14px_rgba(43,75,31,.18)] hover:border-(--forest)! hover:bg-(--forest-2)!',
+                        'min-h-10 rounded-full border border-(--line-2) bg-(--inner) font-[inherit] font-bold text-(--text-3) transition-[background-color,color,border-color] duration-150 hover:border-[rgba(255,255,255,.24)] hover:text-(--text)',
+                        weekdays.includes(day) && 'border-transparent! bg-(--text)! text-(--bg)!',
                       )}
                       onClick={() => setWeekdays((current) =>
                         current.includes(day)
@@ -468,7 +592,7 @@ export function ChoresPage() {
             <input type="time" {...register('dueTime')} />
           </label>
           {assignmentMode !== 'rotation' && (
-            <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Assigned roommate
+            <label className="col-span-full max-[640px]:col-[1]">Assigned roommate
               <select value={fixedMemberId} onChange={(event) => setFixedMemberId(event.target.value)}>
                 {data.members.filter((member) => member.active).map((member) => (
                   <option key={member.id} value={member.id}>{member.displayName}</option>
@@ -477,11 +601,11 @@ export function ChoresPage() {
             </label>
           )}
           {assignmentMode === 'rotation' && (
-            <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+            <fieldset className="col-span-full grid gap-1 border-0 py-2 max-[640px]:col-[1]">
               <legend>Rotation order and eligibility</legend>
-              <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
+              <div className="mt-1 grid grid-cols-2 gap-2 max-[640px]:grid-cols-1">
                 {data.members.filter((member) => member.active).map((member) => (
-                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={member.id}>
+                  <label className="hh-inner flex cursor-pointer items-center gap-2.5 p-2.5 text-[.82rem] font-bold" key={member.id}>
                     <input
                       type="checkbox"
                       checked={rotationIds.includes(member.id)}
@@ -498,16 +622,16 @@ export function ChoresPage() {
               </div>
             </fieldset>
           )}
-          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+          <fieldset className="col-span-full grid gap-1 border-0 py-2 max-[640px]:col-[1]">
             <legend>Task reminders</legend>
-            <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
+            <div className="mt-1 grid grid-cols-2 gap-2 max-[640px]:grid-cols-1">
               {[
                 ['09:00', 'Morning'],
                 ['18:00', '6:00 PM'],
                 ['22:00', '10:00 PM'],
                 ['23:30', '11:30 PM'],
               ].map(([time, label]) => (
-                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={time}>
+                <label className="hh-inner flex cursor-pointer items-center gap-2.5 p-2.5 text-[.82rem] font-bold" key={time}>
                   <input
                     type="checkbox"
                     checked={reminderTimes.includes(time)}
@@ -522,11 +646,11 @@ export function ChoresPage() {
               ))}
             </div>
           </fieldset>
-          <label className={"checkbox-field flex items-center gap-2 p-[10px_0] field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <label className="col-span-full flex items-center gap-2.5 py-2.5 text-[.84rem] font-semibold max-[640px]:col-[1]">
             <input type="checkbox" {...register('penaltyEnabled')} />
             Apply the household penalty when missed
           </label>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <div className="col-span-full mt-1.5 flex justify-end gap-2 max-[640px]:col-[1]">
             <Button type="button" variant="ghost" onClick={() => setTaskModal(false)}>Cancel</Button>
             <Button type="submit" disabled={busy === 'task:new'}>Create chore</Button>
           </div>
@@ -556,7 +680,7 @@ export function ChoresPage() {
               rows={4}
             />
           </label>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5"}>
+          <div className="mt-4 flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setDisputeId(null)}>Cancel</Button>
             <Button type="submit" disabled={disputeReason.trim().length < 5}>Open dispute</Button>
           </div>
@@ -570,7 +694,7 @@ export function ChoresPage() {
         description="Manual chores appear only when someone explicitly assigns them."
       >
         <form
-          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
+          className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1"
           onSubmit={async (event) => {
             event.preventDefault()
             await assignManualTask(assignTaskId, assignMemberId, assignDate)
@@ -587,13 +711,13 @@ export function ChoresPage() {
           <label>Due date
             <input type="date" value={assignDate} onChange={(event) => setAssignDate(event.target.value)} />
           </label>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <div className="col-span-full mt-1.5 flex justify-end gap-2 max-[640px]:col-[1]">
             <Button type="button" variant="ghost" onClick={() => setAssignTaskId('')}>Cancel</Button>
             <Button type="submit">Assign chore</Button>
           </div>
         </form>
       </Modal>
-    </div>
+    </>
   )
 }
 

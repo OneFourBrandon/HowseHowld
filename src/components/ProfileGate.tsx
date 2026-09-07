@@ -58,7 +58,7 @@ export function ProfileGate({ children }: PropsWithChildren) {
 
   if (!hasSupabaseConfig) return children
   if (loading) {
-    return <div className="min-h-screen grid place-items-center bg-(--paper) text-(--forest) font-display">Opening your profile…</div>
+    return <div className="min-h-screen grid place-items-center bg-(--bg) text-(--text) font-display">Opening your profile…</div>
   }
   if (profile?.onboardingCompletedAt) return children
 
@@ -86,28 +86,28 @@ export function ProfileGate({ children }: PropsWithChildren) {
   }
 
   return (
-    <main className="min-h-screen grid grid-cols-[minmax(320px,.8fr)_minmax(520px,1.2fr)] bg-(--paper) max-[900px]:grid-cols-1">
+    <main className="min-h-screen grid grid-cols-[minmax(320px,.8fr)_minmax(520px,1.2fr)] bg-(--bg) max-[900px]:grid-cols-1">
       <section className="flex flex-col justify-between gap-12 p-[clamp(32px,6vw,88px)] bg-(--forest) text-white max-[900px]:hidden">
         <div className="flex items-center gap-3 font-display text-[1.18rem] font-bold">
-          <span className="size-9.5 grid place-items-center rounded-xl bg-[#f1d799] text-(--forest) text-[1.3rem]">H</span>
+          <span className="size-9.5 grid place-items-center rounded-xl bg-[#f1d799] text-(--text) text-[1.3rem]">H</span>
           HowseHowld
         </div>
         <div>
-          <p className="text-(--gold) text-[.75rem] font-extrabold tracking-[.11em]">MAKE IT YOURS</p>
+          <p className="text-(--amber) text-[.75rem] font-extrabold tracking-[.11em]">MAKE IT YOURS</p>
           <h1 className="mt-3 text-[clamp(3rem,6vw,5.8rem)] leading-[.92]">Who’s joining the house?</h1>
-          <p className="max-w-130 mt-6 text-[#cadac4] leading-[1.65]">
+          <p className="max-w-130 mt-6 text-(--text-3) leading-[1.65]">
             Your username and picture help roommates recognize assignments,
             payments, events, and driveway alerts at a glance.
           </p>
         </div>
-        <p className="flex items-center gap-2 text-[#cadac4] text-[.8rem]"><UserRound size={18} /> You can edit this later in Settings</p>
+        <p className="flex items-center gap-2 text-(--text-3) text-[.8rem]"><UserRound size={18} /> You can edit this later in Settings</p>
       </section>
 
       <section className="grid content-center p-[clamp(28px,8vw,96px)]">
         <form className="w-[min(620px,100%)] mx-auto" onSubmit={submit}>
-          <p className="text-(--gold) text-[.75rem] font-extrabold tracking-[.11em]">YOUR PROFILE</p>
+          <p className="text-(--amber) text-[.75rem] font-extrabold tracking-[.11em]">YOUR PROFILE</p>
           <h2 className="mt-3 text-[clamp(2.5rem,5vw,4.4rem)] leading-[.98]">Choose how housemates see you.</h2>
-          <p className="max-w-135 mt-4 text-(--muted) leading-[1.6]">
+          <p className="max-w-135 mt-4 text-(--text-3) leading-[1.6]">
             A username is required. A profile picture is optional and can be skipped.
           </p>
 
@@ -119,8 +119,8 @@ export function ProfileGate({ children }: PropsWithChildren) {
               size="xl"
             />
             <div className="grid gap-2">
-              <strong className="text-[.9rem]">Profile picture <span className="text-(--muted) font-medium">Optional</span></strong>
-              <p className="text-(--muted) text-[.75rem] leading-[1.45]">JPG, PNG, or WebP up to 5 MB.</p>
+              <strong className="text-[.9rem]">Profile picture <span className="text-(--text-3) font-medium">Optional</span></strong>
+              <p className="text-(--text-3) text-[.75rem] leading-[1.45]">JPG, PNG, or WebP up to 5 MB.</p>
               <input
                 ref={fileInput}
                 className="sr-only"
@@ -149,7 +149,7 @@ export function ProfileGate({ children }: PropsWithChildren) {
               required
             />
           </label>
-          {error && <p className="mt-3 text-(--coral) text-[.78rem]">{error}</p>}
+          {error && <p className="mt-3 text-[#ff8080] text-[.78rem]">{error}</p>}
           <Button className="w-full mt-6" size="lg" type="submit" disabled={busy}>
             {busy ? 'Saving profile…' : avatar ? 'Save profile' : 'Continue without a picture'}
           </Button>
