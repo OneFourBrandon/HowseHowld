@@ -12,9 +12,11 @@ import { renewPushSubscription } from '../lib/push'
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import * as api from '../lib/api'
+import { assignVehicle, blockingVehicles, slotsFor, validSlot } from '../lib/driveway'
 import { blockerIds, cents, initials, toIso, uid } from '../lib/utils'
 import type {
   AppSnapshot,
+  DrivewaySlot,
   CalendarEvent,
   CreateHouseholdInput,
   Expense,
@@ -61,7 +63,8 @@ interface AppDataContextValue {
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
   updateExpenseAmount: (id: UUID, amount: number, expected: number) => Promise<void>
-  saveDrivewayLayout: (width: number, garageRows: number) => Promise<void>
+  saveDrivewaySlots: (slots: DrivewaySlot[]) => Promise<void>
+  parkVehicle: (vehicleId: string, slotId: string | null) => Promise<void>
   reverseExpense: (id: UUID, reason: string) => Promise<void>
   addSettlement: (settlement: NewSettlement) => Promise<void>
   confirmSettlement: (id: UUID, accept: boolean) => Promise<void>
@@ -102,7 +105,7 @@ interface AppDataContextValue {
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 export function AppDataProvider({ children }: PropsWithChildren) {
-  const [data, setData] = useState<AppSnapshot>(() => structuredClone(demoSnapshot))
+  const [data, setData] = useState<AppSnapshot>(() => ({ ...structuredClone(demoSnapshot), drivewaySlots: slotsFor(demoSnapshot) }))
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(hasSupabaseConfig)
@@ -180,7 +183,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       'calendar_events', 'event_audiences', 'courses', 'schedule_items',
       'shared_courses', 'shared_course_enrollments', 'shared_course_meetings',
       'shared_course_assessments',
-      'vehicles', 'driveway_state', 'driveway_positions', 'departure_occurrences',
+      'vehicles', 'driveway_state', 'driveway_positions', 'driveway_slots', 'departure_occurrences',
       'push_subscriptions',
     ]
     let channel = client.channel(`household:${data.household.id}`)
@@ -477,12 +480,36 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }, 'Purchase total and shares updated.',
   ), [data.expenses, data.household.currentMemberId, demoMode, refresh, run])
 
-  const saveDrivewayLayout = useCallback(async (width: number, garageRows: number) => run(
-    'driveway:layout', async () => {
-      if (!demoMode) await api.invokeRpc('set_driveway_layout', { p_household_id: data.household.id, p_width: width, p_garage_rows: garageRows })
-      setData(current => ({ ...current, household: { ...current.household, drivewayWidth: width, garageRows } }))
+  const saveDrivewaySlots = useCallback(async (slots: DrivewaySlot[]) => run(
+    'driveway:slots', async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can edit parking slots.')
+      if (new Set(slots.map(slot => slot.id)).size !== slots.length || slots.some(slot => !validSlot(slot, slots))) throw new Error('Slots must not overlap.')
+      if (!demoMode) {
+        await api.invokeRpc('save_driveway_slots', { p_household_id: data.household.id, p_slots: slots.map(({ id, x, y, width, height, kind }) => ({ id, x, y, width, height, kind })) })
+        await refresh(false)
+        return
+      }
+      const existing = slotsFor(data)
+      if (existing.some(slot => slot.vehicleId && !slots.some(next => next.id === slot.id))) throw new Error('Unpark cars before deleting their slots.')
+      setData(current => {
+        const currentSlots = slotsFor(current)
+        const next = slots.map(slot => ({ ...slot, vehicleId: currentSlots.find(old => old.id === slot.id)?.vehicleId }))
+        return { ...current, drivewaySlots: next, departures: current.departures.map(departure => ({ ...departure, blockerVehicleIds: blockingVehicles(next, departure.vehicleId) })) }
+      })
     }, 'Driveway layout saved.',
-  ), [data.household.id, demoMode, run])
+  ), [data, demoMode, refresh, run])
+
+  const parkVehicle = useCallback(async (vehicleId: string, slotId: string | null) => run(
+    'driveway:park', async () => {
+      if (!demoMode) {
+        await api.invokeRpc('park_vehicle', { p_household_id: data.household.id, p_vehicle_id: vehicleId, p_slot_id: slotId })
+        await refresh(false)
+        return
+      }
+      const next = assignVehicle(slotsFor(data), vehicleId, slotId)
+      setData(current => ({ ...current, drivewaySlots: next, departures: current.departures.map(departure => ({ ...departure, blockerVehicleIds: blockingVehicles(next, departure.vehicleId) })) }))
+    }, slotId ? 'Vehicle parked.' : 'Vehicle unparked.',
+  ), [data, demoMode, refresh, run])
 
   const reverseExpense = useCallback(
     async (id: UUID, reason: string) =>
@@ -877,10 +904,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
                 source: scheduleItemId ? 'course' : 'manual',
                 sourceLabel: label,
                 warningMinutes,
-                blockerVehicleIds: blockerIds(
-                  current.vehicles.map((item) => item.id),
-                  vehicleId,
-                ),
+                blockerVehicleIds: blockingVehicles(slotsFor(current), vehicleId),
               },
             ],
           }))
@@ -931,6 +955,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           setData((current) => ({
             ...current,
             vehicles: current.vehicles.filter((vehicle) => vehicle.id !== id),
+            drivewaySlots: slotsFor(current).map(slot => slot.vehicleId === id ? { ...slot, vehicleId: undefined } : slot),
             departures: current.departures.filter((departure) => departure.vehicleId !== id),
           }))
         },
@@ -1193,7 +1218,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addExpense,
       reverseExpense,
       updateExpenseAmount,
-      saveDrivewayLayout,
+      saveDrivewaySlots,
+      parkVehicle,
       addSettlement,
       confirmSettlement,
       proposeFundPayment,
@@ -1239,7 +1265,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addExpense,
       reverseExpense,
       updateExpenseAmount,
-      saveDrivewayLayout,
+      saveDrivewaySlots,
+      parkVehicle,
       addSettlement,
       confirmSettlement,
       proposeFundPayment,

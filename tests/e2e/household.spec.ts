@@ -14,7 +14,7 @@ test('navigates the complete demo household', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Calendar', exact: true })).toBeVisible()
 
   await page.getByRole('link', { name: /Driveway/ }).last().click()
-  await expect(page.getByRole('heading', { name: 'Driveway' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Driveway', exact: true })).toBeVisible()
 })
 
 test('exposes the complete creation controls', async ({ page }) => {

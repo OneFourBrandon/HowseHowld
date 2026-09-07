@@ -296,6 +296,16 @@ export interface Vehicle {
   plate?: string
 }
 
+export interface DrivewaySlot {
+  id: UUID
+  x: number
+  y: number
+  width: number
+  height: number
+  kind: 'driveway' | 'garage'
+  vehicleId?: UUID
+}
+
 export interface Departure {
   id: UUID
   vehicleId: UUID
@@ -340,6 +350,7 @@ export interface AppSnapshot {
   courses: Course[]
   sharedCourses: SharedCourse[]
   vehicles: Vehicle[]
+  drivewaySlots?: DrivewaySlot[]
   departures: Departure[]
   auditEvents: AuditEvent[]
   notificationHealth: NotificationHealth

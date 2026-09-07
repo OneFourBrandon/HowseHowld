@@ -21,13 +21,19 @@ test('night palette persists without changing the mobile day count', async ({ pa
   expect(await page.evaluate(() => localStorage.getItem('howsehowld:theme'))).toBe('dark')
 })
 
-test('owner saves driveway columns and garage configuration', async ({ page }) => {
+test('owner adds a garage tile and parks a car using touch controls', async ({ page }) => {
   await page.goto('/driveway')
-  await page.getByRole('combobox', { name: 'Cars wide' }).selectOption('2')
-  await page.getByRole('combobox', { name: 'Garage rows' }).selectOption('1')
-  await page.getByRole('button', { name: 'Save layout' }).click()
-  await expect(page.getByText('Garage · 1 row × 2 spaces', { exact: false })).toBeVisible()
-  expect(await page.locator('.driveway-lane').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(2)
+  await page.getByRole('button', { name: 'Add slot', exact: true }).click()
+  await page.getByRole('button', { name: 'Properties for slot 4: empty' }).click()
+  await page.getByRole('combobox', { name: 'Slot type' }).selectOption('garage')
+  await page.getByRole('spinbutton', { name: 'Width (cells)', exact: true }).fill('2')
+  await page.getByRole('dialog').getByRole('button', { name: 'Done', exact: true }).click()
+  await page.getByRole('button', { name: 'Save driveway', exact: true }).click()
+  await expect(page.locator('[data-slot-width="2"]')).toContainText('Garage')
+  await page.getByRole('button', { name: 'Park in slot 4: empty' }).click()
+  await page.getByRole('combobox', { name: 'Vehicle', exact: true }).selectOption('vehicle-brandon')
+  await expect(page.getByRole('button', { name: 'Park in slot 4: Red Mazda' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Park in slot 3: empty' })).toBeAttached()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 

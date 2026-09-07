@@ -1,0 +1,36 @@
+import { expect, test } from '@playwright/test'
+
+test('admin drags tiles across the grid and stretches edges without merging cars', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1080 })
+  await page.goto('/driveway')
+  await page.getByRole('button', { name: 'Edit layout', exact: true }).click()
+  const handle = page.getByRole('button', { name: 'Move slot 1', exact: true })
+  await handle.scrollIntoViewIfNeeded()
+  const box = (await handle.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2,box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 152,box.y + box.height / 2,{ steps: 8 })
+  await page.mouse.up()
+  await expect(page.locator('[data-slot-id="vehicle-maya"]')).toHaveAttribute('data-slot-x','1')
+  const edge = page.getByRole('button', { name: 'Resize slot 1 right', exact: true })
+  const edgeBox = (await edge.boundingBox())!
+  await page.mouse.move(edgeBox.x + edgeBox.width / 2,edgeBox.y + edgeBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(edgeBox.x + edgeBox.width / 2 + 152,edgeBox.y + edgeBox.height / 2,{ steps: 8 })
+  await page.mouse.up()
+  await expect(page.locator('[data-slot-id="vehicle-maya"]')).toHaveAttribute('data-slot-width','2')
+  await page.getByRole('button', { name: 'Save driveway', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Park in slot 1: Blue Civic' })).toBeVisible()
+  await expect(page.locator('[data-slot-id]')).toHaveCount(3)
+  const car = page.getByRole('button', { name: 'Park in slot 1: Blue Civic' })
+  const destination = page.getByRole('button', { name: 'Park in slot 2: Green Corolla' })
+  await car.scrollIntoViewIfNeeded()
+  const carBox = (await car.boundingBox())!, targetBox = (await destination.boundingBox())!
+  await page.mouse.move(carBox.x + carBox.width / 2, carBox.y + carBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect(page.getByRole('button', { name: 'Park in slot 2: Blue Civic' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Park in slot 1: Green Corolla' })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('driveway-grid.png') })
+})

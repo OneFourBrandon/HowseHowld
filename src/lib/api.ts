@@ -469,6 +469,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('departure_occurrences').select('*, departure_rules(source,label,warning_minutes,schedule_item_id)').eq('household_id', householdId).gte('required_at', new Date().toISOString()),
     client.from('audit_events').select('*').eq('household_id', householdId).order('created_at', { ascending: false }).limit(100),
     client.from('push_subscriptions').select('id,endpoint,last_success_at').eq('household_id', householdId).eq('active', true),
+    client.from('driveway_slots').select('*').eq('household_id', householdId).order('y').order('x'),
   ])
   const firstError = results.map((result) => result.error).find(Boolean)
   if (firstError) throw firstError
@@ -478,7 +479,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     expenseResult, settlementResult, fundPaymentResult, billResult, billPeriodResult, balanceResult, eventResult,
     courseResult, scheduleResult, sharedCourseResult, sharedEnrollmentResult,
     sharedMeetingResult, sharedAssessmentResult, vehicleResult, drivewayResult,
-    departureResult, auditResult, pushResult,
+    departureResult, auditResult, pushResult, slotResult,
   ] = results
   const rowData = <T,>(result: { data: T | null }) => result.data
   const household = rowData(householdResult)!
@@ -769,6 +770,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
           location: assessment.location ?? undefined,
         })),
     })),
+    drivewaySlots: (slotResult.data ?? []).map(row => ({ id: row.id, x: row.x, y: row.y, width: row.width, height: row.height, kind: row.kind as 'driveway' | 'garage', vehicleId: row.vehicle_id ?? undefined })),
     vehicles: orderedVehicles.map((row) => ({
       id: row.id,
       ownerMemberId: row.owner_member_id,

@@ -11,7 +11,17 @@ $env:VITE_DEMO_MODE = 'true'
 pnpm dev
 ```
 
-Demo changes are in-memory. Test purchase-price hover and tap, price corrections, the sun/moon toggle, overview day cards, and owner driveway width/garage controls. The layout fills rows from the street toward the garage; only earlier vehicles in the same column block a departure. Empty spaces are placeholders, not separately assignable parking slots.
+Demo changes are in-memory. Test purchase-price hover and tap, price corrections, the sun/moon toggle, overview day cards, and the editable driveway below.
+
+### Editable driveway
+
+- Admin: choose **Add slot** to fill the next available cell, or **Edit layout** to change existing slots. Drag a grip to move a tile right/down into new grid space; drag any of its four edges to stretch it. Grid space expands as you move, and zoom controls help with larger layouts.
+- Tap a tile in editing mode to change its row, column, width, length or garage type. A stretched tile still holds one car. Slots cannot overlap. Unpark a car before deleting its slot.
+- Choose **Save driveway** to share the layout. Cancel discards the draft. Saving a layout preserves current vehicle assignments, including changes made while the admin was editing.
+- Residents can drag cars between slots (occupied slots swap cars), or tap a slot and select a vehicle. Newly added vehicles start in **Not parked**. Selecting Empty unparks a car without deleting its slot.
+- Exit blockers are occupied slots above the car whose horizontal footprints overlap its path. A wide slot can have blockers in multiple lanes. Moving or unparking cars cancels pending warnings that no longer apply.
+- Apply `20260907155100_editable_driveway_slots.sql` to the test backend after the earlier migrations before trying these features against Supabase. Existing active cars are seeded into individual tiles. No production migration was applied.
+- `pnpm test:driveway-db` runs the actual slot migration and its routines in embedded PostgreSQL with a minimal household fixture. It verifies permissions, migration seeding, overlap rejection, occupancy preservation, swaps, blocker notifications and cancellation. Realtime transport and delivery to a real device still require Supabase integration testing.
 
 ## Backend testing required before release
 
@@ -23,7 +33,7 @@ Use a separate Supabase test project or an already-running disposable local stac
 4. Check an email-linked roommate can generate a recovery code in Settings. A code recovery transfers the existing membership to the new device identity, as in the existing recovery model; it does not keep the previous anonymous device signed in. Verified recovery-email sign-in is the multi-device path. Email delivery still requires working SMTP and allowed redirect URLs in the test project's Auth settings.
 5. Redeem a code on a fresh device. Verify the original name, avatar and completed onboarding survive. Check admin roommate cards show creation timestamps and profile pictures.
 6. Edit a purchase twice, including an odd-cent total. Verify shares, balances, audit entries, concurrent-edit rejection and subsequent purchase reversal. Only its creator can edit a purchase.
-7. Save a two-column driveway. Schedule an exit from a rear car and verify only vehicles ahead in its column are notified.
+7. Save a multi-lane driveway with a garage tile spanning two cells. Schedule an exit from that tile and verify cars above either overlapping lane are notified, while cars beside or behind it are not.
 
 ## Notifications
 
@@ -43,6 +53,7 @@ Nine existing migration filenames now match the corresponding deployed version I
 
 - TypeScript and production build passed.
 - Lint passed.
-- 23 unit tests passed.
-- 14 Playwright checks passed across mobile Chrome and Safari, including desktop-sized hover screenshots.
+- 26 unit tests passed.
+- 16 Playwright checks passed across mobile Chrome and Safari, including slot/car dragging and desktop screenshots.
+- 3 embedded PostgreSQL integration tests passed for the editable driveway.
 - Production email delivery, push delivery, and new database routines remain unverified until test-backend integration testing.
