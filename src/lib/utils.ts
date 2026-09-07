@@ -92,9 +92,9 @@ export function penaltyForPriorMisses(priorConfirmedMisses: number) {
   return cents(Math.min(1_000 + Math.max(0, priorConfirmedMisses) * 500, 3_000))
 }
 
-export function blockerIds(orderedVehicleIds: string[], targetVehicleId: string) {
+export function blockerIds(orderedVehicleIds: string[], targetVehicleId: string, width = 1) {
   const index = orderedVehicleIds.indexOf(targetVehicleId)
-  return index <= 0 ? [] : orderedVehicleIds.slice(0, index)
+  return index <= 0 ? [] : orderedVehicleIds.slice(0, index).filter((_, position) => position % width === index % width)
 }
 
 export function nextRotationMember(memberIds: string[], existingOccurrences: number) {

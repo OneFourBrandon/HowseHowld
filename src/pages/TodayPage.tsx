@@ -1,3 +1,4 @@
+import { ThemeToggle } from '../components/ThemeToggle'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
@@ -82,7 +83,7 @@ function AgendaIcon({
   occurrenceStatus?: 'assigned' | 'completed' | 'missed'
 }) {
   if (kind === 'bill') {
-    return <span className="grid size-10 place-items-center rounded-[9px] bg-(--gold-soft) text-[#9a6d13]"><CircleDollarSign size={20} /></span>
+    return <span className="grid size-10 place-items-center rounded-[9px] bg-(--gold-soft) text-[#9a6d13] dark:text-(--gold)"><CircleDollarSign size={20} /></span>
   }
   if (kind === 'event') {
     return <span className="grid size-10 place-items-center rounded-[9px] bg-(--blue-soft) text-(--blue)"><CalendarDays size={20} /></span>
@@ -212,7 +213,7 @@ export function TodayPage() {
   return (
     <div className="grid gap-5.5">
       {data.household.enabledFeatures.includes('notifications') && !data.notificationHealth.subscribed && (
-        <Link to="/settings" className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[10px] border border-[#e3d0a1] border-l-[3px] border-l-(--gold) bg-[#f1e5c8] px-4 py-3 text-[.8rem] text-[#76561d]">
+        <Link to="/settings" className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[10px] border border-[#e3d0a1] border-l-[3px] border-l-(--gold) bg-[#f1e5c8] dark:bg-(--gold-soft) px-4 py-3 text-[.8rem] text-[#76561d] dark:text-(--gold)">
           <BellRing size={19} />
           <div><strong className="block">Don’t miss the last call</strong><span className="text-[#756a52]">Enable reminders for chore and driveway alerts.</span></div>
           <ChevronRight size={18} />
@@ -228,10 +229,11 @@ export function TodayPage() {
           <p className="mt-1.5 text-[.86rem] text-(--muted)">Here’s what the house needs from you today.</p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
+          <ThemeToggle />
           <div className="relative max-[560px]:hidden">
             <Button variant="secondary" onClick={() => setAddMenuOpen((open) => !open)}><Plus size={16} /> Add <ChevronDown size={14} /></Button>
             {addMenuOpen && (
-              <div className="absolute right-0 top-[calc(100%+7px)] z-20 grid w-44 rounded-[10px] border border-(--line-strong) bg-white p-1.5 shadow-[0_12px_30px_rgba(20,35,28,.14)]">
+              <div className="absolute right-0 top-[calc(100%+7px)] z-20 grid w-44 rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-1.5 shadow-[0_12px_30px_rgba(20,35,28,.14)]">
                 <Link className="rounded-[7px] px-3 py-2 text-[.78rem] font-semibold hover:bg-(--sage-2)" to="/chores">Add a chore</Link>
                 <Link className="rounded-[7px] px-3 py-2 text-[.78rem] font-semibold hover:bg-(--sage-2)" to="/money">Add a purchase</Link>
                 <Link className="rounded-[7px] px-3 py-2 text-[.78rem] font-semibold hover:bg-(--sage-2)" to="/calendar">Add an event</Link>
@@ -252,7 +254,7 @@ export function TodayPage() {
         <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { const start = addDateKeyDays(rangeStart, -visibleDayCount); setRangeStart(start); setSelectedDate(start) }} aria-label="Previous dates"><ChevronLeft size={18} /></button>
         <div
           aria-label="Visible dates"
-          className="grid min-w-0"
+          className="grid min-w-0 gap-1.5"
           role="group"
           style={{ gridTemplateColumns: `repeat(${visibleDayCount}, minmax(0, 1fr))` }}
         >
@@ -261,7 +263,7 @@ export function TodayPage() {
             const counts = countsForDay(dateKey)
             const selected = selectedDate === dateKey
             return (
-              <button className={cn('grid min-w-0 gap-1 overflow-hidden border-0 border-l border-(--line) bg-transparent px-2 py-2 text-(--ink) first:border-l-0 hover:bg-(--sage-2)', selected && 'rounded-[10px] border! border-(--green)! bg-white')} type="button" key={dateKey} onClick={() => setSelectedDate(dateKey)}>
+              <button className={cn('grid min-w-0 gap-1 overflow-hidden rounded-2xl border px-2 py-3 transition-colors', selected ? 'border-(--green) bg-(--green-soft) text-(--ink)' : 'border-(--line) bg-(--surface-strong) text-(--ink) hover:bg-(--sage-2)')} type="button" key={dateKey} onClick={() => setSelectedDate(dateKey)}>
                 <span className="font-sans text-[.67rem] font-bold uppercase">{shortWeekday.format(date)}</span>
                 <strong className="font-sans text-[1.2rem] leading-none">{date.getUTCDate()}</strong>
                 <span className="mt-1 flex min-w-0 justify-center gap-2.5 text-[.65rem] text-(--muted) max-[420px]:gap-1.5">
@@ -274,7 +276,7 @@ export function TodayPage() {
           })}
         </div>
         <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { const start = addDateKeyDays(rangeStart, visibleDayCount); setRangeStart(start); setSelectedDate(start) }} aria-label="Next dates"><ChevronRight size={18} /></button>
-        <div className="grid content-center gap-1.5 border-l border-(--line) pl-5 text-[.67rem] text-(--muted) max-[880px]:hidden">
+        <div className="grid content-center gap-1.5 pl-5 text-[.67rem] text-(--muted) max-[880px]:hidden">
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-(--green)" />Chores</span>
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-(--gold)" />Bills</span>
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-[#7c9096]" />Events</span>
@@ -342,7 +344,7 @@ export function TodayPage() {
         <aside className="grid gap-4 border-l border-(--line) pl-7 max-[980px]:grid-cols-2 max-[980px]:border-l-0 max-[980px]:border-t max-[980px]:pt-6 max-[980px]:pl-0 max-[620px]:grid-cols-1">
           <h2 className="text-[1rem]! max-[980px]:col-span-full">At a glance</h2>
           {data.household.enabledFeatures.includes('money') && myBalance && (
-            <section className="grid min-h-48 content-center rounded-[10px] border border-(--line-strong) border-l-[3px] border-l-(--green) bg-white p-5">
+            <section className="grid min-h-48 content-center rounded-[10px] border border-(--line-strong) border-l-[3px] border-l-(--green) bg-(--surface-strong) p-5">
               <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] bg-(--sage) text-(--forest)"><CircleDollarSign size={18} /></span><strong className="text-[.8rem]">Shared money</strong></div>
               <span className="mt-4 text-[.72rem] text-(--muted)">Your house balance</span>
               <strong className={cn('mt-0.5 font-display text-[1.75rem] leading-none', myBalance.netCents < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(myBalance.netCents, true)}</strong>
@@ -352,13 +354,13 @@ export function TodayPage() {
           )}
 
           {data.household.enabledFeatures.includes('money') && (
-            <section className="grid min-h-38 content-center rounded-[10px] border border-(--line-strong) bg-white p-5">
-              <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] bg-(--gold-soft) text-[#9a6d13]"><CircleDollarSign size={18} /></span><strong className="text-[.78rem]">Next bill due</strong></div>
+            <section className="grid min-h-38 content-center rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-5">
+              <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] bg-(--gold-soft) text-[#9a6d13] dark:text-(--gold)"><CircleDollarSign size={18} /></span><strong className="text-[.78rem]">Next bill due</strong></div>
               {nextBill ? <><span className="mt-3 text-[.74rem]">{nextBill.title.replace(/ due$/, '')}</span><strong className="mt-1 font-sans text-[1.15rem] text-(--gold)">{nextBill.amountCents != null ? formatMoney(nextBill.amountCents) : 'Variable'}</strong><span className="mt-2 inline-flex items-center gap-2 text-[.7rem] text-(--muted)"><CalendarDays size={14} />{nextBill.dateKey === householdToday ? 'Due today' : `Due ${shortDate.format(dateFromKey(nextBill.dateKey))}`}</span></> : <span className="mt-3 text-[.74rem] text-(--muted)">No upcoming unpaid bills.</span>}
             </section>
           )}
 
-          <section className="rounded-[10px] border border-(--line-strong) bg-white p-5">
+          <section className="rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-5">
             <strong className="text-[.78rem]">Household</strong>
             <div className="mt-3 grid gap-3">
               {data.members.slice(0, 4).map((member) => (
@@ -368,7 +370,7 @@ export function TodayPage() {
           </section>
 
           {nextDeparture && (
-            <Link className="rounded-[10px] border border-(--line-strong) bg-white p-5" to="/driveway">
+            <Link className="rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-5" to="/driveway">
               <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] bg-(--blue-soft) text-(--blue)"><CarFront size={18} /></span><strong className="text-[.78rem]">Next departure</strong></div>
               <span className="mt-3 block text-[.74rem]">{nextDeparture.title}</span><span className="mt-1 inline-flex items-center gap-1.5 text-[.7rem] text-(--muted)"><Clock3 size={13} />{timeUntil(new Date(nextDeparture.sortAt).toISOString())}</span>
             </Link>

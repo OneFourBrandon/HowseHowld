@@ -202,7 +202,7 @@ export function ChoresPage() {
                   <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   <span>{member.displayName}</span>
                   {isMine && occurrence.status === 'assigned' && (
-                    <span className="hidden whitespace-nowrap rounded-full bg-(--gold-soft) px-2 py-1 text-[.62rem] font-extrabold uppercase tracking-[.035em] text-[#8b6522] max-[640px]:inline-flex">
+                    <span className="hidden whitespace-nowrap rounded-full bg-(--gold-soft) px-2 py-1 text-[.62rem] font-extrabold uppercase tracking-[.035em] text-[#8b6522] dark:text-(--gold) max-[640px]:inline-flex">
                       Your turn
                     </span>
                   )}
@@ -481,7 +481,7 @@ export function ChoresPage() {
               <legend>Rotation order and eligibility</legend>
               <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
                 {data.members.filter((member) => member.active).map((member) => (
-                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={member.id}>
+                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={member.id}>
                     <input
                       type="checkbox"
                       checked={rotationIds.includes(member.id)}
@@ -507,7 +507,7 @@ export function ChoresPage() {
                 ['22:00', '10:00 PM'],
                 ['23:30', '11:30 PM'],
               ].map(([time, label]) => (
-                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={time}>
+                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={time}>
                   <input
                     type="checkbox"
                     checked={reminderTimes.includes(time)}

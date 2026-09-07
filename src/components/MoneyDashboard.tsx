@@ -1,3 +1,6 @@
+import { PurchaseDetails } from './PurchaseDetails'
+import { ShareBar, SharePeek } from './ShareBreakdown'
+import { expenseBreakdown } from '../lib/shares'
 import { useMemo, useState } from 'react'
 import {
   ArrowDownLeft,
@@ -84,7 +87,7 @@ function MonthNavigator({
   return (
     <div className="relative grid gap-1">
       <span className="text-[.66rem] text-(--muted)">Month</span>
-      <div className="flex h-9 items-stretch overflow-hidden rounded-[9px] border border-(--line) bg-white">
+      <div className="flex h-9 items-stretch overflow-hidden rounded-[9px] border border-(--line) bg-(--surface-strong)">
         <button className="grid w-8.5 place-items-center border-0 border-r border-(--line) bg-transparent text-(--muted) hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => moveMonth(-1)} aria-label="Previous month">
           <ChevronLeft size={15} />
         </button>
@@ -97,7 +100,7 @@ function MonthNavigator({
       </div>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-20 grid w-64 gap-3 rounded-[10px] border border-(--line-strong) bg-white p-3 shadow-[0_12px_35px_rgba(20,35,28,.16)]" role="dialog" aria-label="Choose month and year">
+        <div className="absolute right-0 top-[calc(100%+8px)] z-20 grid w-64 gap-3 rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-3 shadow-[0_12px_35px_rgba(20,35,28,.16)]" role="dialog" aria-label="Choose month and year">
           <div className="grid grid-cols-[1fr_92px] gap-2">
             <label className="grid gap-1 text-[.7rem] font-semibold text-(--muted)">
               Month
@@ -156,6 +159,9 @@ export function MoneyDashboard({
     setBillPaid,
     openReceipt,
   } = useAppData()
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [peekId, setPeekId] = useState<string | null>(null)
+  const selectedExpense = data.expenses.find(e => e.id === detailId)
   const [activityFilter, setActivityFilter] = useState<'all' | 'expense' | 'settlement'>('all')
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [showAllBills, setShowAllBills] = useState(false)
@@ -188,6 +194,7 @@ export function MoneyDashboard({
 
   return (
     <div className="grid gap-5.5">
+      {selectedExpense && <PurchaseDetails key={selectedExpense.id} expense={selectedExpense} onClose={() => setDetailId(null)} />}
       <header className="flex items-end justify-between gap-8 max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-4">
         <div className="grid gap-1">
           <h1 className="text-[2.35rem]! leading-none max-[640px]:text-[2rem]!">Shared money</h1>
@@ -203,7 +210,7 @@ export function MoneyDashboard({
         </div>
       </header>
 
-      <section className="grid min-h-46 grid-cols-[310px_minmax(260px,1fr)_minmax(330px,1.15fr)] overflow-hidden rounded-xl border border-(--line-strong) bg-white max-[1120px]:grid-cols-[280px_1fr] max-[760px]:grid-cols-1">
+      <section className="grid min-h-46 grid-cols-[310px_minmax(260px,1fr)_minmax(330px,1.15fr)] overflow-hidden rounded-xl border border-(--line-strong) bg-(--surface-strong) max-[1120px]:grid-cols-[280px_1fr] max-[760px]:grid-cols-1">
         <div className="flex items-center border-l-4 border-l-(--gold) px-8 py-6 max-[760px]:px-5 max-[760px]:py-5">
           <div>
             <p className="text-[.73rem] font-extrabold tracking-[.06em] text-(--gold)">HOUSE SPEND</p>
@@ -249,7 +256,7 @@ export function MoneyDashboard({
       </section>
 
       <div className="grid grid-cols-[1.2fr_.92fr] items-start gap-5 max-[980px]:grid-cols-1">
-        <section className="rounded-xl border border-(--line-strong) bg-white px-5 py-4">
+        <section className="rounded-xl border border-(--line-strong) bg-(--surface-strong) px-5 py-4">
           <div className="flex items-center justify-between gap-4 border-b border-(--line) pb-3">
             <h2 className="text-[1.25rem]!">Recent activity</h2>
             <label className="relative inline-flex items-center gap-2 text-[.8rem] font-semibold text-(--muted)">
@@ -269,6 +276,7 @@ export function MoneyDashboard({
               const showDate = !previous || new Date(previous.date).toDateString() !== new Date(activity.date).toDateString()
               if (activity.kind === 'expense') {
                 const expense = activity.item
+                const breakdown = expenseBreakdown(expense, data.members, currentMemberId)
                 const payerNames = expense.payers.map((payer) => data.members.find((member) => member.id === payer.memberId)?.displayName).filter(Boolean)
                 const creator = data.members.find((member) => member.id === expense.createdBy)!
                 return (
@@ -277,9 +285,12 @@ export function MoneyDashboard({
                     <div className={cn('grid min-h-15 grid-cols-[42px_minmax(0,1.15fr)_minmax(135px,.8fr)_auto] items-center gap-3 border-b border-(--line) py-2.5 max-[620px]:grid-cols-[40px_1fr_auto]', expense.reversed && 'opacity-50')}>
                       <ExpenseCategoryIcon category={expense.category} />
                       <div className="min-w-0"><strong className="block truncate text-[.86rem]">{expense.title}</strong><span className="block truncate text-[.73rem] text-(--muted)">{getExpenseCategory(expense.category).description}{expense.receiptPath ? ' · Receipt attached' : ''}</span></div>
-                      <div className="flex min-w-0 items-center gap-2 max-[620px]:hidden"><Avatar initials={creator.initials} color={creator.color} imageUrl={creator.avatarUrl} size="sm" /><span className="truncate text-[.76rem] text-(--muted)">{payerNames.join(' & ')} paid</span></div>
+                      <div className="grid min-w-0 gap-2 max-[620px]:hidden"><div className="flex min-w-0 items-center gap-2"><Avatar initials={creator.initials} color={creator.color} imageUrl={creator.avatarUrl} size="sm" /><span className="truncate text-[.76rem] text-(--muted)">{payerNames.join(' & ')} paid</span></div><div className="flex items-center gap-2"><ShareBar className="w-20" height={5} breakdown={breakdown} /><span className="text-[.65rem] text-(--muted)">{(breakdown.mine?.percent ?? 0).toFixed(0)}% you</span></div></div>
                       <div className="flex items-center gap-2">
-                        <strong className="min-w-18 text-right font-sans text-[.84rem] tabular-nums">{formatMoney(expense.amountCents)}</strong>
+                        <div className="relative" onMouseEnter={() => setPeekId(expense.id)} onMouseLeave={() => setPeekId(null)}>
+                          <button className="min-w-18 rounded-lg border-0 bg-transparent px-1 py-2 text-right font-sans text-[.84rem] font-bold tabular-nums hover:text-(--green)" type="button" aria-label={`Show shares for ${expense.title}`} aria-haspopup="dialog" onFocus={() => setPeekId(expense.id)} onBlur={() => setPeekId(null)} onKeyDown={e => { if (e.key === 'Escape') setPeekId(null) }} onClick={() => { setPeekId(null); setDetailId(expense.id) }}>{formatMoney(expense.amountCents)}</button>
+                          {peekId === expense.id && <SharePeek className="pointer-events-none absolute bottom-full right-0 z-30 mb-1 max-[620px]:hidden" title={expense.title} breakdown={breakdown} />}
+                        </div>
                         {expense.receiptPath ? (
                           <button className="grid size-8 place-items-center rounded-full border-0 bg-transparent text-(--muted) hover:bg-(--sage-2)" type="button" onClick={() => openReceipt(expense.receiptPath!)} aria-label={`Open receipt for ${expense.title}`}><Camera size={16} /></button>
                         ) : <ChevronRight className="text-(--muted)" size={17} />}
@@ -301,7 +312,7 @@ export function MoneyDashboard({
                 <div key={`settlement-${settlement.id}`}>
                   {showDate && <p className="pt-3 pb-1 text-[.72rem] font-semibold text-(--muted)">{activityDate.format(new Date(activity.date))}</p>}
                   <div className="grid min-h-15 grid-cols-[42px_minmax(0,1.15fr)_minmax(135px,.8fr)_auto] items-center gap-3 border-b border-(--line) py-2.5 max-[620px]:grid-cols-[40px_1fr_auto]">
-                    <div className="grid size-10 place-items-center rounded-full bg-(--gold-soft) text-[#8b6413]"><ArrowUpRight size={19} /></div>
+                    <div className="grid size-10 place-items-center rounded-full bg-(--gold-soft) text-[#8b6413] dark:text-(--gold)"><ArrowUpRight size={19} /></div>
                     <div className="min-w-0"><strong className="block truncate text-[.86rem]">Payment to {to.displayName}</strong><span className="block truncate text-[.73rem] text-(--muted)">{settlement.note || 'Shared expenses'}</span></div>
                     <div className="flex min-w-0 items-center gap-2 max-[620px]:hidden"><Avatar initials={from.initials} color={from.color} imageUrl={from.avatarUrl} size="sm" /><span className="truncate text-[.76rem] text-(--muted)">{from.displayName} paid</span></div>
                     <div className="flex items-center gap-2">
@@ -318,9 +329,9 @@ export function MoneyDashboard({
         </section>
 
         <div className="grid gap-4">
-          <section className="rounded-xl border border-(--line-strong) bg-white px-5 py-4" id="bills">
-            <div className="flex items-center justify-between gap-4 border-b border-(--line) pb-3 max-[520px]:flex-col max-[520px]:items-stretch">
-              <div className="flex min-w-0 flex-1 self-stretch flex-col justify-center">
+          <section className="rounded-xl border border-(--line-strong) bg-(--surface-strong) px-5 py-4" id="bills">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--line) pb-3 max-[520px]:flex-col max-[520px]:items-stretch">
+              <div className="flex min-w-44 flex-1 self-stretch flex-col justify-center">
                 <h2 className="text-[1.18rem]! leading-tight!">Utilities &amp; rent</h2>
                 <p className="mt-0.5 text-[.66rem] leading-tight text-(--muted)">Track your individual payment each month.</p>
               </div>
@@ -336,12 +347,12 @@ export function MoneyDashboard({
                 const paid = Boolean(period?.paidMemberIds.includes(currentMemberId))
                 return (
                   <div className="grid min-h-15 grid-cols-[42px_minmax(0,1fr)_90px_34px] items-center gap-3 border-b border-(--line) py-2.5" key={bill.id}>
-                    <div className={cn('grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)', bill.category === 'electricity' && 'bg-(--gold-soft) text-[#8b6413]', bill.category === 'gas' && 'bg-[#fbe8dd] text-[#a34e28]')}><BillIcon category={bill.category} /></div>
+                    <div className={cn('grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)', bill.category === 'electricity' && 'bg-(--gold-soft) text-[#8b6413] dark:text-(--gold)', bill.category === 'gas' && 'bg-[#fbe8dd] dark:bg-(--coral-soft) text-[#a34e28] dark:text-(--coral)')}><BillIcon category={bill.category} /></div>
                     <div className="min-w-0"><strong className="block truncate text-[.83rem]">{bill.name}</strong><span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}</span></div>
                     <div className="text-right"><strong className="block font-sans text-[.82rem] tabular-nums">{formatMoney(period?.amountCents ?? bill.amountCents ?? 0)}</strong><span className="block truncate text-[.7rem] text-(--muted)">{currentMember.displayName}</span></div>
                     <label className="grid size-8 cursor-pointer place-items-center" title={paid ? 'Paid' : 'Mark paid'}>
                       <input className="sr-only" type="checkbox" checked={paid} disabled={!period || busy === `bill:paid:${period.id}`} onChange={(event) => { if (period) void setBillPaid(period.id, event.target.checked) }} />
-                      {paid ? <CheckCircle2 className="text-[#6ca177]" size={20} /> : <Circle className="text-(--muted)" size={20} />}
+                      {paid ? <CheckCircle2 className="text-[#6ca177] dark:text-(--green)" size={20} /> : <Circle className="text-(--muted)" size={20} />}
                     </label>
                   </div>
                 )
@@ -351,7 +362,7 @@ export function MoneyDashboard({
             {data.bills.length > 4 && <button className="mt-2 border-0 bg-transparent py-1 text-[.8rem] font-bold text-(--forest)" type="button" onClick={() => setShowAllBills((shown) => !shown)}>{showAllBills ? 'Show fewer bills' : 'View all bills'}</button>}
           </section>
 
-          <section className="rounded-xl border border-(--line-strong) bg-white px-5 py-4">
+          <section className="rounded-xl border border-(--line-strong) bg-(--surface-strong) px-5 py-4">
             <h2 className="text-[1.18rem]! leading-tight!">Penalty account</h2>
             <div className="mt-3 flex min-h-13 items-center gap-3 border-t border-(--line) pt-3">
               <div className="grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)"><ArrowDownLeft size={19} /></div>

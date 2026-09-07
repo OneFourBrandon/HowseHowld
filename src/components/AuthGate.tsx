@@ -167,7 +167,7 @@ export function AuthGate({ children }: PropsWithChildren) {
 
       <main className={"auth-panel min-w-0 grid items-center p-[clamp(10px,3vw,96px)] max-[980px]:min-h-screen max-[980px]:p-[clamp(28px,8vw,72px)] max-[640px]:p-[24px_20px_40px]"}>
         <div className={"auth-content w-[min(600px,80%)] h-[min(620px,calc(100vh-48px))] overflow-y-auto scrollbar-gutter-stable mx-auto max-[980px]:w-[min(620px,100%)] max-[980px]:h-auto max-[980px]:overflow-visible max-[980px]:scrollbar-gutter-auto"}>
-        <div className={"auth-mode-switch grid grid-cols-2 gap-1 mb-7 p-1 border border-(--line) rounded-[10px] bg-[#edf1ed] max-[640px]:mb-5.5"} aria-label="Choose how to continue">
+        <div className={"auth-mode-switch grid grid-cols-2 gap-1 mb-7 p-1 border border-(--line) rounded-[10px] bg-[#edf1ed] dark:bg-(--sage-2) max-[640px]:mb-5.5"} aria-label="Choose how to continue">
           <button
             type="button"
             className={cn(
@@ -186,7 +186,7 @@ export function AuthGate({ children }: PropsWithChildren) {
               )}
               onClick={() => selectMode('owner')}
           >
-            <Home size={17} /> Create/Manage as Admin
+            <Home size={17} /> Email sign-in
           </button>
         </div>
 
@@ -194,14 +194,14 @@ export function AuthGate({ children }: PropsWithChildren) {
           {mode === 'join'
             ? 'Use a house or recovery code'
             : stage === 'email'
-              ? 'Admin Login/Creation'
+              ? 'Sign in with email'
               : 'Open your sign-in link'}
         </h2>
         <p className={"muted max-w-full mt-3.5 text-(--muted) text-[.9rem] leading-[1.6]"}>
           {mode === 'join'
-            ? 'Join with your house share code, or use a one-time recovery code from your admin to restore your roommate account.'
+            ? 'Join with your house share code, or use a one-time recovery code from Settings or your admin to restore your roommate account.'
             : stage === 'email'
-              ? 'House admins use a recoverable email account. We’ll email you a secure sign-in link.'
+              ? 'Admins and roommates with a verified recovery email can sign in here. We’ll email you a secure link.'
               : `We sent a one-time sign-in link to ${email}. Open it in this browser to continue. If your email app uses another browser, copy the link into this one.`}
         </p>
 
@@ -219,7 +219,7 @@ export function AuthGate({ children }: PropsWithChildren) {
                 required
               />
             </label>
-            <label className={"text-[.78rem]"}>
+            {!recoveryCodeMode && <label className={"text-[.78rem]"}>
               Your name <span className={"field-hint ml-1.25 text-(--muted) text-[.72rem] font-medium"}>{recoveryCodeMode ? 'Optional for recovery' : 'Required for a new account'}</span>
               <input
                 className={"min-h-13 text-[.9rem]"}
@@ -229,9 +229,9 @@ export function AuthGate({ children }: PropsWithChildren) {
                 autoComplete="name"
                 minLength={2}
                 maxLength={80}
-                required={!recoveryCodeMode}
+                required
               />
-            </label>
+            </label>}
             {error && <p className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{error}</p>}
             <Button size="lg" type="submit" disabled={busy}>
               {busy ? 'Joining…' : recoveryCodeMode ? 'Restore my account' : 'Join the house'}

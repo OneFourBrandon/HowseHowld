@@ -1,3 +1,4 @@
+import { ThemeToggle } from './ThemeToggle'
 import { cn } from '../lib/cn'
 import { type CSSProperties, useEffect } from 'react'
 import {
@@ -100,7 +101,7 @@ export function AppShell() {
 
       <div className={"main-column col-[2] min-w-0 max-[980px]:relative max-[980px]:min-h-dvh"}>
         {demoMode && (
-          <div className={"demo-banner flex items-center justify-center gap-2 font-bold tracking-[.02em] text-[#6f5420] bg-[#efdfb8] min-h-9 text-[.78rem]"}>
+          <div className={"demo-banner flex items-center justify-center gap-2 font-bold tracking-[.02em] text-[#6f5420] dark:text-(--gold) bg-[#efdfb8] dark:bg-(--gold-soft) min-h-9 text-[.78rem]"}>
             <span className={"demo-dot w-1.5 h-1.5 rounded-full bg-(--gold)"} />
             Demo house
             <span className="font-medium text-[#88764e]">Connect Supabase to use live household data.</span>
@@ -112,6 +113,7 @@ export function AppShell() {
             Offline — viewing cached data. Changes are paused.
           </div>
         )}
+        {pathname !== '/' && <div className="absolute right-18 top-3 z-30 min-[981px]:right-5"><ThemeToggle /></div>}
         {pathname !== '/' && (
           <NavLink
             to="/settings"

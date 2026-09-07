@@ -1,5 +1,5 @@
 import { cn } from '../lib/cn'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import {
   closestCenter,
   DndContext,
@@ -15,7 +15,7 @@ import {
   arrayMove,
   SortableContext,
   useSortable,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
@@ -36,7 +36,11 @@ import { formatDateTime, timeUntil, toIso } from '../lib/utils'
 import type { Vehicle } from '../types'
 
 export function DrivewayPage() {
-  const { data, busy, reorderVehicles, addDeparture, saveVehicle, removeVehicle } = useAppData()
+  const { data, busy, reorderVehicles, addDeparture, saveVehicle, removeVehicle, saveDrivewayLayout } = useAppData()
+  const width = data.household.drivewayWidth ?? 1
+  const [layoutWidth, setLayoutWidth] = useState(width)
+  const [garageRows, setGarageRows] = useState(data.household.garageRows ?? 0)
+  const isOwner = data.members.find(m => m.id === data.household.currentMemberId)?.role === 'owner'
   const [departureModal, setDepartureModal] = useState(false)
   const [vehicleModal, setVehicleModal] = useState(false)
   const [vehicleEditorOpen, setVehicleEditorOpen] = useState(false)
@@ -72,6 +76,11 @@ export function DrivewayPage() {
   const previewVehicles = previewOrder
     .map((id) => data.vehicles.find((vehicle) => vehicle.id === id))
     .filter((vehicle): vehicle is Vehicle => Boolean(vehicle))
+
+  const savedGarageRows = data.household.garageRows ?? 0
+  const outdoorRows = Math.max(1, Math.ceil(previewVehicles.length / width) - savedGarageRows)
+  const garageStart = outdoorRows * width
+  const slotCount = savedGarageRows ? garageStart + savedGarageRows * width : previewVehicles.length
 
   const dragStart = ({ active }: DragStartEvent) => {
     const nextOrder = data.vehicles.map((vehicle) => vehicle.id)
@@ -168,6 +177,11 @@ export function DrivewayPage() {
             title="Street to back"
             description={`drag cars to update`}
           />
+          {isOwner && <form className="mb-4 flex flex-wrap items-end gap-3" onSubmit={async e => { e.preventDefault(); try { await saveDrivewayLayout(layoutWidth, garageRows) } catch { /* shared error */ } }}>
+            <label className="text-xs">Cars wide<select value={layoutWidth} onChange={e => setLayoutWidth(Number(e.target.value))}>{[1,2,3,4].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
+            <label className="text-xs">Garage rows<select value={garageRows} onChange={e => setGarageRows(Number(e.target.value))}>{[0,1,2,3].map(n => <option key={n} value={n}>{n === 0 ? 'No garage' : n}</option>)}</select></label>
+            <Button size="sm" disabled={busy === 'driveway:layout'}>Save layout</Button>
+          </form>}
           <Card className={"driveway-card relative overflow-hidden p-[22px_0_26px] py-[28px_34px]"}>
             <div className="street-label flex items-center justify-center gap-3 text-[.75rem] font-extrabold tracking-[.07em] text-(--muted)">
               <span className="h-0.25 flex-1 bg-(--line)" />
@@ -184,20 +198,27 @@ export function DrivewayPage() {
             >
               <SortableContext
                 items={previewOrder}
-                strategy={verticalListSortingStrategy}
+                strategy={rectSortingStrategy}
               >
-                <div className={"driveway-lane w-full m-[18px_auto] p-[12px_17px] border-2  rounded-[10px] border-[#bfc9c2] bg-[#eef1ed]"}>
-                  {previewVehicles.map((vehicle, index) => (
-                    <SortableVehicle
-                      key={vehicle.id}
+                <div className="my-4 overflow-x-auto"><div className="driveway-lane grid gap-3 rounded-xl border border-(--line) bg-(--sage-2) p-3" style={{ gridTemplateColumns: `repeat(${width}, minmax(150px, 1fr))`, minWidth: width * 166 }}>
+                  {previewVehicles.length === 0 && <p className="col-span-full py-5 text-center text-sm text-(--muted)">Add your first vehicle to arrange the driveway.</p>}
+                  {Array.from({ length: slotCount }, (_, index) => {
+                    const vehicle = previewVehicles[index]
+                    return <Fragment key={vehicle?.id ?? `empty-${index}`}>
+                    {savedGarageRows > 0 && index === garageStart && <div className="col-span-full border-t-2 border-dashed border-(--line-strong) pt-4 text-center text-sm font-bold">Garage · {savedGarageRows} row{savedGarageRows === 1 ? '' : 's'} × {width} spaces</div>}
+                    {vehicle ? <SortableVehicle
                       vehicle={vehicle}
                       index={index}
+                      width={width}
+                      inGarage={savedGarageRows > 0 && index >= garageStart}
                       owner={data.members.find((member) => member.id === vehicle.ownerMemberId)!}
-                    />
-                  ))}
-                </div>
+                    /> : <div className="grid min-h-28 place-items-center rounded-xl border border-dashed border-(--line-strong) text-xs text-(--muted)">Empty {index >= garageStart ? 'garage' : 'driveway'} space</div>}
+                    </Fragment>
+                  })}
+                </div></div>
               </SortableContext>
             </DndContext>
+            <p className="mb-4 text-center text-xs text-(--muted)">Only cars ahead in the same column block an exit.</p>
             <div className={"back-label flex items-center justify-center gap-3 font-extrabold text-[#919890] text-[.75rem] tracking-[.07em]"}><ArrowDown size={16} /> BACK OF DRIVEWAY</div>
             {busy === 'driveway:reorder' && <div className={"driveway-saving absolute inset-[auto_16px_12px_auto] text-(--muted) text-[.75rem]"}>Updating lineup…</div>}
           </Card>
@@ -209,7 +230,9 @@ export function DrivewayPage() {
             {data.departures.map((departure) => {
               const vehicle = data.vehicles.find((item) => item.id === departure.vehicleId)!
               const owner = data.members.find((item) => item.id === departure.ownerMemberId)!
-              const blockers = departure.blockerVehicleIds
+              const order = data.vehicles.map(v => v.id)
+              const target = order.indexOf(departure.vehicleId)
+              const blockers = order.filter((_, index) => index < target && index % width === target % width)
                 .map((id) => data.vehicles.find((item) => item.id === id))
                 .filter(Boolean)
               return (
@@ -224,11 +247,11 @@ export function DrivewayPage() {
                     </div>
                     <Badge tone="blue">{timeUntil(departure.requiredAt)}</Badge>
                   </div>
-                  <div className="departure-time flex items-start gap-2.25 rounded-none border-y border-[#d3d9ed] bg-transparent py-3 font-sans text-[#4d6098] tabular-nums">
+                  <div className="departure-time flex items-start gap-2.25 rounded-none border-y border-[#d3d9ed] bg-transparent py-3 font-sans text-[#4d6098] dark:text-(--blue) tabular-nums">
                     <Clock3 size={17} />
                     <div className="grid min-w-0 gap-1">
                       <strong className="block leading-tight">{formatDateTime(departure.requiredAt)}</strong>
-                      <span className="block text-[.76rem] leading-snug text-[#6878a6]">Alert {departure.warningMinutes} minutes before</span>
+                      <span className="block text-[.76rem] leading-snug text-[#6878a6] dark:text-(--blue)">Alert {departure.warningMinutes} minutes before</span>
                     </div>
                   </div>
                   <div className="blocker-box grid gap-2.25">
@@ -395,7 +418,7 @@ export function DrivewayPage() {
                       <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => openVehicleEditor(vehicle)} aria-label={`Edit ${vehicle.label}`}>
                         <Pencil size={16} />
                       </button>
-                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:border-[#d9aaa3] hover:bg-[#fff1ef] hover:text-[#a34135]" type="button" onClick={() => {
+                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:border-[#d9aaa3] hover:bg-[#fff1ef] dark:bg-(--coral-soft) hover:text-[#a34135] dark:text-(--coral)" type="button" onClick={() => {
                         if (window.confirm(`Delete ${vehicle.label}?`)) void removeVehicle(vehicle.id)
                       }} aria-label={`Delete ${vehicle.label}`}>
                         <Trash2 size={16} />
@@ -462,10 +485,14 @@ function SortableVehicle({
   vehicle,
   owner,
   index,
+  width,
+  inGarage,
 }: {
   vehicle: Vehicle
   owner: ReturnType<typeof useAppData>['data']['members'][number]
   index: number
+  width: number
+  inGarage: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: vehicle.id })
@@ -474,7 +501,7 @@ function SortableVehicle({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'vehicle-row grid min-h-19.5 cursor-grab touch-none select-none grid-cols-[auto_25px_auto_1fr_auto_60px] items-center gap-2.5 rounded-none border-b border-b-(--line) bg-transparent px-1.5 py-3.75 shadow-none active:cursor-grabbing max-[640px]:grid-cols-[auto_20px_auto_1fr_auto]',
+        'vehicle-row relative grid min-h-28 cursor-grab touch-none select-none grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-(--line) bg-(--surface-strong) p-3 active:cursor-grabbing',
         isDragging && 'is-dragging z-[5] bg-(--surface-strong)! opacity-[.85] shadow-[0_12px_28px_rgba(30,48,40,.14)]',
       )}
       {...attributes}
@@ -483,16 +510,16 @@ function SortableVehicle({
       <span className={"drag-handle p-0.75 text-[#9fa49f]"} aria-hidden="true">
         <GripVertical />
       </span>
-      <PositionNumber value={index + 1} />
+      <span className="text-xs text-(--muted)">Lane {index % width + 1} · <PositionNumber value={Math.floor(index / width) + 1} />{inGarage ? " · Garage" : ""}</span>
       <div className={"vehicle-art w-10.5 h-8 grid place-items-center text-white rounded-[7px]"} style={{ background: vehicle.color }}>
         <CarFront />
       </div>
-      <div className="vehicle-name">
+      <div className="vehicle-name col-span-2 min-w-0">
         <strong className="block text-[.88rem]">{vehicle.label}</strong>
         <span className="mt-0.75 block text-[.75rem] tracking-[.02em] text-(--muted)">{vehicle.plate}</span>
       </div>
       <Avatar initials={owner.initials} color={owner.color} imageUrl={owner.avatarUrl} size="sm" />
-      <span className={"owner-name text-(--muted) max-[640px]:hidden text-[.75rem]"}>{owner.displayName}</span>
+      <span className={"owner-name col-span-full truncate text-(--muted) text-[.75rem]"}>{owner.displayName}</span>
     </div>
   )
 }

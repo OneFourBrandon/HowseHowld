@@ -49,6 +49,7 @@ export default {
         if (memberError || !member) return json({ error: "No active household" }, 403)
         testMember = member
       } else if (
+        !Deno.env.get("DISPATCH_SECRET") ||
         req.headers.get("X-Dispatch-Secret") !== Deno.env.get("DISPATCH_SECRET")
       ) {
         return json({ error: "Invalid dispatcher secret" }, 401)
@@ -70,13 +71,16 @@ export default {
       webpush.setVapidDetails(subject!, publicKey!, privateKey!)
 
       let testNotificationId: string | null = null
+      let claimed: Outbox[] = []
       if (testMember) {
+        if (typeof body.endpoint !== "string") return json({ error: "Enable reminders on this device, then send a test." }, 400)
         const { data: testNotification, error: insertError } = await admin
           .from("notification_outbox")
           .insert({
             household_id: testMember.household_id,
             member_id: testMember.id,
             kind: "test",
+            status: "processing",
             entity_type: "push_subscription",
             entity_id: crypto.randomUUID(),
             scheduled_at: new Date().toISOString(),
@@ -85,17 +89,18 @@ export default {
             deep_link: "/settings",
             urgency: "high",
           })
-          .select("id")
+          .select("*")
           .single()
         if (insertError) throw insertError
         testNotificationId = testNotification.id
+        claimed = [testNotification]
       }
 
-      const { data: claimed, error: claimError } = await admin.rpc(
-        "claim_notification_outbox",
-        { p_limit: 50 },
-      )
-      if (claimError) throw claimError
+      if (!testMember) {
+        const { data, error: claimError } = await admin.rpc("claim_notification_outbox", { p_limit: 50 })
+        if (claimError) throw claimError
+        claimed = data ?? []
+      }
 
       let delivered = 0
       let failed = 0
@@ -110,7 +115,7 @@ export default {
         if (subscriptionsError) throw subscriptionsError
 
         let sentForNotification = false
-        for (const subscription of subscriptions ?? []) {
+        for (const subscription of (subscriptions ?? []).filter(s => !testMember || s.endpoint === body.endpoint)) {
           try {
             const result = await webpush.sendNotification(
               {
@@ -145,7 +150,9 @@ export default {
             failed++
             const error = cause as { statusCode?: number; message?: string }
             if (notification.id === testNotificationId && error.message) {
-              testFailure = error.message
+              testFailure = error.statusCode === 410 || error.statusCode === 404
+                ? "This device subscription expired. Click Enable reminders to renew it, then send another test."
+                : error.message
             }
             await admin.from("notification_attempts").insert({
               household_id: notification.household_id,

@@ -1,0 +1,48 @@
+# Household refinements: branch testing
+
+Branch: `codex/household-refinements`. No production push, PR, database mutation, or Edge Function deployment was performed for this work.
+
+## UI preview
+
+In PowerShell, run the app with demo data:
+
+```powershell
+$env:VITE_DEMO_MODE = 'true'
+pnpm dev
+```
+
+Demo changes are in-memory. Test purchase-price hover and tap, price corrections, the sun/moon toggle, overview day cards, and owner driveway width/garage controls. The layout fills rows from the street toward the garage; only earlier vehicles in the same column block a departure. Empty spaces are placeholders, not separately assignable parking slots.
+
+## Backend testing required before release
+
+Use a separate Supabase test project or an already-running disposable local stack. Do not point migration/testing commands at production. No containers were started during this task.
+
+1. Apply the repository migrations to the test backend, including `20260907043820_household_refinements.sql`.
+2. Run the pgTAP suite in `supabase/tests/database`, including `refinements.test.sql`. The new SQL tests cover recovery after linking email, retained name/avatar/onboarding, single-use codes, price corrections and permissions, immutable original ledger entries, and driveway layout permissions. These SQL tests have been added but were not executed during this task.
+3. Configure the frontend to use that test backend and its publishable key. Disable demo mode for live integration tests.
+4. Check an email-linked roommate can generate a recovery code in Settings. A code recovery transfers the existing membership to the new device identity, as in the existing recovery model; it does not keep the previous anonymous device signed in. Verified recovery-email sign-in is the multi-device path. Email delivery still requires working SMTP and allowed redirect URLs in the test project's Auth settings.
+5. Redeem a code on a fresh device. Verify the original name, avatar and completed onboarding survive. Check admin roommate cards show creation timestamps and profile pictures.
+6. Edit a purchase twice, including an odd-cent total. Verify shares, balances, audit entries, concurrent-edit rejection and subsequent purchase reversal. Only its creator can edit a purchase.
+7. Save a two-column driveway. Schedule an exit from a rear car and verify only vehicles ahead in its column are notified.
+
+## Notifications
+
+Deploy the updated `push-dispatch` function to the TEST backend using the repository's `verify_jwt = false` configuration. The function authenticates user tests itself and requires `X-Dispatch-Secret` for scheduled dispatch.
+
+Required Edge Function secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` and `DISPATCH_SECRET`. The frontend `VITE_VAPID_PUBLIC_KEY` must match the function public key. Never commit private keys or dispatch secrets.
+
+For automatic dispatch, add Vault secrets named `project_url` (the test project's HTTPS URL) and `dispatch_secret` (matching `DISPATCH_SECRET`). The new cron job calls the function every minute; without these secrets it stays idle. The existing database scheduler still generates due reminders.
+
+On each device, enable reminders again to replace an expired/old-key subscription. Test sends target that device's endpoint, not another browser's subscription, and do not drain unrelated household reminders. Push acceptance is not proof of a visible notification: OS permissions, Focus modes, and browser/platform restrictions still apply.
+
+## Migration-history repair
+
+Nine existing migration filenames now match the corresponding deployed version IDs verified from the remote history. Their SQL was not replaced with empty placeholders, and remote history was not rewritten. The GitHub check cannot reflect these local fixes until the branch is pushed and its workflow is run with your approval.
+
+## Checks completed
+
+- TypeScript and production build passed.
+- Lint passed.
+- 23 unit tests passed.
+- 14 Playwright checks passed across mobile Chrome and Safari, including desktop-sized hover screenshots.
+- Production email delivery, push delivery, and new database routines remain unverified until test-backend integration testing.

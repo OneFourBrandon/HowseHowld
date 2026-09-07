@@ -227,7 +227,7 @@ export function CalendarPage() {
                       <div className="calendar-timeline-rail relative flex justify-center after:absolute after:top-6.25 after:-bottom-0.25 after:w-0.25 after:bg-[#a8cf9a] after:content-['']">
                         <span className={cn('relative z-1 mt-5.5 h-2.5 w-2.5 rounded-full border-2 border-(--surface) bg-(--green) shadow-[0_0_0_1px_var(--green)]', event.kind === 'class' && 'bg-(--blue)! shadow-[0_0_0_1px_var(--blue)]', event.kind === 'exam' && 'bg-(--coral)! shadow-[0_0_0_1px_var(--coral)]')} />
                       </div>
-                      <div className={cn('calendar-event-block mb-2.5 grid min-h-23 grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-4.25 rounded-[5px] border-l-[3px] border-l-(--green) bg-[#eaf4e6] p-[17px_18px] max-[760px]:grid-cols-[76px_minmax(0,1fr)] max-[760px]:gap-3 max-[420px]:grid-cols-1', event.kind === 'class' && 'border-(--blue) bg-(--blue-soft)!', event.kind === 'exam' && 'border-(--coral) bg-(--coral-soft)!')}>
+                      <div className={cn('calendar-event-block mb-2.5 grid min-h-23 grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-4.25 rounded-[5px] border-l-[3px] border-l-(--green) bg-[#eaf4e6] dark:bg-(--green-soft) p-[17px_18px] max-[760px]:grid-cols-[76px_minmax(0,1fr)] max-[760px]:gap-3 max-[420px]:grid-cols-1', event.kind === 'class' && 'border-(--blue) bg-(--blue-soft)!', event.kind === 'exam' && 'border-(--coral) bg-(--coral-soft)!')}>
                         <div className="calendar-event-time max-[420px]:flex max-[420px]:items-center max-[420px]:gap-1.5">
                           <strong className="block text-[.76rem] tabular-nums">
                             {event.allDay ? 'All day' : formatShortTime(event.startAt)}
@@ -366,7 +366,7 @@ export function CalendarPage() {
               )
             })}
           </div>
-          <Card className="privacy-note mt-7 flex max-w-130 gap-2.5 border-0 border-l-[3px] border-l-(--blue) bg-transparent py-4.25 pl-3.75 text-[#465987]">
+          <Card className="privacy-note mt-7 flex max-w-130 gap-2.5 border-0 border-l-[3px] border-l-(--blue) bg-transparent py-4.25 pl-3.75 text-[#465987] dark:text-(--blue)">
             <GraduationCap />
             <div>
               <strong className="block text-[.82rem]">Full schedules are shared</strong>
@@ -443,7 +443,7 @@ export function CalendarPage() {
               <legend>Visible to</legend>
               <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
                 {data.members.map((member) => (
-                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={member.id}>
+                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={member.id}>
                     <input
                       type="checkbox"
                       checked={audienceIds.includes(member.id)}
@@ -469,7 +469,7 @@ export function CalendarPage() {
                 [60, '1 hour'],
                 [15, '15 minutes'],
               ].map(([offset, label]) => (
-                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-white p-2.25" key={offset}>
+                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={offset}>
                   <input
                     type="checkbox"
                     checked={reminderOffsets.includes(offset as number)}

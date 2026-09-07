@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { renewPushSubscription } from '../lib/push'
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import * as api from '../lib/api'
@@ -59,6 +60,8 @@ interface AppDataContextValue {
   disputeInfraction: (id: UUID, reason: string) => Promise<void>
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
+  updateExpenseAmount: (id: UUID, amount: number, expected: number) => Promise<void>
+  saveDrivewayLayout: (width: number, garageRows: number) => Promise<void>
   reverseExpense: (id: UUID, reason: string) => Promise<void>
   addSettlement: (settlement: NewSettlement) => Promise<void>
   confirmSettlement: (id: UUID, accept: boolean) => Promise<void>
@@ -444,6 +447,43 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.currentMemberId, data.household.id, demoMode, run],
   )
 
+  const updateExpenseAmount = useCallback(async (id: UUID, amount: number, expected: number) => run(
+    'expense:edit:' + id, async () => {
+      if (!Number.isSafeInteger(amount) || amount < 1 || amount > 2147483647) throw new Error('Enter a valid purchase total.')
+      if (!demoMode) { await api.invokeRpc('update_expense_amount', { p_expense_id: id, p_amount: amount, p_expected: expected }); await refresh(false); return }
+        const expense = data.expenses.find(e => e.id === id)
+        if (!expense || expense.reversed) throw new Error('This purchase is no longer editable.')
+        if (expense.createdBy !== data.household.currentMemberId) throw new Error('Only the creator can edit this purchase')
+        if (expense.amountCents !== expected) throw new Error('This purchase changed. Reload it before editing.')
+        const scale = (shares: Expense['payers']) => {
+          let previous = 0, cumulative = 0
+          return [...shares].sort((a, b) => a.memberId.localeCompare(b.memberId)).map(share => {
+            cumulative += share.amountCents
+            const next = Math.round(cumulative * amount / expense.amountCents)
+            const result = { ...share, amountCents: cents(next - previous) }
+            previous = next
+            return result
+          })
+        }
+        const updated = { ...expense, amountCents: cents(amount), payers: scale(expense.payers), beneficiaries: scale(expense.beneficiaries) }
+        if ([...updated.payers, ...updated.beneficiaries].some(s => s.amountCents < 1)) throw new Error('The total is too small for this split.')
+      setData(current => {
+        return { ...current, expenses: current.expenses.map(e => e.id === id ? updated : e), balances: current.balances.map(b => {
+          const paid = (updated.payers.find(s => s.memberId === b.memberId)?.amountCents ?? 0) - (expense.payers.find(s => s.memberId === b.memberId)?.amountCents ?? 0)
+          const used = (updated.beneficiaries.find(s => s.memberId === b.memberId)?.amountCents ?? 0) - (expense.beneficiaries.find(s => s.memberId === b.memberId)?.amountCents ?? 0)
+          return { ...b, contributionCents: cents(b.contributionCents + paid), resourceUseCents: cents(b.resourceUseCents + used), netCents: cents(b.netCents + paid - used) }
+        }) }
+      })
+    }, 'Purchase total and shares updated.',
+  ), [data.expenses, data.household.currentMemberId, demoMode, refresh, run])
+
+  const saveDrivewayLayout = useCallback(async (width: number, garageRows: number) => run(
+    'driveway:layout', async () => {
+      if (!demoMode) await api.invokeRpc('set_driveway_layout', { p_household_id: data.household.id, p_width: width, p_garage_rows: garageRows })
+      setData(current => ({ ...current, household: { ...current.household, drivewayWidth: width, garageRows } }))
+    }, 'Driveway layout saved.',
+  ), [data.household.id, demoMode, run])
+
   const reverseExpense = useCallback(
     async (id: UUID, reason: string) =>
       run(
@@ -779,7 +819,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
               .filter((vehicle): vehicle is NonNullable<typeof vehicle> => Boolean(vehicle)),
             departures: current.departures.map((departure) => ({
               ...departure,
-              blockerVehicleIds: blockerIds(orderedIds, departure.vehicleId),
+              blockerVehicleIds: blockerIds(orderedIds, departure.vehicleId, current.household.drivewayWidth ?? 1),
             })),
           }))
           if (!demoMode) {
@@ -914,18 +954,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           }
           const permission = await Notification.requestPermission()
           if (permission !== 'granted') throw new Error('Notification permission was not granted.')
-          const registration = await navigator.serviceWorker.ready
           const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
           if (!vapidKey) {
             throw new Error('VITE_VAPID_PUBLIC_KEY is not configured for this app.')
           }
-          let subscription = await registration.pushManager.getSubscription()
-          if (!subscription) {
-            subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: vapidKey,
-            })
-          }
+          const subscription = await renewPushSubscription(vapidKey)
           if (!demoMode) await api.subscribePush(subscription)
           setData((current) => ({
             ...current,
@@ -1021,6 +1054,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         }))
         setToast('A new share code is ready. The old code no longer works.')
         return code
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : typeof cause === 'object' && cause && 'message' in cause ? String(cause.message) : 'Could not generate a recovery code.'
+        setToast(message)
+        throw new Error(message)
       } finally {
         setBusy(null)
       }
@@ -1155,6 +1192,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       voteInfraction,
       addExpense,
       reverseExpense,
+      updateExpenseAmount,
+      saveDrivewayLayout,
       addSettlement,
       confirmSettlement,
       proposeFundPayment,
@@ -1199,6 +1238,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       voteInfraction,
       addExpense,
       reverseExpense,
+      updateExpenseAmount,
+      saveDrivewayLayout,
       addSettlement,
       confirmSettlement,
       proposeFundPayment,

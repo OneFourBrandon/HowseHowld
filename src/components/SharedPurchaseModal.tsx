@@ -133,16 +133,16 @@ export function SharedPurchaseModal({
             <div className="grid content-start gap-4">
               <label className="grid gap-2 text-[1rem] font-[720] text-(--ink)">
                 Amount
-                <span className="grid min-h-12 grid-cols-[118px_minmax(0,1fr)] overflow-hidden rounded-[10px] border border-(--line-strong) bg-white">
+                <span className="grid min-h-12 grid-cols-[118px_minmax(0,1fr)] overflow-hidden rounded-[10px] border border-(--line-strong) bg-(--surface-strong)">
                   <select
-                    className="mt-0! h-full rounded-none! border-0! border-r! border-r-(--line)! bg-white px-4 text-[.95rem] font-[650] shadow-none! focus:border-r! focus:border-r-(--line)! focus:shadow-none!"
+                    className="mt-0! h-full rounded-none! border-0! border-r! border-r-(--line)! bg-(--surface-strong) px-4 text-[.95rem] font-[650] shadow-none! focus:border-r! focus:border-r-(--line)! focus:shadow-none!"
                     aria-label="Currency"
                     value="CAD"
                     disabled
                   >
                     <option>CAD</option>
                   </select>
-                  <span className="flex min-w-0 items-center bg-white px-4">
+                  <span className="flex min-w-0 items-center bg-(--surface-strong) px-4">
                     <span className="shrink-0 font-sans text-[1rem] text-(--ink)" aria-hidden="true">$</span>
                     <input
                       className="mt-0! min-w-0 flex-1 rounded-none! border-0! bg-transparent px-1.5 text-[1rem] shadow-none! focus:border-0! focus:shadow-none!"
@@ -161,7 +161,7 @@ export function SharedPurchaseModal({
               <label className="grid gap-2 text-[1rem] font-[720] text-(--ink)">
                 Purchase type
                 <select
-                  className="mt-0! min-h-12 rounded-[10px] border-(--line-strong) bg-white px-4 text-[.9rem] font-[650]"
+                  className="mt-0! min-h-12 rounded-[10px] border-(--line-strong) bg-(--surface-strong) px-4 text-[.9rem] font-[650]"
                   value={category}
                   onChange={(event) => setCategory(event.target.value as ExpenseCategory)}
                 >
@@ -176,7 +176,7 @@ export function SharedPurchaseModal({
               <span className="text-[1rem] font-[720] text-(--ink)">Receipt</span>
               <label
                 className={cn(
-                  'grid min-h-32 cursor-pointer place-content-center justify-items-center gap-1 rounded-[10px] border border-dashed border-(--line-strong) bg-white px-5 text-center text-(--ink) transition-colors hover:border-(--forest-2) hover:bg-(--sage-2)',
+                  'grid min-h-32 cursor-pointer place-content-center justify-items-center gap-1 rounded-[10px] border border-dashed border-(--line-strong) bg-(--surface-strong) px-5 text-center text-(--ink) transition-colors hover:border-(--forest-2) hover:bg-(--sage-2)',
                   receipt && 'border-solid border-(--forest-2) bg-(--sage-2)',
                 )}
                 onDragOver={(event) => event.preventDefault()}
@@ -215,7 +215,7 @@ export function SharedPurchaseModal({
                     <div
                       className={cn(
                         'grid min-h-14 grid-cols-[minmax(0,1fr)_128px] items-center gap-3 rounded-[10px] border border-(--line) px-3.5 max-[520px]:grid-cols-1 max-[520px]:gap-2 max-[520px]:py-2.5',
-                        selected && 'border-[#afc2a8] bg-[#f8faf6]',
+                        selected && 'border-[#afc2a8] bg-[#f8faf6] dark:bg-(--surface-strong)',
                       )}
                       key={member.id}
                     >
@@ -254,7 +254,7 @@ export function SharedPurchaseModal({
                 })}
               </div>
               <select
-                className="mt-0! min-h-12 rounded-[10px] border-(--line-strong) bg-white px-3.5 text-[.9rem] font-[720]"
+                className="mt-0! min-h-12 rounded-[10px] border-(--line-strong) bg-(--surface-strong) px-3.5 text-[.9rem] font-[720]"
                 aria-label="Payer split method"
                 value={customPayers ? 'custom' : 'equal'}
                 onChange={(event) => {
@@ -271,10 +271,10 @@ export function SharedPurchaseModal({
 
           <fieldset className="grid gap-4">
             <legend className="mb-0 text-[1rem] font-[720] text-(--ink)">Who used it?</legend>
-            <div className="grid grid-cols-2 overflow-hidden rounded-[10px] border border-(--line-strong) bg-white">
+            <div className="grid grid-cols-2 overflow-hidden rounded-[10px] border border-(--line-strong) bg-(--surface-strong)">
               <button
                 className={cn(
-                  'inline-flex min-h-12 items-center justify-center gap-2 border-0 bg-white px-4 text-[.88rem] font-[650] text-(--ink)',
+                  'inline-flex min-h-12 items-center justify-center gap-2 border-0 bg-(--surface-strong) px-4 text-[.88rem] font-[650] text-(--ink)',
                   !customShares && 'bg-(--sage-2)! text-(--forest)',
                 )}
                 type="button"
@@ -287,7 +287,7 @@ export function SharedPurchaseModal({
               </button>
               <button
                 className={cn(
-                  'inline-flex min-h-12 items-center justify-center gap-2 border-0 border-l border-(--line) bg-white px-4 text-[.88rem] font-[650] text-(--ink)',
+                  'inline-flex min-h-12 items-center justify-center gap-2 border-0 border-l border-(--line) bg-(--surface-strong) px-4 text-[.88rem] font-[650] text-(--ink)',
                   customShares && 'bg-(--sage-2)! text-(--forest)',
                 )}
                 type="button"
@@ -304,7 +304,7 @@ export function SharedPurchaseModal({
                   <div
                     className={cn(
                       'grid min-h-14 grid-cols-[minmax(0,1fr)_128px] items-center gap-3 rounded-[10px] border border-(--line) px-3.5 max-[520px]:grid-cols-1 max-[520px]:gap-2 max-[520px]:py-2.5',
-                      selected && 'border-[#afc2a8] bg-[#f8faf6]',
+                      selected && 'border-[#afc2a8] bg-[#f8faf6] dark:bg-(--surface-strong)',
                     )}
                     key={member.id}
                   >
@@ -346,7 +346,7 @@ export function SharedPurchaseModal({
 
           <section className="grid gap-3" aria-labelledby="split-summary-heading">
             <h3 className="text-[1rem] font-[720]" id="split-summary-heading">Split summary</h3>
-            <div className="rounded-[10px] border border-(--line-strong) bg-white px-4">
+            <div className="rounded-[10px] border border-(--line-strong) bg-(--surface-strong) px-4">
               {beneficiaryPreview.map((share) => {
                 const member = data.members.find((item) => item.id === share.memberId)!
                 return (
@@ -365,7 +365,7 @@ export function SharedPurchaseModal({
           </section>
         </div>
 
-        <div className="flex min-h-18 shrink-0 items-center justify-end gap-3 border-t border-(--line) bg-white px-9 py-3 max-[640px]:min-h-17 max-[640px]:px-5">
+        <div className="flex min-h-18 shrink-0 items-center justify-end gap-3 border-t border-(--line) bg-(--surface-strong) px-9 py-3 max-[640px]:min-h-17 max-[640px]:px-5">
           <Button type="button" variant="ghost" onClick={resetAndClose}>Cancel</Button>
           <Button className="min-w-40" type="submit" disabled={busy === 'expense:new'}>Post purchase</Button>
         </div>

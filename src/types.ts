@@ -36,6 +36,8 @@ export type LedgerTransactionType =
 
 export interface Member {
   id: UUID
+  joinedAt?: string
+  createdAt?: string
   profileId: UUID
   displayName: string
   email: string
@@ -52,6 +54,8 @@ export interface Household {
   name: string
   timezone: string
   currency: 'CAD'
+  drivewayWidth?: number
+  garageRows?: number
   currentMemberId: UUID
   address: {
     line1: string

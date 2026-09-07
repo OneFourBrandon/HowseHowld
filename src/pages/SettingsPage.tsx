@@ -205,7 +205,7 @@ export function SettingsPage() {
             </div>
           </section>
 
-          {!currentMember.email && hasSupabaseConfig && (
+          {currentMember.role !== 'owner' && (
             <section>
               <SectionHeader eyebrow="ACCOUNT RECOVERY" title="Protect this account" />
               <Card className="settings-card recovery-card grid gap-5 border-b border-b-(--line) px-1 py-6.5">
@@ -251,9 +251,9 @@ export function SettingsPage() {
                 <div className="border-t border-(--line) pt-5">
                   <div className="grid grid-cols-[minmax(0,1fr)_minmax(240px,.75fr)] items-end gap-7 max-[640px]:grid-cols-1">
                     <div>
-                      <strong className="text-[.9rem]">Or add a recovery email</strong>
+                      <strong className="text-[.9rem]">Recovery email</strong>
                       <p className="mt-1.25 text-[.75rem] leading-[1.5] text-(--muted)">
-                        Supabase will send a verification message to link your identity permanently.
+                        Verify your email, then use Email sign-in on the login page to return to this account. Recovery codes remain available here.
                       </p>
                     </div>
                     <form className="grid grid-cols-[1fr_auto] items-end gap-2.25 max-[640px]:grid-cols-1"
@@ -296,7 +296,7 @@ export function SettingsPage() {
               <div className="health-score flex items-center gap-3.25 border-b border-b-(--line) pb-4.5">
                 <div
                   className={cn(
-                    'health-ring w-11.25 h-11.25 grid place-items-center text-[#9b6a23] bg-(--gold-soft) rounded-lg',
+                    'health-ring w-11.25 h-11.25 grid place-items-center text-[#9b6a23] dark:text-(--gold) bg-(--gold-soft) rounded-lg',
                     data.notificationHealth.subscribed && 'health-good bg-(--green)! text-white!',
                   )}
                 >
@@ -350,7 +350,7 @@ export function SettingsPage() {
                 )}
               </div>
               {needRefresh && (
-                <button className={"update-notice w-full mt-3 p-2.5 flex items-center justify-center gap-1.75 border-0 text-[#465987] bg-(--blue-soft) font-bold rounded-[7px] min-h-10.5 text-[.76rem]"} onClick={() => updateServiceWorker(true)}>
+                <button className={"update-notice w-full mt-3 p-2.5 flex items-center justify-center gap-1.75 border-0 text-[#465987] dark:text-(--blue) bg-(--blue-soft) font-bold rounded-[7px] min-h-10.5 text-[.76rem]"} onClick={() => updateServiceWorker(true)}>
                   <Download size={17} /> A new version is ready. Tap to update.
                 </button>
               )}
@@ -387,9 +387,9 @@ export function SettingsPage() {
               {data.auditEvents.map((event) => {
                 const actor = data.members.find((member) => member.id === event.actorMemberId)
                 return (
-                  <div className="audit-row grid min-h-21 grid-cols-[auto_1fr_auto] items-center gap-2.25 border-t border-(--line) px-1 first:border-t-0" key={event.id}>
-                    <div className={"audit-icon w-7.75 h-7.75 grid place-items-center text-(--muted) bg-[#efeee8] rounded-[7px]"}><History size={16} /></div>
-                    <div><strong>{event.summary}</strong><span>{event.action} · {formatDateTime(event.createdAt)}</span></div>
+                  <div className="audit-row grid min-h-16 grid-cols-[auto_1fr_auto] items-center gap-2.25 border-t border-(--line) px-1 first:border-t-0" key={event.id}>
+                    <div className={"audit-icon w-7.75 h-7.75 grid place-items-center text-(--muted) bg-[#efeee8] dark:bg-(--sage-2) rounded-[7px]"}><History size={16} /></div>
+                    <div className="min-w-0"><strong className="block text-sm font-semibold leading-snug">{event.summary}</strong><span className="mt-1 block text-xs leading-relaxed text-(--muted)">{event.action} · {formatDateTime(event.createdAt)}</span></div>
                     {actor && <Avatar initials={actor.initials} color={actor.color} imageUrl={actor.avatarUrl} size="sm" />}
                   </div>
                 )
@@ -416,17 +416,19 @@ export function SettingsPage() {
           {currentMember.role === 'owner' && data.members.some((member) => member.role !== 'owner') && (
             <section className={"member-admin-section mt-8.5"}>
               <SectionHeader eyebrow="OWNER CONTROLS" title="Roommate access" />
-              <div className={"member-admin-list border-t border-t-(--line)"}>
+              <div className={"member-admin-list grid gap-3"}>
                 {data.members
                   .filter((member) => member.role !== 'owner')
                   .map((member) => {
                     const recoveryCode = memberRecoveryCodes[member.id]
                     return (
-                      <div className={"member-admin-item grid gap-3 p-[18px_4px] border-b border-b-(--line)"} key={member.id}>
+                      <div className={"member-admin-item grid gap-3 rounded-2xl border border-(--line) bg-(--surface-strong) p-4"} key={member.id}>
                         <div className="member-admin-heading flex items-center justify-between gap-3 text-(--muted)">
-                          <div className="grid gap-0.75">
+                          <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
+                          <div className="grid flex-1 gap-0.75">
                             <strong className="text-[.82rem] text-(--ink)">{member.displayName}</strong>
                             <span className="text-[.72rem]">{member.email || 'Device-based account'}</span>
+                            <span className="text-[.7rem]">Created {member.createdAt ? new Date(member.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Date unavailable'}</span>
                           </div>
                           <UserRoundX size={17} />
                         </div>

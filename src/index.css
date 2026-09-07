@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
   --font-sans: Inter, "Segoe UI Variable Text", "Segoe UI", Aptos, Roboto,
@@ -186,3 +187,32 @@ input[type="file"] {
     text-rendering: optimizeLegibility;
   }
 }
+
+/* Colour-only mapping from design/night-theme; layout stays with the light theme. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #f4f5f7;
+  --muted: #b4b7bf;
+  --paper: #0b0c0f;
+  --surface: #0b0c0f;
+  --surface-strong: #15161a;
+  --forest: #3b6bff;
+  --forest-2: #5a82ff;
+  --sage: rgba(59,107,255,.16);
+  --sage-2: #1d1e23;
+  --line: rgba(255,255,255,.07);
+  --line-strong: rgba(255,255,255,.13);
+  --gold: #ffb454;
+  --gold-soft: rgba(255,180,84,.16);
+  --coral: #ff5d5d;
+  --coral-soft: rgba(255,93,93,.16);
+  --blue: #5a82ff;
+  --blue-soft: rgba(59,107,255,.16);
+  --green: #3ddc97;
+  --green-soft: rgba(61,220,151,.16);
+}
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] .mobile-nav { background: #15161a; }
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea { color: var(--ink); background-color: var(--surface-strong); }
