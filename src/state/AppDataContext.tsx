@@ -1035,7 +1035,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         const code = demoMode
           ? `REC-DEMO-${Math.random().toString(36).slice(2, 14).toUpperCase()}`
           : await api.issueMemberRecoveryCode(memberId)
-        setToast('One-time recovery code generated. Share it privately.')
+        setToast('One-time recovery code generated. Keep it private.')
         return code
       } finally {
         setBusy(null)

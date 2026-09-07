@@ -45,6 +45,7 @@ export function SettingsPage() {
   )
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [recoveryStatus, setRecoveryStatus] = useState('')
+  const [selfRecoveryCode, setSelfRecoveryCode] = useState('')
   const [memberRecoveryCodes, setMemberRecoveryCodes] = useState<Record<string, string>>({})
   const [morning, setMorning] = useState(
     () => data.household.defaultTaskReminderTimes.includes('09:00'),
@@ -207,42 +208,84 @@ export function SettingsPage() {
           {!currentMember.email && hasSupabaseConfig && (
             <section>
               <SectionHeader eyebrow="ACCOUNT RECOVERY" title="Protect this account" />
-              <Card className="settings-card recovery-card grid grid-cols-[minmax(0,1fr)_minmax(240px,.75fr)] items-end gap-7 border-b border-b-(--line) px-1 py-6.5 max-[640px]:grid-cols-1">
-                <div>
-                  <strong className="text-[.9rem]">Add a recovery email before changing devices.</strong>
-                  <p className="mt-1.25 text-[.75rem] leading-[1.5] text-(--muted)">
-                    Your house-code account currently lives only on this device.
-                    Supabase will send a verification message to link your identity.
-                  </p>
+              <Card className="settings-card recovery-card grid gap-5 border-b border-b-(--line) px-1 py-6.5">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(240px,.75fr)] items-end gap-7 max-[640px]:grid-cols-1">
+                  <div>
+                    <strong className="text-[.9rem]">Use this account on another device</strong>
+                    <p className="mt-1.25 text-[.75rem] leading-[1.5] text-(--muted)">
+                      Generate a one-time code, then enter it in the house share or recovery code box on your other device.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy === `member:recovery:${currentMember.id}`}
+                    onClick={async () => {
+                      try {
+                        setSelfRecoveryCode(await issueMemberRecoveryCode(currentMember.id))
+                      } catch {
+                        // The shared context displays the server error.
+                      }
+                    }}
+                  >
+                    <KeyRound size={15} />
+                    {busy === `member:recovery:${currentMember.id}` ? 'Generating…' : 'Request recovery code'}
+                  </Button>
                 </div>
-                <form className="grid grid-cols-[1fr_auto] items-end gap-2.25 max-[640px]:grid-cols-1"
-                  onSubmit={async (event) => {
-                    event.preventDefault()
-                    setRecoveryStatus('')
-                    try {
-                      await addRecoveryEmail(recoveryEmail)
-                      setRecoveryStatus('Check your inbox to finish linking this account.')
-                      setRecoveryEmail('')
-                    } catch (cause) {
-                      setRecoveryStatus(
-                        cause instanceof Error ? cause.message : 'Could not add that email.',
-                      )
-                    }
-                  }}
-                >
-                  <label>
-                    Recovery email
-                    <input
-                      type="email"
-                      value={recoveryEmail}
-                      onChange={(event) => setRecoveryEmail(event.target.value)}
-                      placeholder="you@example.com"
-                      required
-                    />
-                  </label>
-                  <Button type="submit" size="sm">Send verification</Button>
-                </form>
-                {recoveryStatus && <p className={"settings-note flex items-center gap-1.5 mt-2.25 text-(--muted) text-[.75rem]"}>{recoveryStatus}</p>}
+                {selfRecoveryCode && (
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-1 rounded-lg border border-(--line) bg-(--sage-2) px-3 py-2.5">
+                    <code className="font-mono text-[.78rem] font-extrabold tracking-[.08em] text-(--forest)">{selfRecoveryCode}</code>
+                    <button
+                      className="inline-flex items-center gap-1.25 border-0 bg-transparent py-0.75 text-[.72rem] font-[750] text-(--forest)"
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(selfRecoveryCode)}
+                    >
+                      <Copy size={14} /> Copy
+                    </button>
+                    <span className="col-span-full text-[.7rem] text-(--muted)">
+                      Single use · expires in 30 days · requesting another code revokes this one
+                    </span>
+                  </div>
+                )}
+                <div className="border-t border-(--line) pt-5">
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(240px,.75fr)] items-end gap-7 max-[640px]:grid-cols-1">
+                    <div>
+                      <strong className="text-[.9rem]">Or add a recovery email</strong>
+                      <p className="mt-1.25 text-[.75rem] leading-[1.5] text-(--muted)">
+                        Supabase will send a verification message to link your identity permanently.
+                      </p>
+                    </div>
+                    <form className="grid grid-cols-[1fr_auto] items-end gap-2.25 max-[640px]:grid-cols-1"
+                      onSubmit={async (event) => {
+                        event.preventDefault()
+                        setRecoveryStatus('')
+                        try {
+                          await addRecoveryEmail(recoveryEmail)
+                          setRecoveryStatus('Check your inbox to finish linking this account.')
+                          setRecoveryEmail('')
+                        } catch (cause) {
+                          setRecoveryStatus(
+                            cause instanceof Error ? cause.message : 'Could not add that email.',
+                          )
+                        }
+                      }}
+                    >
+                      <label>
+                        Recovery email
+                        <input
+                          type="email"
+                          value={recoveryEmail}
+                          onChange={(event) => setRecoveryEmail(event.target.value)}
+                          placeholder="you@example.com"
+                          required
+                        />
+                      </label>
+                      <Button type="submit" size="sm">Send verification</Button>
+                    </form>
+                  </div>
+                  {recoveryStatus && <p className="settings-note mt-2.25 flex items-center gap-1.5 text-[.75rem] text-(--muted)">{recoveryStatus}</p>}
+                </div>
               </Card>
             </section>
           )}
