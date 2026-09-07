@@ -23,9 +23,12 @@ import {
 import { cn } from '../lib/cn'
 import { formatMoney } from '../lib/utils'
 import { getExpenseCategory } from '../lib/expenseCategories'
+import { billBreakdown, expenseBreakdown } from '../lib/shares'
 import { useAppData } from '../state/AppDataContext'
 import type { Expense, HouseholdBillCategory, Settlement } from '../types'
 import { ExpenseCategoryIcon } from './ExpenseCategoryIcon'
+import { MoneyItemDetail, type MoneyItem } from './MoneyItemDetail'
+import { ShareBar, SharePeek } from './ShareBreakdown'
 import {
   Avatar,
   Badge,
@@ -208,6 +211,7 @@ export function MoneyDashboard({
   const [activityFilter, setActivityFilter] = useState<'all' | 'expense' | 'settlement'>('all')
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [showAllBills, setShowAllBills] = useState(false)
+  const [detail, setDetail] = useState<MoneyItem | null>(null)
   const currentMemberId = data.household.currentMemberId
   const currentMember = data.members.find((member) => member.id === currentMemberId)!
   const currentBalance = data.balances.find((balance) => balance.memberId === currentMemberId)
@@ -258,7 +262,8 @@ export function MoneyDashboard({
         }
       />
 
-      <section className="grid grid-cols-[320px_minmax(0,1fr)_320px] items-stretch gap-5 max-[1240px]:grid-cols-[320px_minmax(0,1fr)] max-[860px]:grid-cols-1">
+      {/* Raised so a row's hover breakdown paints over the sections below it. */}
+      <section className="relative z-20 grid grid-cols-[320px_minmax(0,1fr)_320px] items-stretch gap-5 max-[1240px]:grid-cols-[320px_minmax(0,1fr)] max-[860px]:grid-cols-1">
         <FeatureCard className="grid content-between gap-4 p-5.5">
           <div className="flex items-start justify-between gap-3">
             <span className="text-[.72rem] font-semibold tracking-[.06em] text-[rgba(255,255,255,.75)] uppercase">
@@ -343,6 +348,7 @@ export function MoneyDashboard({
                   .map((payer) => data.members.find((member) => member.id === payer.memberId)?.displayName)
                   .filter(Boolean)
                 const creator = data.members.find((member) => member.id === expense.createdBy)!
+                const breakdown = expenseBreakdown(expense, data.members, currentMemberId)
                 return (
                   <div key={`expense-${expense.id}`}>
                     {showDate && (
@@ -350,9 +356,16 @@ export function MoneyDashboard({
                         {activityDate.format(new Date(activity.date))}
                       </p>
                     )}
+                    <div className="group relative">
+                    <button
+                      type="button"
+                      className="absolute inset-0 rounded-xl"
+                      aria-label={`Open ${expense.title} · your share ${breakdown.mine ? formatMoney(breakdown.mine.owedCents) : 'none'}`}
+                      onClick={() => setDetail({ kind: 'expense', expense })}
+                    />
                     <div
                       className={cn(
-                        'hh-row grid grid-cols-[40px_minmax(0,1fr)_140px_auto] items-center gap-3.5 border-b border-(--line) py-2.5 max-[820px]:grid-cols-[40px_minmax(0,1fr)_auto] max-[560px]:grid-cols-[40px_minmax(0,1fr)]',
+                        'hh-row pointer-events-none grid grid-cols-[40px_minmax(0,1fr)_140px_auto] items-center gap-3.5 border-b border-(--line) py-2.5 max-[820px]:grid-cols-[40px_minmax(0,1fr)_auto] max-[560px]:grid-cols-[40px_minmax(0,1fr)]',
                         expense.reversed && 'opacity-50',
                       )}
                     >
@@ -363,19 +376,36 @@ export function MoneyDashboard({
                           {getExpenseCategory(expense.category).description}
                           {expense.receiptPath ? ' · Receipt attached' : ''}
                         </span>
-                      </div>
-                      <div className="flex min-w-0 items-center gap-2 max-[820px]:hidden">
-                        <Avatar
-                          initials={creator.initials}
-                          color={creator.color}
-                          imageUrl={creator.avatarUrl}
-                          size="sm"
-                        />
-                        <span className="truncate text-[.76rem] text-(--text-3)">
-                          {payerNames.join(' & ')} paid
+                        {/* The wide share column is hidden on narrow screens, so repeat it here. */}
+                        <span className="mt-1.5 hidden items-center gap-2 max-[820px]:flex">
+                          <ShareBar breakdown={breakdown} height={4} className="w-14 shrink-0" />
+                          <span className="truncate text-[.7rem] font-bold text-(--text-2) tabular-nums">
+                            {breakdown.mine
+                              ? `${formatMoney(breakdown.mine.owedCents)} · ${breakdown.mine.percent.toFixed(0)}% you`
+                              : 'No share for you'}
+                          </span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 max-[560px]:col-span-2 max-[560px]:justify-end">
+                      <div className="grid min-w-0 gap-1.5 max-[820px]:hidden">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Avatar
+                            initials={creator.initials}
+                            color={creator.color}
+                            imageUrl={creator.avatarUrl}
+                            size="sm"
+                          />
+                          <span className="truncate text-[.74rem] text-(--text-3)">
+                            {payerNames.join(' & ')} paid
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ShareBar breakdown={breakdown} height={5} className="min-w-0 flex-1" />
+                          <span className="shrink-0 text-[.7rem] font-bold text-(--text-2) tabular-nums">
+                            {breakdown.mine ? `${breakdown.mine.percent.toFixed(0)}%` : '0%'} you
+                          </span>
+                        </div>
+                      </div>
+                      <div className="pointer-events-auto relative z-10 flex items-center gap-1.5 max-[560px]:col-span-2 max-[560px]:justify-end">
                         <strong className="min-w-19 text-right text-[.88rem] font-bold tabular-nums">
                           {formatMoney(expense.amountCents)}
                         </strong>
@@ -408,6 +438,10 @@ export function MoneyDashboard({
                         )}
                       </div>
                     </div>
+                    <div className="pointer-events-none absolute top-[calc(100%-6px)] right-0 z-30 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100 max-[820px]:hidden">
+                      <SharePeek breakdown={breakdown} title={expense.title} />
+                    </div>
+                    </div>
                   </div>
                 )
               }
@@ -428,7 +462,14 @@ export function MoneyDashboard({
                       {activityDate.format(new Date(activity.date))}
                     </p>
                   )}
-                  <div className="hh-row grid grid-cols-[40px_minmax(0,1fr)_140px_auto] items-center gap-3.5 border-b border-(--line) py-2.5 max-[820px]:grid-cols-[40px_minmax(0,1fr)_auto] max-[560px]:grid-cols-[40px_minmax(0,1fr)]">
+                  <div className="relative">
+                  <button
+                    type="button"
+                    className="absolute inset-0 rounded-xl"
+                    aria-label={`Open payment to ${to.displayName}`}
+                    onClick={() => setDetail({ kind: 'settlement', settlement })}
+                  />
+                  <div className="hh-row pointer-events-none grid grid-cols-[40px_minmax(0,1fr)_140px_auto] items-center gap-3.5 border-b border-(--line) py-2.5 max-[820px]:grid-cols-[40px_minmax(0,1fr)_auto] max-[560px]:grid-cols-[40px_minmax(0,1fr)]">
                     <span className="grid size-10 place-items-center rounded-full bg-(--amber-soft) text-(--amber)">
                       <ArrowUpRight size={18} />
                     </span>
@@ -451,7 +492,7 @@ export function MoneyDashboard({
                         {from.displayName} paid
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 max-[560px]:col-span-2 max-[560px]:justify-end">
+                    <div className="pointer-events-auto relative z-10 flex items-center gap-2 max-[560px]:col-span-2 max-[560px]:justify-end">
                       <strong
                         className={cn(
                           'min-w-19 text-right text-[.88rem] font-bold tabular-nums',
@@ -483,6 +524,7 @@ export function MoneyDashboard({
                         </Badge>
                       )}
                     </div>
+                  </div>
                   </div>
                 </div>
               )
@@ -577,11 +619,16 @@ export function MoneyDashboard({
             {visibleBills.map((bill) => {
               const period = selectedPeriods.find((item) => item.billId === bill.id)
               const paid = Boolean(period?.paidMemberIds.includes(currentMemberId))
+              const breakdown = billBreakdown(bill, period, data.members, currentMemberId)
               return (
-                <div
-                  className="hh-row grid grid-cols-[40px_minmax(0,1fr)_auto_32px] items-center gap-3.5 border-b border-(--line) py-2.5"
-                  key={bill.id}
-                >
+                <div className="group relative" key={bill.id}>
+                <button
+                  type="button"
+                  className="absolute inset-0 rounded-xl"
+                  aria-label={`Open ${bill.name} · your share ${breakdown.mine ? formatMoney(breakdown.mine.owedCents) : 'none'}`}
+                  onClick={() => setDetail({ kind: 'bill', bill, period })}
+                />
+                <div className="hh-row pointer-events-none grid grid-cols-[40px_minmax(0,1fr)_auto_32px] items-center gap-3.5 border-b border-(--line) py-2.5">
                   <span
                     className={cn(
                       'grid size-10 place-items-center rounded-xl bg-(--blue-soft) text-[#7d9cff]',
@@ -592,22 +639,32 @@ export function MoneyDashboard({
                   >
                     <BillIcon category={bill.category} />
                   </span>
-                  <div className="min-w-0">
-                    <strong className="block truncate text-[.88rem]">{bill.name}</strong>
-                    <span className="block text-[.73rem] text-(--text-3)">
-                      Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}
-                    </span>
+                  <div className="grid min-w-0 gap-1.5">
+                    <div className="min-w-0">
+                      <strong className="block truncate text-[.88rem]">{bill.name}</strong>
+                      <span className="block text-[.73rem] text-(--text-3)">
+                        Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}
+                      </span>
+                    </div>
+                    <div className="flex max-w-52 items-center gap-2">
+                      <ShareBar breakdown={breakdown} height={5} className="min-w-0 flex-1" />
+                      <span className="shrink-0 text-[.7rem] font-bold text-(--text-2) tabular-nums">
+                        {breakdown.mine ? `${breakdown.mine.percent.toFixed(0)}%` : '0%'} you
+                      </span>
+                    </div>
                   </div>
                   <div className="grid text-right">
                     <strong className="text-[.88rem] font-bold tabular-nums">
                       {formatMoney(period?.amountCents ?? bill.amountCents ?? 0)}
                     </strong>
                     <span className="truncate text-[.71rem] text-(--text-3)">
-                      {currentMember.displayName}
+                      {breakdown.mine
+                        ? `${formatMoney(breakdown.mine.owedCents)} yours`
+                        : currentMember.displayName}
                     </span>
                   </div>
                   <label
-                    className="grid size-8 cursor-pointer place-items-center"
+                    className="pointer-events-auto relative z-10 grid size-8 cursor-pointer place-items-center"
                     title={paid ? 'Paid' : 'Mark paid'}
                   >
                     <input
@@ -625,6 +682,10 @@ export function MoneyDashboard({
                       <Circle className="text-(--text-4)" size={21} />
                     )}
                   </label>
+                </div>
+                <div className="pointer-events-none absolute top-[calc(100%-6px)] right-0 z-30 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100 max-[820px]:hidden">
+                  <SharePeek breakdown={breakdown} title={bill.name} />
+                </div>
                 </div>
               )
             })}
@@ -724,6 +785,8 @@ export function MoneyDashboard({
           })}
         </Card>
       </section>
+
+      <MoneyItemDetail item={detail} onClose={() => setDetail(null)} />
     </>
   )
 }
