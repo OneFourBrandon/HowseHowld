@@ -6,7 +6,8 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
@@ -57,7 +58,8 @@ export function DrivewayPage() {
   const [previewOrder, setPreviewOrder] = useState(() => data.vehicles.map((vehicle) => vehicle.id))
   const previewOrderRef = useRef(previewOrder)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { distance: 4 } }),
   )
 
   useEffect(() => {
@@ -142,18 +144,19 @@ export function DrivewayPage() {
           <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Driveway</h1>
           <p>The current lineup decides exactly who needs to move.</p>
         </div>
-        <div className="button-row flex flex-wrap items-center gap-2.25 max-[640px]:w-full">
-          <Button className="max-[640px]:min-w-0 max-[640px]:flex-1 max-[640px]:px-2.5 max-[640px]:text-[.72rem]" variant="secondary" onClick={() => {
+        <div className="button-row flex flex-wrap items-center gap-2.25 max-[640px]:grid max-[640px]:w-full max-[640px]:grid-cols-2 max-[640px]:gap-2">
+          <Button className="max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.78rem]" variant="secondary" onClick={() => {
             resetVehicleEditor()
             setVehicleModal(true)
           }}>
-            <CarFront size={18} /> Manage vehicles
+            <CarFront className="shrink-0" size={18} /> <span className="whitespace-nowrap">Manage vehicles</span>
           </Button>
-          <Button className="max-[640px]:min-w-0 max-[640px]:flex-1 max-[640px]:px-2.5 max-[640px]:text-[.72rem]" variant="secondary" disabled={!data.vehicles.length} onClick={() => openDeparture(true)}>
-            <LogOut size={18} /> Quick remove vehicle
+          <Button className="max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.78rem]" variant="secondary" disabled={!data.vehicles.length} onClick={() => openDeparture(true)}>
+            <LogOut className="shrink-0" size={18} />
+            <span className="whitespace-nowrap"><span className="max-[480px]:hidden">Quick remove vehicle</span><span className="hidden max-[480px]:inline">Quick remove</span></span>
           </Button>
-          <Button className="max-[640px]:min-w-0 max-[640px]:flex-1 max-[640px]:px-2.5 max-[640px]:text-[.72rem]" disabled={!data.vehicles.length} onClick={() => openDeparture(false)}>
-            <Plus size={18} /> Schedule exit
+          <Button className="max-[640px]:col-span-2 max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.8rem]" disabled={!data.vehicles.length} onClick={() => openDeparture(false)}>
+            <Plus className="shrink-0" size={18} /> <span className="whitespace-nowrap">Schedule exit</span>
           </Button>
         </div>
       </header>
@@ -471,7 +474,7 @@ function SortableVehicle({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'vehicle-row grid min-h-19.5 cursor-grab touch-manipulation grid-cols-[auto_25px_auto_1fr_auto_60px] items-center gap-2.5 rounded-none border-b border-b-(--line) bg-transparent px-1.5 py-3.75 shadow-none active:cursor-grabbing max-[640px]:grid-cols-[auto_20px_auto_1fr_auto]',
+        'vehicle-row grid min-h-19.5 cursor-grab touch-none select-none grid-cols-[auto_25px_auto_1fr_auto_60px] items-center gap-2.5 rounded-none border-b border-b-(--line) bg-transparent px-1.5 py-3.75 shadow-none active:cursor-grabbing max-[640px]:grid-cols-[auto_20px_auto_1fr_auto]',
         isDragging && 'is-dragging z-[5] bg-(--surface-strong)! opacity-[.85] shadow-[0_12px_28px_rgba(30,48,40,.14)]',
       )}
       {...attributes}

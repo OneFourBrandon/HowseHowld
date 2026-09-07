@@ -155,18 +155,18 @@ export function ChoresPage() {
         </Button>
       </header>
 
-      <div className={"stats-row grid grid-cols-3 gap-0 border-t border-t-(--line) border-b border-b-(--line) max-[640px]:grid-cols-1"}>
-        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-25.5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:first:border-t-0">
-          <CheckCircle2 className="h-10 w-10 rounded-[7px] bg-(--green-soft) p-2 text-(--green)" />
-          <div><strong className="block font-display text-[1.65rem]">{completedThisMonth}</strong><span className="block text-[.76rem] text-(--muted)">Completed this month</span></div>
+      <div className={"stats-row grid grid-cols-3 gap-0 border-t border-t-(--line) border-b border-b-(--line)"}>
+        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-20 max-[640px]:gap-1.5 max-[640px]:px-2 max-[640px]:py-3">
+          <CheckCircle2 className="h-10 w-10 shrink-0 rounded-[7px] bg-(--green-soft) p-2 text-(--green) max-[640px]:h-8 max-[640px]:w-8 max-[640px]:p-1.5" />
+          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{completedThisMonth}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Completed this month</span></div>
         </Card>
-        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-25.5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:first:border-t-0">
-          <RotateCw className="h-10 w-10 rounded-[7px] bg-(--green-soft) p-2 text-(--green)" />
-          <div><strong className="block font-display text-[1.65rem]">{data.tasks.filter((task) => task.active).length}</strong><span className="block text-[.76rem] text-(--muted)">Active rotations</span></div>
+        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-20 max-[640px]:gap-1.5 max-[640px]:px-2 max-[640px]:py-3">
+          <RotateCw className="h-10 w-10 shrink-0 rounded-[7px] bg-(--green-soft) p-2 text-(--green) max-[640px]:h-8 max-[640px]:w-8 max-[640px]:p-1.5" />
+          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{data.tasks.filter((task) => task.active).length}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Active rotations</span></div>
         </Card>
-        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-25.5 max-[640px]:border-t max-[640px]:border-l-0 max-[640px]:first:border-t-0">
-          <AlertTriangle className="h-10 w-10 rounded-[7px] bg-(--green-soft) p-2 text-(--green)" />
-          <div><strong className="block font-display text-[1.65rem]">{data.infractions.filter((item) => item.status !== 'excused' && item.status !== 'paid').length}</strong><span className="block text-[.76rem] text-(--muted)">Open infractions</span></div>
+        <Card className="stat-card flex min-h-28 items-center gap-3.25 border-l border-(--line) p-[23px_28px] first:border-l-0 max-[640px]:min-h-20 max-[640px]:gap-1.5 max-[640px]:px-2 max-[640px]:py-3">
+          <AlertTriangle className="h-10 w-10 shrink-0 rounded-[7px] bg-(--green-soft) p-2 text-(--green) max-[640px]:h-8 max-[640px]:w-8 max-[640px]:p-1.5" />
+          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{data.infractions.filter((item) => item.status !== 'excused' && item.status !== 'paid').length}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Open infractions</span></div>
         </Card>
       </div>
 
@@ -191,7 +191,9 @@ export function ChoresPage() {
                 <div className="occurrence-detail grid gap-1.25">
                   <div className="flex gap-1.25">
                     <Badge>{occurrence.area}</Badge>
-                    {isMine && occurrence.status === 'assigned' && <Badge tone="amber">Your turn</Badge>}
+                    {isMine && occurrence.status === 'assigned' && (
+                      <span className="max-[640px]:hidden"><Badge tone="amber">Your turn</Badge></span>
+                    )}
                   </div>
                   <h3 className="text-[.94rem]">{occurrence.taskTitle}</h3>
                   <span>{formatDateTime(occurrence.dueAt)} · {occurrence.reminderLabel}</span>
@@ -199,6 +201,11 @@ export function ChoresPage() {
                 <div className={"occurrence-person flex items-center gap-1.75 text-(--muted) max-[640px]:col-[2] text-[.76rem]"}>
                   <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   <span>{member.displayName}</span>
+                  {isMine && occurrence.status === 'assigned' && (
+                    <span className="hidden whitespace-nowrap rounded-full bg-(--gold-soft) px-2 py-1 text-[.62rem] font-extrabold uppercase tracking-[.035em] text-[#8b6522] max-[640px]:inline-flex">
+                      Your turn
+                    </span>
+                  )}
                 </div>
                 {isMine && occurrence.status === 'assigned' && (
                   <Button

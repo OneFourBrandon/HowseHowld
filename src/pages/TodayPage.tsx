@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   BellRing,
@@ -98,13 +98,25 @@ export function TodayPage() {
   const currentMember = data.members.find((member) => member.id === data.household.currentMemberId)!
   const householdToday = dateKeyInTimeZone(new Date(), data.household.timezone)
   const [selectedDate, setSelectedDate] = useState(householdToday)
-  const [weekOffset, setWeekOffset] = useState(0)
+  const [rangeStart, setRangeStart] = useState(householdToday)
+  const [compactDateRange, setCompactDateRange] = useState(
+    () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(max-width: 640px)').matches),
+  )
   const [addMenuOpen, setAddMenuOpen] = useState(false)
-  const weekStart = addDateKeyDays(householdToday, weekOffset * 7)
-  const weekDays = Array.from({ length: 7 }, (_, index) => addDateKeyDays(weekStart, index))
+  const visibleDayCount = compactDateRange ? 3 : 7
+  const visibleDays = Array.from({ length: visibleDayCount }, (_, index) => addDateKeyDays(rangeStart, index))
   const myBalance = data.balances.find((balance) => balance.memberId === currentMember.id)
   const now = new Date()
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
+
+  useEffect(() => {
+    if (!window.matchMedia) return
+    const media = window.matchMedia('(max-width: 640px)')
+    const updateRangeSize = () => setCompactDateRange(media.matches)
+    updateRangeSize()
+    media.addEventListener('change', updateRangeSize)
+    return () => media.removeEventListener('change', updateRangeSize)
+  }, [])
 
   const agenda = useMemo(() => {
     const items: AgendaItem[] = []
@@ -226,22 +238,33 @@ export function TodayPage() {
               </div>
             )}
           </div>
-          <Avatar initials={currentMember.initials} color={currentMember.color} imageUrl={currentMember.avatarUrl} size="md" />
+          <Link
+            aria-label={`Open settings for ${currentMember.displayName}`}
+            className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-(--green)"
+            to="/settings"
+          >
+            <Avatar initials={currentMember.initials} color={currentMember.color} imageUrl={currentMember.avatarUrl} size="md" />
+          </Link>
         </div>
       </header>
 
       <section className="grid grid-cols-[34px_minmax(0,1fr)_34px_150px] items-stretch border-b border-(--line) pb-3 max-[880px]:grid-cols-[30px_minmax(0,1fr)_30px]">
-        <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { setWeekOffset((offset) => offset - 1); setSelectedDate(addDateKeyDays(weekStart, -7)) }} aria-label="Previous week"><ChevronLeft size={18} /></button>
-        <div className="grid grid-cols-7 overflow-x-auto">
-          {weekDays.map((dateKey) => {
+        <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { const start = addDateKeyDays(rangeStart, -visibleDayCount); setRangeStart(start); setSelectedDate(start) }} aria-label="Previous dates"><ChevronLeft size={18} /></button>
+        <div
+          aria-label="Visible dates"
+          className="grid min-w-0"
+          role="group"
+          style={{ gridTemplateColumns: `repeat(${visibleDayCount}, minmax(0, 1fr))` }}
+        >
+          {visibleDays.map((dateKey) => {
             const date = dateFromKey(dateKey)
             const counts = countsForDay(dateKey)
             const selected = selectedDate === dateKey
             return (
-              <button className={cn('grid min-w-23 gap-1 border-0 border-l border-(--line) bg-transparent px-3 py-2 text-(--ink) first:border-l-0 hover:bg-(--sage-2)', selected && 'rounded-[10px] border! border-(--green)! bg-white')} type="button" key={dateKey} onClick={() => setSelectedDate(dateKey)}>
+              <button className={cn('grid min-w-0 gap-1 overflow-hidden border-0 border-l border-(--line) bg-transparent px-2 py-2 text-(--ink) first:border-l-0 hover:bg-(--sage-2)', selected && 'rounded-[10px] border! border-(--green)! bg-white')} type="button" key={dateKey} onClick={() => setSelectedDate(dateKey)}>
                 <span className="font-sans text-[.67rem] font-bold uppercase">{shortWeekday.format(date)}</span>
                 <strong className="font-sans text-[1.2rem] leading-none">{date.getUTCDate()}</strong>
-                <span className="mt-1 flex justify-center gap-3 text-[.65rem] text-(--muted)">
+                <span className="mt-1 flex min-w-0 justify-center gap-2.5 text-[.65rem] text-(--muted) max-[420px]:gap-1.5">
                   <span className="inline-flex items-center gap-1"><i className="size-1.75 rounded-full bg-(--green)" />{counts.chores}</span>
                   <span className="inline-flex items-center gap-1"><i className="size-1.75 rounded-full bg-(--gold)" />{counts.bills}</span>
                   <span className="inline-flex items-center gap-1"><i className="size-1.75 rounded-full bg-[#7c9096]" />{counts.events}</span>
@@ -250,7 +273,7 @@ export function TodayPage() {
             )
           })}
         </div>
-        <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { setWeekOffset((offset) => offset + 1); setSelectedDate(addDateKeyDays(weekStart, 7)) }} aria-label="Next week"><ChevronRight size={18} /></button>
+        <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { const start = addDateKeyDays(rangeStart, visibleDayCount); setRangeStart(start); setSelectedDate(start) }} aria-label="Next dates"><ChevronRight size={18} /></button>
         <div className="grid content-center gap-1.5 border-l border-(--line) pl-5 text-[.67rem] text-(--muted) max-[880px]:hidden">
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-(--green)" />Chores</span>
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-(--gold)" />Bills</span>
