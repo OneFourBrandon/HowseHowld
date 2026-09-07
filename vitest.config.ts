@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 process.env.VITE_DEMO_MODE = 'true'
+process.env.TZ = 'America/Toronto'
 
 export default defineConfig({
   plugins: [react()],
