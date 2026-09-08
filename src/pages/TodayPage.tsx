@@ -1,16 +1,17 @@
+import { ThemeToggle } from '../components/ThemeToggle'
+import { EmailRecovery } from '../components/EmailRecovery'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   BellRing,
   CalendarDays,
   CarFront,
-  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Circle,
   CircleDollarSign,
+  Circle,
   Clock3,
   Plus,
 } from 'lucide-react'
@@ -82,7 +83,7 @@ function AgendaIcon({
   occurrenceStatus?: 'assigned' | 'completed' | 'missed'
 }) {
   if (kind === 'bill') {
-    return <span className="grid size-10 place-items-center rounded-[9px] bg-(--gold-soft) text-[#9a6d13]"><CircleDollarSign size={20} /></span>
+    return <span className="grid size-10 place-items-center rounded-[9px] bg-(--gold-soft) text-[#9a6d13] dark:text-(--gold)"><CircleDollarSign size={20} /></span>
   }
   if (kind === 'event') {
     return <span className="grid size-10 place-items-center rounded-[9px] bg-(--blue-soft) text-(--blue)"><CalendarDays size={20} /></span>
@@ -212,26 +213,27 @@ export function TodayPage() {
   return (
     <div className="grid gap-5.5">
       {data.household.enabledFeatures.includes('notifications') && !data.notificationHealth.subscribed && (
-        <Link to="/settings" className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[10px] border border-[#e3d0a1] border-l-[3px] border-l-(--gold) bg-[#f1e5c8] px-4 py-3 text-[.8rem] text-[#76561d]">
+        <Link to="/settings" className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[10px] border border-[#e3d0a1] border-l-[3px] border-l-(--gold) bg-[#f1e5c8] dark:bg-(--gold-soft) px-4 py-3 text-[.8rem] text-[#76561d] dark:text-(--gold)">
           <BellRing size={19} />
           <div><strong className="block">Don’t miss the last call</strong><span className="text-[#756a52]">Enable reminders for chore and driveway alerts.</span></div>
           <ChevronRight size={18} />
         </Link>
       )}
 
-      <header className="flex items-center justify-between gap-6 border-b border-(--line) pb-4 max-[720px]:items-start">
+      <header className="flex items-center justify-between gap-6 max-[720px]:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h1 className="text-6xl! leading-none max-[640px]:text-[1.75rem]!">{greeting}, {currentMember.displayName}.</h1>
+            <h1 className="page-title">{greeting}, {currentMember.displayName}.</h1>
             <span className="font-sans text-[.8rem] font-semibold text-(--gold)">{longDate.format(dateFromKey(householdToday))}</span>
           </div>
           <p className="mt-1.5 text-[.86rem] text-(--muted)">Here’s what the house needs from you today.</p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
+          <ThemeToggle />
           <div className="relative max-[560px]:hidden">
             <Button variant="secondary" onClick={() => setAddMenuOpen((open) => !open)}><Plus size={16} /> Add <ChevronDown size={14} /></Button>
             {addMenuOpen && (
-              <div className="absolute right-0 top-[calc(100%+7px)] z-20 grid w-44 rounded-[10px] border border-(--line-strong) bg-white p-1.5 shadow-[0_12px_30px_rgba(20,35,28,.14)]">
+              <div className="absolute right-0 top-[calc(100%+7px)] z-20 grid w-44 rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-1.5 shadow-[0_12px_30px_rgba(20,35,28,.14)]">
                 <Link className="rounded-[7px] px-3 py-2 text-[.78rem] font-semibold hover:bg-(--sage-2)" to="/chores">Add a chore</Link>
                 <Link className="rounded-[7px] px-3 py-2 text-[.78rem] font-semibold hover:bg-(--sage-2)" to="/money">Add a purchase</Link>
                 <Link className="rounded-[7px] px-3 py-2 text-[.78rem] font-semibold hover:bg-(--sage-2)" to="/calendar">Add an event</Link>
@@ -248,11 +250,12 @@ export function TodayPage() {
         </div>
       </header>
 
-      <section className="grid grid-cols-[34px_minmax(0,1fr)_34px_150px] items-stretch border-b border-(--line) pb-3 max-[880px]:grid-cols-[30px_minmax(0,1fr)_30px]">
+      <section className="min-w-0 rounded-2xl border border-(--line) bg-(--surface-strong) p-3 max-[420px]:p-2">
+        <div className="grid min-w-0 grid-cols-[34px_minmax(0,1fr)_34px_150px] items-stretch rounded-2xl bg-(--surface) py-3 max-[880px]:grid-cols-[30px_minmax(0,1fr)_30px] max-[420px]:grid-cols-[24px_minmax(0,1fr)_24px]">
         <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { const start = addDateKeyDays(rangeStart, -visibleDayCount); setRangeStart(start); setSelectedDate(start) }} aria-label="Previous dates"><ChevronLeft size={18} /></button>
         <div
           aria-label="Visible dates"
-          className="grid min-w-0"
+          className="grid min-w-0 gap-1.5"
           role="group"
           style={{ gridTemplateColumns: `repeat(${visibleDayCount}, minmax(0, 1fr))` }}
         >
@@ -261,7 +264,7 @@ export function TodayPage() {
             const counts = countsForDay(dateKey)
             const selected = selectedDate === dateKey
             return (
-              <button className={cn('grid min-w-0 gap-1 overflow-hidden border-0 border-l border-(--line) bg-transparent px-2 py-2 text-(--ink) first:border-l-0 hover:bg-(--sage-2)', selected && 'rounded-[10px] border! border-(--green)! bg-white')} type="button" key={dateKey} onClick={() => setSelectedDate(dateKey)}>
+              <button className={cn('grid min-w-0 gap-1 overflow-hidden rounded-2xl border px-2 py-3 transition-colors', selected ? 'border-(--green) bg-(--green-soft) text-(--ink)' : 'border-(--line) bg-(--surface-strong) text-(--ink) hover:bg-(--sage-2)')} type="button" key={dateKey} onClick={() => setSelectedDate(dateKey)}>
                 <span className="font-sans text-[.67rem] font-bold uppercase">{shortWeekday.format(date)}</span>
                 <strong className="font-sans text-[1.2rem] leading-none">{date.getUTCDate()}</strong>
                 <span className="mt-1 flex min-w-0 justify-center gap-2.5 text-[.65rem] text-(--muted) max-[420px]:gap-1.5">
@@ -274,39 +277,53 @@ export function TodayPage() {
           })}
         </div>
         <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:text-(--forest)" type="button" onClick={() => { const start = addDateKeyDays(rangeStart, visibleDayCount); setRangeStart(start); setSelectedDate(start) }} aria-label="Next dates"><ChevronRight size={18} /></button>
-        <div className="grid content-center gap-1.5 border-l border-(--line) pl-5 text-[.67rem] text-(--muted) max-[880px]:hidden">
+        <div className="grid content-center gap-1.5 pl-5 text-[.67rem] text-(--muted) max-[880px]:hidden">
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-(--green)" />Chores</span>
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-(--gold)" />Bills</span>
           <span className="inline-flex items-center gap-2"><i className="size-2 rounded-full bg-[#7c9096]" />Events</span>
         </div>
+        </div>
       </section>
 
       <div className="grid grid-cols-[minmax(0,1fr)_315px] items-start gap-7 max-[980px]:grid-cols-1">
-        <main className="min-w-0">
+        <main className="grid min-w-0 gap-3 rounded-2xl border border-(--line) bg-(--surface-strong) p-3">
+          <EmailRecovery reminder />
+          <section className="min-w-0 rounded-xl bg-(--surface) px-4 py-3">
           <div className="flex items-center justify-between border-b border-(--line) pb-2.5">
             <h2 className="text-[1.35rem]!">{selectedDateLabel}</h2>
             <Link className="inline-flex items-center gap-1.5 text-[.76rem] font-semibold" to="/chores">Today’s chores <ArrowRight size={14} /></Link>
           </div>
 
           <div className="relative">
-            <span className="absolute top-0 bottom-0 left-[108px] w-px bg-(--line) max-[620px]:left-[76px]" aria-hidden="true" />
             {selectedAgenda.map((item) => {
               const assignee = item.assigneeId ? data.members.find((member) => member.id === item.assigneeId) : undefined
               const isMyChore = item.kind === 'chore' && item.assigneeId === currentMember.id
               const availability = item.occurrenceId && item.dueAt ? taskCompletionAvailability(item.dateKey, item.dueAt, data.household.timezone) : null
+              const completed = item.occurrenceStatus === 'completed'
+              const canComplete = isMyChore && item.occurrenceStatus === 'assigned' && availability === 'available'
               return (
-                <div className="relative grid min-h-15 grid-cols-[92px_18px_48px_minmax(0,1fr)_auto] items-center gap-3 border-b border-(--line) py-2.5 max-[620px]:grid-cols-[62px_16px_42px_minmax(0,1fr)] max-[620px]:gap-2" key={item.id} data-agenda-item>
+                <div className="relative grid min-h-15 grid-cols-[92px_48px_minmax(0,1fr)_auto] items-center gap-3 border-b border-(--line) py-2.5 max-[620px]:grid-cols-[62px_42px_minmax(0,1fr)] max-[620px]:gap-2" key={item.id} data-agenda-item>
                   <span className="font-sans text-[.78rem] tabular-nums">{item.timeLabel}</span>
-                  <span className="relative z-1 grid size-4.5 place-items-center rounded-full bg-(--paper)">
-                    {item.occurrenceStatus === 'completed' || item.paid ? <CheckCircle2 className="fill-(--green) text-white" size={18} /> : <Circle className="fill-(--paper) text-(--ink)" size={17} />}
-                  </span>
                   <AgendaIcon kind={item.kind} occurrenceStatus={item.occurrenceStatus} />
                   <div className="min-w-0"><h3 className="truncate text-[.84rem] font-bold">{item.title}</h3><span className="block truncate text-[.72rem] text-(--muted)">{item.subtitle}</span></div>
-                  <div className="flex items-center gap-3 max-[620px]:col-[4] max-[620px]:justify-self-end">
+                  <div className="flex items-center gap-3 max-[620px]:col-[3] max-[620px]:justify-self-end">
                     {assignee && <Avatar initials={assignee.initials} color={assignee.color} imageUrl={assignee.avatarUrl} size="sm" />}
                     {item.amountCents != null && <strong className="font-sans text-[.78rem] text-(--gold) tabular-nums">{formatMoney(item.amountCents)}</strong>}
-                    {isMyChore && item.occurrenceStatus === 'assigned' && availability === 'available' ? (
-                      <Button size="sm" aria-label={`Mark complete: ${item.title}`} disabled={busy === `complete:${item.occurrenceId}`} onClick={() => void completeOccurrence(item.occurrenceId!)}><Check size={14} /> Done</Button>
+                    {isMyChore ? (
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={completed}
+                        aria-label={`${completed ? 'Completed' : 'Mark complete'}: ${item.title}`}
+                        title={completed ? 'Completed' : canComplete ? 'Mark complete' : 'This chore can only be completed on its scheduled day before it expires.'}
+                        disabled={!canComplete || busy === `complete:${item.occurrenceId}`}
+                        onClick={() => void completeOccurrence(item.occurrenceId!).catch(() => { /* Shared handler displays the error. */ })}
+                        className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--green) disabled:cursor-default"
+                      >
+                        {completed
+                          ? <CheckCircle2 className="text-[#6ca177] dark:text-(--green)" size={20} aria-hidden="true" />
+                          : <Circle className={cn(canComplete ? 'text-(--muted) transition-colors hover:text-(--green)' : 'text-(--line-strong)')} size={20} aria-hidden="true" />}
+                      </button>
                     ) : item.kind === 'bill' && !item.paid ? (
                       <Link className="text-[.72rem] font-semibold text-(--gold)" to="/money">Due today</Link>
                     ) : item.occurrenceStatus === 'completed' || item.paid ? <Badge tone="green">Done</Badge> : <span className="font-sans text-[.75rem] tabular-nums">{item.timeLabel}</span>}
@@ -316,8 +333,10 @@ export function TodayPage() {
             })}
             {!selectedAgenda.length && <div className="flex min-h-28 items-center justify-center border-b border-(--line) text-[.8rem] text-(--muted)">Nothing scheduled for this day.</div>}
           </div>
+          </section>
 
-          <div className="mt-4 flex items-center justify-between border-b border-(--line) pb-2">
+          <section className="min-w-0 rounded-xl bg-(--surface) px-4 py-3">
+          <div className="flex items-center justify-between border-b border-(--line) pb-2">
             <h2 className="text-[1rem]!">Later this week</h2>
             <Link className="inline-flex items-center gap-1.5 text-[.74rem] font-semibold" to="/calendar">This week <ArrowRight size={14} /></Link>
           </div>
@@ -325,7 +344,7 @@ export function TodayPage() {
             {laterAgenda.map((item) => {
               const assignee = item.assigneeId ? data.members.find((member) => member.id === item.assigneeId) : undefined
               return (
-                <Link className="grid min-h-14 grid-cols-[128px_82px_42px_minmax(0,1fr)_auto] items-center gap-3 border-b border-(--line) py-2 hover:bg-(--sage-2) max-[620px]:grid-cols-[92px_42px_1fr_auto]" to={item.href} key={`later-${item.id}`}>
+                <Link className="grid min-h-14 grid-cols-[128px_82px_42px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border-b border-(--line) px-2 py-2 hover:bg-(--sage-2) max-[620px]:grid-cols-[92px_42px_1fr_auto]" to={item.href} key={`later-${item.id}`}>
                   <span className="text-[.72rem] text-(--muted)">{shortDate.format(dateFromKey(item.dateKey))}</span>
                   <span className="font-sans text-[.72rem] text-(--muted) tabular-nums max-[620px]:hidden">{item.timeLabel}</span>
                   <AgendaIcon kind={item.kind} occurrenceStatus={item.occurrenceStatus} />
@@ -337,28 +356,38 @@ export function TodayPage() {
             {!laterAgenda.length && <p className="py-6 text-center text-[.78rem] text-(--muted)">The rest of the week is clear.</p>}
           </div>
           <Link className="mx-auto mt-3 flex w-fit items-center gap-2 text-[.76rem] font-semibold text-(--forest-2)" to="/calendar">View full calendar <ArrowRight size={14} /></Link>
+          </section>
         </main>
 
         <aside className="grid gap-4 border-l border-(--line) pl-7 max-[980px]:grid-cols-2 max-[980px]:border-l-0 max-[980px]:border-t max-[980px]:pt-6 max-[980px]:pl-0 max-[620px]:grid-cols-1">
           <h2 className="text-[1rem]! max-[980px]:col-span-full">At a glance</h2>
-          {data.household.enabledFeatures.includes('money') && myBalance && (
-            <section className="grid min-h-48 content-center rounded-[10px] border border-(--line-strong) border-l-[3px] border-l-(--green) bg-white p-5">
-              <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] bg-(--sage) text-(--forest)"><CircleDollarSign size={18} /></span><strong className="text-[.8rem]">Shared money</strong></div>
-              <span className="mt-4 text-[.72rem] text-(--muted)">Your house balance</span>
-              <strong className={cn('mt-0.5 font-display text-[1.75rem] leading-none', myBalance.netCents < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(myBalance.netCents, true)}</strong>
-              <span className="mt-1 text-[.7rem] text-(--muted)">{myBalance.netCents < 0 ? 'You owe the house' : 'The house owes you'}</span>
-              <Link className="mt-4 inline-flex items-center gap-2 text-[.74rem] font-semibold" to="/money">Open shared money <ArrowRight size={14} /></Link>
-            </section>
-          )}
-
           {data.household.enabledFeatures.includes('money') && (
-            <section className="grid min-h-38 content-center rounded-[10px] border border-(--line-strong) bg-white p-5">
-              <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] bg-(--gold-soft) text-[#9a6d13]"><CircleDollarSign size={18} /></span><strong className="text-[.78rem]">Next bill due</strong></div>
-              {nextBill ? <><span className="mt-3 text-[.74rem]">{nextBill.title.replace(/ due$/, '')}</span><strong className="mt-1 font-sans text-[1.15rem] text-(--gold)">{nextBill.amountCents != null ? formatMoney(nextBill.amountCents) : 'Variable'}</strong><span className="mt-2 inline-flex items-center gap-2 text-[.7rem] text-(--muted)"><CalendarDays size={14} />{nextBill.dateKey === householdToday ? 'Due today' : `Due ${shortDate.format(dateFromKey(nextBill.dateKey))}`}</span></> : <span className="mt-3 text-[.74rem] text-(--muted)">No upcoming unpaid bills.</span>}
-            </section>
+            <div className="grid min-w-0 gap-3 rounded-2xl border border-(--line) bg-(--surface-strong) p-3">
+              {myBalance && (
+                <section className="flex min-w-0 flex-col rounded-2xl bg-(--surface) px-5 py-6">
+                  <h3 className="text-[.75rem]! font-semibold! tracking-wide text-(--muted) uppercase">Shared money</h3>
+                  <strong className={cn('mt-6 break-words font-sans text-[clamp(1.75rem,3vw,2.75rem)] font-medium leading-tight tracking-tight tabular-nums', myBalance.netCents < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(myBalance.netCents, true)}</strong>
+                  <span className="mt-7 text-[.72rem] font-semibold tracking-wide text-(--muted) uppercase">Your house balance</span>
+                  <span className="mt-2 text-[.9rem] text-(--muted)">{myBalance.netCents < 0 ? 'You owe the house' : 'The house owes you'}</span>
+                  <Link className="mt-6 w-fit rounded text-[.9rem] font-medium text-(--forest-2) underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4" to="/money">Open shared money</Link>
+                </section>
+              )}
+              <section className="min-w-0 rounded-2xl bg-(--surface) px-5 py-6">
+                <h3 className="text-[.75rem]! font-semibold! tracking-wide text-(--muted) uppercase">Next bill due</h3>
+                {nextBill ? (
+                  <>
+                    <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span className="min-w-0 break-words text-[1.05rem] font-semibold">{nextBill.title.replace(/ due$/, '')}</span>
+                      <strong className="font-sans text-[1.15rem] font-medium text-(--gold) tabular-nums">{nextBill.amountCents != null ? formatMoney(nextBill.amountCents) : 'Variable'}</strong>
+                    </div>
+                    <p className="mt-2 text-[.85rem] text-(--muted)">{nextBill.dateKey === householdToday ? 'Due today' : `Due ${shortDate.format(dateFromKey(nextBill.dateKey))}`}</p>
+                  </>
+                ) : <p className="mt-5 text-[.85rem] text-(--muted)">No upcoming unpaid bills.</p>}
+              </section>
+            </div>
           )}
 
-          <section className="rounded-[10px] border border-(--line-strong) bg-white p-5">
+          <section className="rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-5">
             <strong className="text-[.78rem]">Household</strong>
             <div className="mt-3 grid gap-3">
               {data.members.slice(0, 4).map((member) => (
@@ -368,7 +397,7 @@ export function TodayPage() {
           </section>
 
           {nextDeparture && (
-            <Link className="rounded-[10px] border border-(--line-strong) bg-white p-5" to="/driveway">
+            <Link className="rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-5" to="/driveway">
               <div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-[8px] bg-(--blue-soft) text-(--blue)"><CarFront size={18} /></span><strong className="text-[.78rem]">Next departure</strong></div>
               <span className="mt-3 block text-[.74rem]">{nextDeparture.title}</span><span className="mt-1 inline-flex items-center gap-1.5 text-[.7rem] text-(--muted)"><Clock3 size={13} />{timeUntil(new Date(nextDeparture.sortAt).toISOString())}</span>
             </Link>

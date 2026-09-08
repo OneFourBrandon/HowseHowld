@@ -11,6 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:auth": "playwright test --config playwright.auth.config.ts",
+    "test:recovery-db": "node --test scripts/recovery-db.test.mjs",
+    "test:driveway-db": "node --test scripts/driveway-db.test.mjs",
+    "test:penalties-db": "node --test scripts/penalties-db.test.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "dev:stack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-stack.ps1",
     "supabase:start": "supabase start",
@@ -37,6 +41,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.62.0",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/jest-dom": "7.0.0",

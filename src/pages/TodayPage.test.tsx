@@ -76,8 +76,8 @@ describe('Today page', () => {
     const heading = screen.getByRole('heading', { name: 'Stove & counters' })
     const row = heading.closest('[data-agenda-item]') as HTMLElement | null
     expect(row).not.toBeNull()
-    fireEvent.click(within(row!).getByRole('button', { name: /mark complete/i }))
-    expect(await within(row!).findByText('Done')).toBeInTheDocument()
-    expect(within(row!).queryByRole('button', { name: /mark complete/i })).not.toBeInTheDocument()
+    fireEvent.click(within(row!).getByRole('checkbox', { name: /mark complete/i }))
+    expect(await within(row!).findByRole('checkbox', { name: /completed/i })).toHaveAttribute('aria-checked', 'true')
+    expect(within(row!).queryByRole('checkbox', { name: /mark complete/i })).not.toBeInTheDocument()
   })
 })

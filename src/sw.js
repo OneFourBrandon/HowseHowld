@@ -1,7 +1,6 @@
 /* global clients */
 const sw = self
 const shellCache = 'howsehowld-shell-v1'
-const dataCache = 'howsehowld-last-read-v1'
 const precacheUrls = self.__WB_MANIFEST.map((entry) => entry.url)
 
 sw.addEventListener('install', (event) => {
@@ -13,7 +12,8 @@ sw.addEventListener('install', (event) => {
 })
 
 sw.addEventListener('activate', (event) => {
-  event.waitUntil(sw.clients.claim())
+  // Do not replay authenticated database responses from a different session.
+  event.waitUntil(caches.delete('howsehowld-last-read-v1').then(() => sw.clients.claim()))
 })
 
 sw.addEventListener('fetch', (event) => {
@@ -30,19 +30,6 @@ sw.addEventListener('fetch', (event) => {
         .catch(() => caches.match('/index.html')),
     )
     return
-  }
-  if (url.hostname.endsWith('.supabase.co') && url.pathname.includes('/rest/v1/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone()
-            caches.open(dataCache).then((cache) => cache.put(event.request, copy))
-          }
-          return response
-        })
-        .catch(() => caches.match(event.request)),
-    )
   }
 })
 

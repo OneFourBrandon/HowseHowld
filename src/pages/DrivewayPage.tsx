@@ -1,42 +1,24 @@
 import { cn } from '../lib/cn'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
-  closestCenter,
-  DndContext,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import {
-  ArrowDown,
   BellRing,
   CarFront,
   Clock3,
-  GripVertical,
   LogOut,
   Pencil,
   Plus,
-  Route,
   Trash2,
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
-import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
+import { Badge, Button, Modal } from '../components/ui'
+import { DrivewayBoard } from '../components/DrivewayBoard'
+import { blockingVehicles, slotsFor } from '../lib/driveway'
 import { formatDateTime, timeUntil, toIso } from '../lib/utils'
 import type { Vehicle } from '../types'
 
 export function DrivewayPage() {
-  const { data, busy, reorderVehicles, addDeparture, saveVehicle, removeVehicle } = useAppData()
+  const { data, addDeparture, saveVehicle, removeVehicle } = useAppData()
+  const slots = slotsFor(data)
   const [departureModal, setDepartureModal] = useState(false)
   const [vehicleModal, setVehicleModal] = useState(false)
   const [vehicleEditorOpen, setVehicleEditorOpen] = useState(false)
@@ -54,62 +36,6 @@ export function DrivewayPage() {
   const [vehicleColor, setVehicleColor] = useState('#3e6d2d')
   const [vehicleSubmitting, setVehicleSubmitting] = useState(false)
   const vehicleSubmitLock = useRef(false)
-  const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null)
-  const [previewOrder, setPreviewOrder] = useState(() => data.vehicles.map((vehicle) => vehicle.id))
-  const previewOrderRef = useRef(previewOrder)
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { distance: 4 } }),
-  )
-
-  useEffect(() => {
-    if (activeVehicleId) return
-    const nextOrder = data.vehicles.map((vehicle) => vehicle.id)
-    previewOrderRef.current = nextOrder
-    setPreviewOrder(nextOrder)
-  }, [activeVehicleId, data.vehicles])
-
-  const previewVehicles = previewOrder
-    .map((id) => data.vehicles.find((vehicle) => vehicle.id === id))
-    .filter((vehicle): vehicle is Vehicle => Boolean(vehicle))
-
-  const dragStart = ({ active }: DragStartEvent) => {
-    const nextOrder = data.vehicles.map((vehicle) => vehicle.id)
-    previewOrderRef.current = nextOrder
-    setPreviewOrder(nextOrder)
-    setActiveVehicleId(String(active.id))
-  }
-
-  const dragOver = ({ active, over }: DragOverEvent) => {
-    if (!over || active.id === over.id) return
-    const currentOrder = previewOrderRef.current
-    const oldIndex = currentOrder.indexOf(String(active.id))
-    const newIndex = currentOrder.indexOf(String(over.id))
-    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
-    const nextOrder = arrayMove(currentOrder, oldIndex, newIndex)
-    previewOrderRef.current = nextOrder
-    setPreviewOrder(nextOrder)
-  }
-
-  const dragEnd = async ({ over }: DragEndEvent) => {
-    if (!over) {
-      setActiveVehicleId(null)
-      return
-    }
-    const ordered = previewOrderRef.current
-    if (ordered.every((id, index) => id === data.vehicles[index]?.id)) {
-      setActiveVehicleId(null)
-      return
-    }
-    try {
-      await reorderVehicles(ordered)
-    } catch {
-      // The shared mutation handler restores the latest lineup and shows the error.
-    } finally {
-      setActiveVehicleId(null)
-    }
-  }
-
   const openDeparture = (quick: boolean) => {
     setDepartureQuickMode(quick)
     setVehicleId((current) => current || data.vehicles[0]?.id || '')
@@ -137,121 +63,41 @@ export function DrivewayPage() {
   }
 
   return (
-    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
-      <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
-        <div className="grid gap-3.75">
-          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>NO MORE DRIVEWAY TEXT CHAINS</p>
-          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Driveway</h1>
-          <p>The current lineup decides exactly who needs to move.</p>
-        </div>
-        <div className="button-row flex flex-wrap items-center gap-2.25 max-[640px]:grid max-[640px]:w-full max-[640px]:grid-cols-2 max-[640px]:gap-2">
-          <Button className="max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.78rem]" variant="secondary" onClick={() => {
-            resetVehicleEditor()
-            setVehicleModal(true)
-          }}>
-            <CarFront className="shrink-0" size={18} /> <span className="whitespace-nowrap">Manage vehicles</span>
-          </Button>
-          <Button className="max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.78rem]" variant="secondary" disabled={!data.vehicles.length} onClick={() => openDeparture(true)}>
-            <LogOut className="shrink-0" size={18} />
-            <span className="whitespace-nowrap"><span className="max-[480px]:hidden">Quick remove vehicle</span><span className="hidden max-[480px]:inline">Quick remove</span></span>
-          </Button>
-          <Button className="max-[640px]:col-span-2 max-[640px]:w-full max-[640px]:min-w-0 max-[640px]:px-3 max-[640px]:text-[.8rem]" disabled={!data.vehicles.length} onClick={() => openDeparture(false)}>
-            <Plus className="shrink-0" size={18} /> <span className="whitespace-nowrap">Schedule exit</span>
-          </Button>
+    <div className="grid gap-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div><h1 className="page-title">Driveway</h1><p className="mt-1 text-sm text-(--muted)">A place for every car, with a clear path out.</p></div>
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <Button size="sm" variant="secondary" onClick={() => { resetVehicleEditor(); setVehicleModal(true) }}><CarFront size={16} /> Manage vehicles</Button>
+          <Button size="sm" variant="secondary" disabled={!data.vehicles.length} onClick={() => openDeparture(true)}><LogOut size={16} /> Quick remove</Button>
+          <Button size="sm" disabled={!data.vehicles.length} onClick={() => openDeparture(false)}><Clock3 size={16} /> Schedule exit</Button>
         </div>
       </header>
 
-      <div className={"driveway-layout grid grid-cols-[minmax(0,1.45fr)_minmax(300px,.65fr)] items-start max-[980px]:grid-cols-1 gap-14.5 max-[980px]:gap-12.5"}>
-        <section>
-          <SectionHeader
-            eyebrow="LIVE LINEUP"
-            title="Street to back"
-            description={`drag cars to update`}
-          />
-          <Card className={"driveway-card relative overflow-hidden p-[22px_0_26px] py-[28px_34px]"}>
-            <div className="street-label flex items-center justify-center gap-3 text-[.75rem] font-extrabold tracking-[.07em] text-(--muted)">
-              <span className="h-0.25 flex-1 bg-(--line)" />
-              STREET / EXIT
-              <span className="h-0.25 flex-1 bg-(--line)" />
-            </div>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={dragStart}
-              onDragOver={dragOver}
-              onDragEnd={dragEnd}
-              onDragCancel={() => setActiveVehicleId(null)}
-            >
-              <SortableContext
-                items={previewOrder}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className={"driveway-lane w-full m-[18px_auto] p-[12px_17px] border-2  rounded-[10px] border-[#bfc9c2] bg-[#eef1ed]"}>
-                  {previewVehicles.map((vehicle, index) => (
-                    <SortableVehicle
-                      key={vehicle.id}
-                      vehicle={vehicle}
-                      index={index}
-                      owner={data.members.find((member) => member.id === vehicle.ownerMemberId)!}
-                    />
-                  ))}
+      <div className="grid gap-6">
+        <DrivewayBoard />
+        <section className="rounded-2xl border border-(--line) bg-(--surface-strong) p-4 sm:p-5">
+          <h2 className="mb-4 text-xl!">Upcoming exits</h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            {data.departures.map(departure => {
+              const vehicle = data.vehicles.find(car => car.id === departure.vehicleId)
+              const owner = data.members.find(member => member.id === departure.ownerMemberId)
+              if (!vehicle || !owner) return null
+              const parked = slots.some(slot => slot.vehicleId === vehicle.id)
+              const blockers = blockingVehicles(slots, vehicle.id).map(id => data.vehicles.find(car => car.id === id)!).filter(Boolean)
+              return <article key={departure.id} className="rounded-xl border border-(--line) bg-(--paper) p-4">
+                <div className="flex items-center justify-between gap-3"><div className="min-w-0"><strong className="block truncate text-sm">{vehicle.label}</strong><span className="text-xs text-(--muted)">{owner.displayName}</span></div><Badge tone="blue">{timeUntil(departure.requiredAt)}</Badge></div>
+                <p className="mt-3 flex items-center gap-2 text-sm"><Clock3 size={15} className="shrink-0 text-(--muted)" />{formatDateTime(departure.requiredAt)}</p>
+                <p className="mt-1 text-xs text-(--muted)">Notify {departure.warningMinutes} minutes before{departure.sourceLabel ? ' · ' + departure.sourceLabel : ''}</p>
+                <div className="mt-3 grid gap-2 border-t border-(--line) pt-3">
+                  {!parked ? <span className="text-xs text-(--muted)">Not parked in the driveway.</span> : !blockers.length ? <span className="text-xs text-(--green)">Clear path to the street.</span> : blockers.map(blocker => {
+                    const person = data.members.find(member => member.id === blocker.ownerMemberId)
+                    return <div className="flex items-center gap-2 text-xs" key={blocker.id}><BellRing size={14} className="shrink-0 text-(--gold)" /><span>{person?.displayName} · {blocker.label}</span></div>
+                  })}
                 </div>
-              </SortableContext>
-            </DndContext>
-            <div className={"back-label flex items-center justify-center gap-3 font-extrabold text-[#919890] text-[.75rem] tracking-[.07em]"}><ArrowDown size={16} /> BACK OF DRIVEWAY</div>
-            {busy === 'driveway:reorder' && <div className={"driveway-saving absolute inset-[auto_16px_12px_auto] text-(--muted) text-[.75rem]"}>Updating lineup…</div>}
-          </Card>
-        </section>
-
-        <section>
-          <SectionHeader eyebrow="DEPARTURES" title="Who needs out" />
-          <div className={"departure-list grid gap-0"}>
-            {data.departures.map((departure) => {
-              const vehicle = data.vehicles.find((item) => item.id === departure.vehicleId)!
-              const owner = data.members.find((item) => item.id === departure.ownerMemberId)!
-              const blockers = departure.blockerVehicleIds
-                .map((id) => data.vehicles.find((item) => item.id === id))
-                .filter(Boolean)
-              return (
-                <Card className={"departure-card grid gap-3.5 p-[22px_4px] border-b border-b-(--line) max-[640px]:pl-0 max-[640px]:pr-0 py-6.75"} key={departure.id}>
-                  <div className="departure-card-top grid grid-cols-[auto_1fr_auto] items-center gap-2.5">
-                    <div className={"car-swatch w-10.5 h-8.75 grid place-items-center text-white rounded-[7px]"} style={{ background: vehicle.color }}>
-                      <CarFront />
-                    </div>
-                    <div>
-                      <strong className="block text-[.88rem]">{vehicle.label}</strong>
-                      <span>{owner.displayName} · {departure.sourceLabel}</span>
-                    </div>
-                    <Badge tone="blue">{timeUntil(departure.requiredAt)}</Badge>
-                  </div>
-                  <div className="departure-time flex items-start gap-2.25 rounded-none border-y border-[#d3d9ed] bg-transparent py-3 font-sans text-[#4d6098] tabular-nums">
-                    <Clock3 size={17} />
-                    <div className="grid min-w-0 gap-1">
-                      <strong className="block leading-tight">{formatDateTime(departure.requiredAt)}</strong>
-                      <span className="block text-[.76rem] leading-snug text-[#6878a6]">Alert {departure.warningMinutes} minutes before</span>
-                    </div>
-                  </div>
-                  <div className="blocker-box grid gap-2.25">
-                    <div className="flex items-center gap-1.5 text-[.75rem] font-bold text-(--muted)"><Route size={17} /><span>{blockers.length} blocking car{blockers.length === 1 ? '' : 's'}</span></div>
-                    {blockers.length ? (
-                      blockers.map((blocker) => {
-                        const blockerOwner = data.members.find((member) => member.id === blocker!.ownerMemberId)!
-                        return (
-                          <div className="blocker-person grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[.75rem]" key={blocker!.id}>
-                            <Avatar initials={blockerOwner.initials} color={blockerOwner.color} imageUrl={blockerOwner.avatarUrl} size="sm" />
-                            <span>{blockerOwner.displayName} moves {blocker!.label}</span>
-                            <BellRing className="text-(--gold)" size={15} />
-                          </div>
-                        )
-                      })
-                    ) : (
-                      <span className={"all-clear-text text-(--green) text-[.75rem]"}>Clear path to the street.</span>
-                    )}
-                  </div>
-                </Card>
-              )
+              </article>
             })}
           </div>
+          {!data.departures.length && <p className="py-4 text-center text-sm text-(--muted)">No exits scheduled. Choose Quick remove or Schedule exit when you need a clear path.</p>}
         </section>
       </div>
 
@@ -259,7 +105,7 @@ export function DrivewayPage() {
         open={departureModal}
         onClose={() => setDepartureModal(false)}
         title={departureQuickMode ? 'Quick remove vehicle' : 'Schedule exit'}
-        description="The current blockers will be notified one hour beforehand."
+        description="Cars above your slot will be notified at the warning time you choose."
       >
         <form
           className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
@@ -395,7 +241,7 @@ export function DrivewayPage() {
                       <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => openVehicleEditor(vehicle)} aria-label={`Edit ${vehicle.label}`}>
                         <Pencil size={16} />
                       </button>
-                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:border-[#d9aaa3] hover:bg-[#fff1ef] hover:text-[#a34135]" type="button" onClick={() => {
+                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:border-[#d9aaa3] hover:bg-[#fff1ef] dark:bg-(--coral-soft) hover:text-[#a34135] dark:text-(--coral)" type="button" onClick={() => {
                         if (window.confirm(`Delete ${vehicle.label}?`)) void removeVehicle(vehicle.id)
                       }} aria-label={`Delete ${vehicle.label}`}>
                         <Trash2 size={16} />
@@ -455,69 +301,6 @@ export function DrivewayPage() {
         </div>
       </Modal>
     </div>
-  )
-}
-
-function SortableVehicle({
-  vehicle,
-  owner,
-  index,
-}: {
-  vehicle: Vehicle
-  owner: ReturnType<typeof useAppData>['data']['members'][number]
-  index: number
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: vehicle.id })
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        'vehicle-row grid min-h-19.5 cursor-grab touch-none select-none grid-cols-[auto_25px_auto_1fr_auto_60px] items-center gap-2.5 rounded-none border-b border-b-(--line) bg-transparent px-1.5 py-3.75 shadow-none active:cursor-grabbing max-[640px]:grid-cols-[auto_20px_auto_1fr_auto]',
-        isDragging && 'is-dragging z-[5] bg-(--surface-strong)! opacity-[.85] shadow-[0_12px_28px_rgba(30,48,40,.14)]',
-      )}
-      {...attributes}
-      {...listeners}
-    >
-      <span className={"drag-handle p-0.75 text-[#9fa49f]"} aria-hidden="true">
-        <GripVertical />
-      </span>
-      <PositionNumber value={index + 1} />
-      <div className={"vehicle-art w-10.5 h-8 grid place-items-center text-white rounded-[7px]"} style={{ background: vehicle.color }}>
-        <CarFront />
-      </div>
-      <div className="vehicle-name">
-        <strong className="block text-[.88rem]">{vehicle.label}</strong>
-        <span className="mt-0.75 block text-[.75rem] tracking-[.02em] text-(--muted)">{vehicle.plate}</span>
-      </div>
-      <Avatar initials={owner.initials} color={owner.color} imageUrl={owner.avatarUrl} size="sm" />
-      <span className={"owner-name text-(--muted) max-[640px]:hidden text-[.75rem]"}>{owner.displayName}</span>
-    </div>
-  )
-}
-
-function PositionNumber({ value }: { value: number }) {
-  const numberRef = useRef<HTMLSpanElement>(null)
-  const previousValue = useRef(value)
-
-  useEffect(() => {
-    if (previousValue.current === value) return
-    previousValue.current = value
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    numberRef.current?.animate(
-      [
-        { opacity: 0.45, transform: 'translateY(3px) scale(0.82)' },
-        { opacity: 1, transform: 'translateY(0) scale(1)' },
-      ],
-      { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' },
-    )
-  }, [value])
-
-  return (
-    <span ref={numberRef} className="position-number text-center text-[.75rem] font-extrabold tabular-nums text-(--muted)">
-      {value}
-    </span>
   )
 }
 

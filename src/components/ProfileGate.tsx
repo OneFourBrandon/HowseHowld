@@ -61,6 +61,7 @@ export function ProfileGate({ children }: PropsWithChildren) {
     return <div className="min-h-screen grid place-items-center bg-(--paper) text-(--forest) font-display">Opening your profile…</div>
   }
   if (profile?.onboardingCompletedAt) return children
+  if (error && !profile) return <main className="mx-auto grid min-h-screen max-w-lg content-center gap-4 p-6"><h1 className="page-title">Could not open your profile</h1><p role="alert">{error}</p><Button onClick={() => window.location.reload()}>Try again</Button></main>
 
   const submit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()

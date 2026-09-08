@@ -12,9 +12,9 @@ const cardClasses = 'card bg-transparent border-0 rounded-none shadow-none'
 const buttonClasses = 'border-0 inline-flex items-center justify-center gap-2 font-[750] transition-[.18s_ease] disabled:cursor-wait disabled:opacity-56 rounded-lg shadow-none'
 const buttonVariants = {
   primary: 'text-white bg-(--forest) shadow-[0_8px_18px_rgba(43,75,31,.18)] hover:bg-(--forest-2) hover:transform-none',
-  secondary: 'text-(--forest) border border-[#d4dfd6] bg-transparent border-(--line-strong) hover:bg-[#edf1ed]',
+  secondary: 'text-(--forest) border border-[#d4dfd6] bg-transparent border-(--line-strong) hover:bg-[#edf1ed] dark:bg-(--sage-2)',
   ghost: 'text-(--muted) bg-transparent',
-  danger: 'text-[#9a3c2b] bg-(--coral-soft) border border-[#edc7bd]',
+  danger: 'text-[#9a3c2b] dark:text-(--coral) bg-(--coral-soft) border border-[#edc7bd]',
 } as const
 const buttonSizes = {
   sm: 'p-[0_12px] min-h-9.5 px-3.5 text-[.78rem] max-[640px]:min-h-9.5 max-[640px]:text-[.76rem]',
@@ -61,11 +61,11 @@ export function Badge({
   tone?: 'neutral' | 'green' | 'amber' | 'red' | 'blue'
 }>) {
   return <span className={cn(
-    'w-fit inline-flex items-center gap-1 p-[5px_8px] rounded-full text-[#5c6661] bg-[#eeeee8] font-extrabold uppercase text-[.75rem] tracking-[.035em]',
-    tone === 'green' && 'bg-(--green-soft)! text-[#28644f]',
-    tone === 'amber' && 'bg-(--gold-soft)! text-[#8b6522]',
-    tone === 'red' && 'bg-(--coral-soft)! text-[#99402f]',
-    tone === 'blue' && 'bg-(--blue-soft)! text-[#495b91]',
+    'w-fit inline-flex items-center gap-1 p-[5px_8px] rounded-full text-[#5c6661] bg-[#eeeee8] dark:bg-(--sage-2) font-extrabold uppercase text-[.75rem] tracking-[.035em]',
+    tone === 'green' && 'bg-(--green-soft)! text-[#28644f] dark:text-(--green)',
+    tone === 'amber' && 'bg-(--gold-soft)! text-[#8b6522] dark:text-(--gold)',
+    tone === 'red' && 'bg-(--coral-soft)! text-[#99402f] dark:text-(--coral)',
+    tone === 'blue' && 'bg-(--blue-soft)! text-[#495b91] dark:text-(--blue)',
   )}>{children}</span>
 }
 
@@ -182,7 +182,7 @@ export function Modal({
             <h2 id="modal-title">{title}</h2>
             {description && <p className={"muted text-[.8rem] text-(--muted)"}>{description}</p>}
           </div>
-          <button className={cn('icon-button w-8.75 h-8.75 grid place-items-center border-0 rounded-full text-(--muted) bg-[#eeeee8]', closeButtonClassName)} onClick={onClose} aria-label="Close">
+          <button className={cn('icon-button w-8.75 h-8.75 grid place-items-center border-0 rounded-full text-(--muted) bg-[#eeeee8] dark:bg-(--sage-2)', closeButtonClassName)} onClick={onClose} aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -210,7 +210,7 @@ export function Toggle({
         aria-checked={checked}
         className={cn(
           'w-9.75 h-5.5 p-0.75 border-0 rounded-full transition-[.18s]',
-          checked ? 'bg-(--green)' : 'bg-[#cacdc7]'
+          checked ? 'bg-(--green)' : 'bg-[#cacdc7] dark:bg-(--line-strong)'
         )}
         onClick={() => onChange(!checked)}
       >

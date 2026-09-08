@@ -199,7 +199,7 @@ export function SharedCourseSchedule() {
           description="Add your weekly lectures and labs, or join a class a roommate already entered."
           action={<Button size="sm" onClick={openNew}><Plus size={16} /> Add class</Button>}
         />
-        <div className="grid border-t border-(--line)">
+        <div className="grid">
           {data.sharedCourses.map((course) => {
             const enrolled = course.enrollmentMemberIds.includes(currentMemberId)
             return (
@@ -239,7 +239,7 @@ export function SharedCourseSchedule() {
           title="Everyone's classes"
           description="Filter roommates, then select a weekday for the combined agenda."
         />
-        <div className="mb-6 flex flex-wrap gap-x-5 gap-y-3 border-y border-(--line) py-4" aria-label="Filter schedule by roommate">
+        <div className="mb-6 flex flex-wrap gap-x-5 gap-y-3 border-b border-(--line) py-4" aria-label="Filter schedule by roommate">
           {data.members.map((member) => {
             const checked = selectedMembers.has(member.id)
             return (
@@ -255,7 +255,7 @@ export function SharedCourseSchedule() {
                     return next
                   })}
                 />
-                <span className={cn('grid h-4.5 w-4.5 place-items-center rounded-[4px] border border-(--line-strong) bg-white text-transparent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--forest)', checked && 'border-(--forest)! bg-(--forest)! text-white!')}><Check size={12} strokeWidth={3} /></span>
+                <span className={cn('grid h-4.5 w-4.5 place-items-center rounded-[4px] border border-(--line-strong) bg-(--surface-strong) text-transparent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--forest)', checked && 'border-(--forest)! bg-(--forest)! text-white!')}><Check size={12} strokeWidth={3} /></span>
                 <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                 <span className="text-[.78rem] font-bold">{member.displayName}</span>
               </label>
@@ -277,7 +277,7 @@ export function SharedCourseSchedule() {
                   <span className="mb-3 block text-[.72rem] font-extrabold uppercase tracking-[.08em] text-(--muted)">{day.label}</span>
                   <span className="grid gap-2">
                     {dayMeetings.map((meeting) => (
-                      <span className="grid gap-1 rounded-[5px] border-l-[3px] bg-white p-2.5 shadow-[0_5px_16px_rgba(30,48,40,.06)]" style={{ borderLeftColor: meeting.course.color }} key={`${meeting.course.id}-${meeting.kind}-${meeting.startTime}-${meeting.location}`}>
+                      <span className="grid gap-1 rounded-[5px] border-l-[3px] bg-(--surface-strong) p-2.5 shadow-[0_5px_16px_rgba(30,48,40,.06)]" style={{ borderLeftColor: meeting.course.color }} key={`${meeting.course.id}-${meeting.kind}-${meeting.startTime}-${meeting.location}`}>
                         <strong className="text-[.75rem]">{formatTime(meeting.startTime)} · {meeting.course.code}</strong>
                         <span className="text-[.68rem] capitalize text-(--muted)">{meeting.kind} · {meeting.durationMinutes} min</span>
                         <span className="flex items-center">

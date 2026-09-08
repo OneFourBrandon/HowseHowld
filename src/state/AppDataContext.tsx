@@ -8,12 +8,16 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { renewPushSubscription } from '../lib/push'
+import { validatePenaltyTiers } from '../lib/penalties'
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import * as api from '../lib/api'
+import { assignVehicle, blockingVehicles, slotsFor, validSlot } from '../lib/driveway'
 import { blockerIds, cents, initials, toIso, uid } from '../lib/utils'
 import type {
   AppSnapshot,
+  DrivewaySlot,
   CalendarEvent,
   CreateHouseholdInput,
   Expense,
@@ -59,6 +63,10 @@ interface AppDataContextValue {
   disputeInfraction: (id: UUID, reason: string) => Promise<void>
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
+  updateExpenseAmount: (id: UUID, amount: number, expected: number) => Promise<void>
+  updateExpenseShares: (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number) => Promise<void>
+  saveDrivewaySlots: (slots: DrivewaySlot[]) => Promise<void>
+  parkVehicle: (vehicleId: string, slotId: string | null) => Promise<void>
   reverseExpense: (id: UUID, reason: string) => Promise<void>
   addSettlement: (settlement: NewSettlement) => Promise<void>
   confirmSettlement: (id: UUID, accept: boolean) => Promise<void>
@@ -93,13 +101,14 @@ interface AppDataContextValue {
   updateProfile: (displayName: string, avatar?: File | null) => Promise<void>
   updateHouseholdFeatures: (features: HouseholdFeature[]) => Promise<void>
   updateHouseholdTaskReminders: (times: string[]) => Promise<void>
+  updatePenaltyTiers: (tiers: number[]) => Promise<void>
   refresh: () => Promise<void>
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 export function AppDataProvider({ children }: PropsWithChildren) {
-  const [data, setData] = useState<AppSnapshot>(() => structuredClone(demoSnapshot))
+  const [data, setData] = useState<AppSnapshot>(() => ({ ...structuredClone(demoSnapshot), drivewaySlots: slotsFor(demoSnapshot) }))
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(hasSupabaseConfig)
@@ -177,7 +186,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       'calendar_events', 'event_audiences', 'courses', 'schedule_items',
       'shared_courses', 'shared_course_enrollments', 'shared_course_meetings',
       'shared_course_assessments',
-      'vehicles', 'driveway_state', 'driveway_positions', 'departure_occurrences',
+      'vehicles', 'driveway_state', 'driveway_positions', 'driveway_slots', 'departure_occurrences',
       'push_subscriptions',
     ]
     let channel = client.channel(`household:${data.household.id}`)
@@ -443,6 +452,101 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       ),
     [data.household.currentMemberId, data.household.id, demoMode, run],
   )
+
+  const updateExpenseAmount = useCallback(async (id: UUID, amount: number, expected: number) => run(
+    'expense:edit:' + id, async () => {
+      if (!Number.isSafeInteger(amount) || amount < 1 || amount > 2147483647) throw new Error('Enter a valid purchase total.')
+      if (!demoMode) { await api.invokeRpc('update_expense_details', { p_expense_id: id, p_amount: amount, p_expected: expected, p_beneficiaries: null }); await refresh(false); return }
+        const expense = data.expenses.find(e => e.id === id)
+        if (!expense || expense.reversed) throw new Error('This purchase is no longer editable.')
+        if (expense.createdBy !== data.household.currentMemberId) throw new Error('Only the creator can edit this purchase')
+        if (expense.amountCents !== expected) throw new Error('This purchase changed. Reload it before editing.')
+        const scale = (shares: Expense['payers']) => {
+          let previous = 0, cumulative = 0
+          return [...shares].sort((a, b) => a.memberId.localeCompare(b.memberId)).map(share => {
+            cumulative += share.amountCents
+            const next = Math.round(cumulative * amount / expense.amountCents)
+            const result = { ...share, amountCents: cents(next - previous) }
+            previous = next
+            return result
+          })
+        }
+        const updated = { ...expense, amountCents: cents(amount), payers: scale(expense.payers), beneficiaries: scale(expense.beneficiaries) }
+        if ([...updated.payers, ...updated.beneficiaries].some(s => s.amountCents < 1)) throw new Error('The total is too small for this split.')
+      setData(current => {
+        return { ...current, expenses: current.expenses.map(e => e.id === id ? updated : e), balances: current.balances.map(b => {
+          const paid = (updated.payers.find(s => s.memberId === b.memberId)?.amountCents ?? 0) - (expense.payers.find(s => s.memberId === b.memberId)?.amountCents ?? 0)
+          const used = (updated.beneficiaries.find(s => s.memberId === b.memberId)?.amountCents ?? 0) - (expense.beneficiaries.find(s => s.memberId === b.memberId)?.amountCents ?? 0)
+          return { ...b, contributionCents: cents(b.contributionCents + paid), resourceUseCents: cents(b.resourceUseCents + used), netCents: cents(b.netCents + paid - used) }
+        }) }
+      })
+    }, 'Purchase total and shares updated.',
+  ), [data.expenses, data.household.currentMemberId, demoMode, refresh, run])
+
+  const updateExpenseShares = useCallback(async (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number) => run(
+    'expense:shares:' + id, async () => {
+      if (!beneficiaries.length || beneficiaries.some(share => !Number.isSafeInteger(share.amountCents) || share.amountCents < 1)) throw new Error('Choose at least one person and enter valid shares.')
+      if (new Set(beneficiaries.map(share => share.memberId)).size !== beneficiaries.length) throw new Error('Each person can only have one share.')
+      if (beneficiaries.reduce((sum, share) => sum + share.amountCents, 0) !== expected) throw new Error('The shares must equal the purchase total.')
+      if (!demoMode) {
+        await api.invokeRpc('update_expense_details', {
+          p_expense_id: id,
+          p_amount: expected,
+          p_expected: expected,
+          p_beneficiaries: beneficiaries.map(share => ({ member_id: share.memberId, amount: share.amountCents })),
+        })
+        await refresh(false)
+        return
+      }
+      const expense = data.expenses.find(item => item.id === id)
+      if (!expense || expense.reversed) throw new Error('This purchase is no longer editable.')
+      if (expense.createdBy !== data.household.currentMemberId) throw new Error('Only the creator can edit this purchase')
+      if (expense.amountCents !== expected) throw new Error('This purchase changed. Reload it before editing.')
+      if (beneficiaries.some(share => !data.members.some(member => member.id === share.memberId))) throw new Error('A selected person is no longer in this household.')
+      const updated = { ...expense, beneficiaries: beneficiaries.map(share => ({ ...share })) }
+      setData(current => ({
+        ...current,
+        expenses: current.expenses.map(item => item.id === id ? updated : item),
+        balances: current.balances.map(balance => {
+          const previousUse = expense.beneficiaries.find(share => share.memberId === balance.memberId)?.amountCents ?? 0
+          const nextUse = updated.beneficiaries.find(share => share.memberId === balance.memberId)?.amountCents ?? 0
+          const difference = nextUse - previousUse
+          return { ...balance, resourceUseCents: cents(balance.resourceUseCents + difference), netCents: cents(balance.netCents - difference) }
+        }),
+      }))
+    }, 'Purchase shares updated.',
+  ), [data.expenses, data.household.currentMemberId, data.members, demoMode, refresh, run])
+
+  const saveDrivewaySlots = useCallback(async (slots: DrivewaySlot[]) => run(
+    'driveway:slots', async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can edit parking slots.')
+      if (new Set(slots.map(slot => slot.id)).size !== slots.length || slots.some(slot => !validSlot(slot, slots))) throw new Error('Slots must not overlap.')
+      if (!demoMode) {
+        await api.invokeRpc('save_driveway_slots', { p_household_id: data.household.id, p_slots: slots.map(({ id, x, y, width, height, kind }) => ({ id, x, y, width, height, kind })) })
+        await refresh(false)
+        return
+      }
+      const existing = slotsFor(data)
+      if (existing.some(slot => slot.vehicleId && !slots.some(next => next.id === slot.id))) throw new Error('Unpark cars before deleting their slots.')
+      setData(current => {
+        const currentSlots = slotsFor(current)
+        const next = slots.map(slot => ({ ...slot, vehicleId: currentSlots.find(old => old.id === slot.id)?.vehicleId }))
+        return { ...current, drivewaySlots: next, departures: current.departures.map(departure => ({ ...departure, blockerVehicleIds: blockingVehicles(next, departure.vehicleId) })) }
+      })
+    }, 'Driveway layout saved.',
+  ), [data, demoMode, refresh, run])
+
+  const parkVehicle = useCallback(async (vehicleId: string, slotId: string | null) => run(
+    'driveway:park', async () => {
+      if (!demoMode) {
+        await api.invokeRpc('park_vehicle', { p_household_id: data.household.id, p_vehicle_id: vehicleId, p_slot_id: slotId })
+        await refresh(false)
+        return
+      }
+      const next = assignVehicle(slotsFor(data), vehicleId, slotId)
+      setData(current => ({ ...current, drivewaySlots: next, departures: current.departures.map(departure => ({ ...departure, blockerVehicleIds: blockingVehicles(next, departure.vehicleId) })) }))
+    }, slotId ? 'Vehicle parked.' : 'Vehicle unparked.',
+  ), [data, demoMode, refresh, run])
 
   const reverseExpense = useCallback(
     async (id: UUID, reason: string) =>
@@ -779,7 +883,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
               .filter((vehicle): vehicle is NonNullable<typeof vehicle> => Boolean(vehicle)),
             departures: current.departures.map((departure) => ({
               ...departure,
-              blockerVehicleIds: blockerIds(orderedIds, departure.vehicleId),
+              blockerVehicleIds: blockerIds(orderedIds, departure.vehicleId, current.household.drivewayWidth ?? 1),
             })),
           }))
           if (!demoMode) {
@@ -837,10 +941,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
                 source: scheduleItemId ? 'course' : 'manual',
                 sourceLabel: label,
                 warningMinutes,
-                blockerVehicleIds: blockerIds(
-                  current.vehicles.map((item) => item.id),
-                  vehicleId,
-                ),
+                blockerVehicleIds: blockingVehicles(slotsFor(current), vehicleId),
               },
             ],
           }))
@@ -891,6 +992,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           setData((current) => ({
             ...current,
             vehicles: current.vehicles.filter((vehicle) => vehicle.id !== id),
+            drivewaySlots: slotsFor(current).map(slot => slot.vehicleId === id ? { ...slot, vehicleId: undefined } : slot),
             departures: current.departures.filter((departure) => departure.vehicleId !== id),
           }))
         },
@@ -914,18 +1016,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           }
           const permission = await Notification.requestPermission()
           if (permission !== 'granted') throw new Error('Notification permission was not granted.')
-          const registration = await navigator.serviceWorker.ready
           const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY
           if (!vapidKey) {
             throw new Error('VITE_VAPID_PUBLIC_KEY is not configured for this app.')
           }
-          let subscription = await registration.pushManager.getSubscription()
-          if (!subscription) {
-            subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: vapidKey,
-            })
-          }
+          const subscription = await renewPushSubscription(vapidKey)
           if (!demoMode) await api.subscribePush(subscription)
           setData((current) => ({
             ...current,
@@ -1021,6 +1116,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         }))
         setToast('A new share code is ready. The old code no longer works.')
         return code
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : typeof cause === 'object' && cause && 'message' in cause ? String(cause.message) : 'Could not generate a recovery code.'
+        setToast(message)
+        throw new Error(message)
       } finally {
         setBusy(null)
       }
@@ -1138,6 +1237,15 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.id, demoMode, run],
   )
 
+  const updatePenaltyTiers = useCallback(async (tiers: number[]) => run(
+    'household:penalties', async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can change penalty tiers.')
+      validatePenaltyTiers(tiers)
+      if (!demoMode) await api.invokeRpc('update_penalty_tiers', { p_household_id: data.household.id, p_tiers: tiers })
+      setData(current => ({ ...current, household: { ...current.household, penaltyTiers: [...tiers] } }))
+    }, 'Penalty tiers saved.',
+  ), [data.members, data.household.currentMemberId, data.household.id, demoMode, run])
+
   const value = useMemo<AppDataContextValue>(
     () => ({
       data,
@@ -1155,6 +1263,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       voteInfraction,
       addExpense,
       reverseExpense,
+      updateExpenseAmount,
+      updateExpenseShares,
+      saveDrivewaySlots,
+      parkVehicle,
       addSettlement,
       confirmSettlement,
       proposeFundPayment,
@@ -1181,6 +1293,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateProfile,
       updateHouseholdFeatures,
       updateHouseholdTaskReminders,
+      updatePenaltyTiers,
       refresh,
     }),
     [
@@ -1199,6 +1312,10 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       voteInfraction,
       addExpense,
       reverseExpense,
+      updateExpenseAmount,
+      updateExpenseShares,
+      saveDrivewaySlots,
+      parkVehicle,
       addSettlement,
       confirmSettlement,
       proposeFundPayment,
@@ -1224,6 +1341,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateProfile,
       updateHouseholdFeatures,
       updateHouseholdTaskReminders,
+      updatePenaltyTiers,
       refresh,
     ],
   )

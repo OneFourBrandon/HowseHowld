@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthGate } from './components/AuthGate'
+import { AuthProvider } from './state/AuthContext'
 import { AppShell } from './components/AppShell'
 import { HouseholdGate } from './components/HouseholdGate'
 import { ProfileGate } from './components/ProfileGate'
@@ -43,7 +44,7 @@ function FeatureRoute({
 
 export default function App() {
   return (
-    <AuthGate>
+    <AuthProvider><AuthGate>
       <ProfileGate>
         <AppDataProvider>
           <HouseholdGate>
@@ -63,6 +64,6 @@ export default function App() {
           </HouseholdGate>
         </AppDataProvider>
       </ProfileGate>
-    </AuthGate>
+    </AuthGate></AuthProvider>
   )
 }

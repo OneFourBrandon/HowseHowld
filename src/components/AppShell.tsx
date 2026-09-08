@@ -1,3 +1,4 @@
+import { ThemeToggle } from './ThemeToggle'
 import { cn } from '../lib/cn'
 import { type CSSProperties, useEffect } from 'react'
 import {
@@ -55,7 +56,7 @@ export function AppShell() {
 
   return (
     <div className={"app-frame min-h-screen grid grid-cols-[238px_1fr] max-[980px]:block max-[980px]:min-h-dvh"}>
-      <aside className={"sidebar fixed inset-[0_auto_0_0] w-59.5 overflow-hidden p-[28px_18px] text-[#edf3ee] bg-(--forest) flex flex-col z-[20] border-r max-[980px]:hidden"}>
+      <aside className={"sidebar fixed inset-[0_auto_0_0] w-59.5 overflow-hidden p-[28px_18px] text-[#edf3ee] bg-(--forest) flex flex-col z-[20] border-r border-white/15 dark:border-white/7 max-[980px]:hidden"}>
         <div className={"brand flex items-center gap-3"}>
           <div className={"brand-mark w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"} aria-hidden="true">
             H
@@ -84,7 +85,7 @@ export function AppShell() {
           ))}
         </nav>
 
-        <div className={"sidebar-footer mt-auto p-[15px_10px_0] border-t flex items-center gap-2.5"}>
+        <div className={"sidebar-footer mt-auto p-[15px_10px_0] border-t border-white/15 dark:border-white/7 flex items-center gap-2.5"}>
           <Avatar
             initials={currentMember.initials}
             color={currentMember.color}
@@ -100,7 +101,7 @@ export function AppShell() {
 
       <div className={"main-column col-[2] min-w-0 max-[980px]:relative max-[980px]:min-h-dvh"}>
         {demoMode && (
-          <div className={"demo-banner flex items-center justify-center gap-2 font-bold tracking-[.02em] text-[#6f5420] bg-[#efdfb8] min-h-9 text-[.78rem]"}>
+          <div className={"demo-banner flex items-center justify-center gap-2 font-bold tracking-[.02em] text-[#6f5420] dark:text-(--gold) bg-[#efdfb8] dark:bg-(--gold-soft) min-h-9 text-[.78rem]"}>
             <span className={"demo-dot w-1.5 h-1.5 rounded-full bg-(--gold)"} />
             Demo house
             <span className="font-medium text-[#88764e]">Connect Supabase to use live household data.</span>
@@ -112,6 +113,7 @@ export function AppShell() {
             Offline — viewing cached data. Changes are paused.
           </div>
         )}
+        {pathname !== '/' && <div className="absolute right-18 top-3 z-30 min-[981px]:right-5"><ThemeToggle /></div>}
         {pathname !== '/' && (
           <NavLink
             to="/settings"

@@ -36,6 +36,8 @@ export type LedgerTransactionType =
 
 export interface Member {
   id: UUID
+  joinedAt?: string
+  createdAt?: string
   profileId: UUID
   displayName: string
   email: string
@@ -52,6 +54,8 @@ export interface Household {
   name: string
   timezone: string
   currency: 'CAD'
+  drivewayWidth?: number
+  garageRows?: number
   currentMemberId: UUID
   address: {
     line1: string
@@ -63,6 +67,7 @@ export interface Household {
   }
   enabledFeatures: HouseholdFeature[]
   defaultTaskReminderTimes: string[]
+  penaltyTiers?: number[]
   shareCodeLast4?: string
 }
 
@@ -118,6 +123,7 @@ export interface Infraction {
   amountCents: MoneyCents
   status: InfractionStatus
   disputeDeadline: ISODateTime
+  resolvedAt?: ISODateTime
   disputeReason?: string
   upholdVotes: UUID[]
   excuseVotes: UUID[]
@@ -292,6 +298,16 @@ export interface Vehicle {
   plate?: string
 }
 
+export interface DrivewaySlot {
+  id: UUID
+  x: number
+  y: number
+  width: number
+  height: number
+  kind: 'driveway' | 'garage'
+  vehicleId?: UUID
+}
+
 export interface Departure {
   id: UUID
   vehicleId: UUID
@@ -336,6 +352,7 @@ export interface AppSnapshot {
   courses: Course[]
   sharedCourses: SharedCourse[]
   vehicles: Vehicle[]
+  drivewaySlots?: DrivewaySlot[]
   departures: Departure[]
   auditEvents: AuditEvent[]
   notificationHealth: NotificationHealth

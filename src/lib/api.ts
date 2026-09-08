@@ -1,3 +1,4 @@
+import { currentPushSubscription } from './push'
 import { supabase } from './supabase'
 import { cents, initials } from './utils'
 import type {
@@ -139,32 +140,39 @@ export async function sendAdminMagicLink(email: string) {
 }
 
 export async function signOut() {
-  const { error } = await requireClient().auth.signOut()
+  const { error } = await requireClient().auth.signOut({ scope: 'local' })
   if (error) throw error
 }
 
 export async function addRecoveryEmail(email: string) {
   const { error } = await requireClient().auth.updateUser({
     email: email.trim().toLowerCase(),
-  })
+  }, { emailRedirectTo: new URL('/', window.location.origin).toString() })
   if (error) throw error
 }
 
 export async function joinHouseWithCode(code: string, displayName: string) {
   const client = requireClient()
-  const { error: authError } = await client.auth.signInAnonymously({
-    options: { data: { display_name: displayName.trim() } },
-  })
-  if (authError) throw authError
-  try {
+  const existing = await client.auth.getSession()
+  if (existing.error) throw existing.error
+  if (!existing.data.session) {
+    const { error: authError } = await client.auth.signInAnonymously({
+      options: { data: { display_name: displayName.trim() } },
+    })
+    if (authError) throw authError
+  }
+  // A prior request may have committed before its response was lost. Reuse this
+  // identity and check membership before redeeming again; never discard it on a
+  // transient RPC failure.
+  const current = await client.auth.getUser()
+  if (current.error) throw current.error
+  const membership = await client.from('household_members').select('id').eq('profile_id', current.data.user.id).eq('active', true).limit(1)
+  if (membership.error) throw membership.error
+  if (membership.data.length) return
     await invokeRpc<UUID>('join_household_by_code', {
       p_code: code,
       p_display_name: displayName,
     })
-  } catch (error) {
-    await client.auth.signOut()
-    throw error
-  }
 }
 
 export async function invokeRpc<T>(
@@ -409,8 +417,10 @@ export async function unsubscribePush(subscription: PushSubscription) {
 }
 
 export async function sendTestPush() {
+  const subscription = await currentPushSubscription()
+  if (!subscription) throw new Error('Enable reminders on this device before sending a test.')
   const { data, error } = await requireClient().functions.invoke('push-dispatch', {
-    body: { test: true },
+    body: { test: true, endpoint: subscription.endpoint },
   })
   if (error) throw new Error(await edgeFunctionErrorMessage(error))
   return data
@@ -434,11 +444,12 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
 
   const { data: memberRows, error: memberError } = await client
     .from('household_members')
-    .select('id, household_id, role, active, profile_id, profiles(display_name,email,avatar_color,avatar_path)')
+    .select('id, household_id, role, active, joined_at, profile_id, profiles(display_name,email,avatar_color,avatar_path,created_at)')
     .eq('active', true)
   if (memberError) throw memberError
   if (!memberRows?.length) return null
 
+  const deviceSubscription = await currentPushSubscription()
   const householdId = memberRows[0].household_id
   await ensureRollingQueueOccurrences(householdId)
   const results = await Promise.all([
@@ -464,7 +475,8 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('driveway_state').select('*, driveway_positions(*)').eq('household_id', householdId).single(),
     client.from('departure_occurrences').select('*, departure_rules(source,label,warning_minutes,schedule_item_id)').eq('household_id', householdId).gte('required_at', new Date().toISOString()),
     client.from('audit_events').select('*').eq('household_id', householdId).order('created_at', { ascending: false }).limit(100),
-    client.from('push_subscriptions').select('id,last_success_at').eq('household_id', householdId).eq('active', true),
+    client.from('push_subscriptions').select('id,endpoint,last_success_at').eq('household_id', householdId).eq('active', true),
+    client.from('driveway_slots').select('*').eq('household_id', householdId).order('y').order('x'),
   ])
   const firstError = results.map((result) => result.error).find(Boolean)
   if (firstError) throw firstError
@@ -474,7 +486,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     expenseResult, settlementResult, fundPaymentResult, billResult, billPeriodResult, balanceResult, eventResult,
     courseResult, scheduleResult, sharedCourseResult, sharedEnrollmentResult,
     sharedMeetingResult, sharedAssessmentResult, vehicleResult, drivewayResult,
-    departureResult, auditResult, pushResult,
+    departureResult, auditResult, pushResult, slotResult,
   ] = results
   const rowData = <T,>(result: { data: T | null }) => result.data
   const household = rowData(householdResult)!
@@ -491,6 +503,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       email: string
       avatar_color: string
       avatar_path: string | null
+      created_at: string
     }
   }
   const avatarPaths = memberRows
@@ -520,6 +533,8 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     household: {
       id: household.id,
       name: household.name,
+      drivewayWidth: household.driveway_width ?? 1,
+      garageRows: household.garage_rows ?? 0,
       timezone: household.timezone,
       currency: 'CAD',
       currentMemberId: currentMember.id,
@@ -543,12 +558,15 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         .filter((reminder: { type?: string }) => reminder.type === 'local_time')
         .map((reminder: { value: string }) => reminder.value.slice(0, 5)),
       shareCodeLast4: household.join_code_last4 ?? undefined,
+      penaltyTiers: household.penalty_tiers ?? undefined,
     },
     members: memberRows.map((row) => {
       const profile = profileOf(row)
       return {
         id: row.id,
         profileId: row.profile_id,
+        joinedAt: row.joined_at,
+        createdAt: profile.created_at,
         displayName: profile.display_name,
         email: profile.email,
         initials: initials(profile.display_name),
@@ -608,6 +626,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         amountCents: row.amount_cents,
         status: row.status,
         disputeDeadline: row.dispute_deadline,
+        resolvedAt: row.resolved_at ?? undefined,
         disputeReason: row.dispute_reason ?? undefined,
         upholdVotes: votes
           .filter((vote: { choice: string }) => vote.choice === 'uphold')
@@ -760,6 +779,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
           location: assessment.location ?? undefined,
         })),
     })),
+    drivewaySlots: (slotResult.data ?? []).map(row => ({ id: row.id, x: row.x, y: row.y, width: row.width, height: row.height, kind: row.kind as 'driveway' | 'garage', vehicleId: row.vehicle_id ?? undefined })),
     vehicles: orderedVehicles.map((row) => ({
       id: row.id,
       ownerMemberId: row.owner_member_id,
@@ -788,9 +808,9 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     })),
     notificationHealth: {
       permission: typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
-      subscribed: Boolean(pushResult.data?.length),
+      subscribed: Boolean(deviceSubscription && pushResult.data?.some(row => row.endpoint === deviceSubscription.endpoint)),
       installed: window.matchMedia('(display-mode: standalone)').matches,
-      lastSuccessAt: pushResult.data?.find((row) => row.last_success_at)?.last_success_at,
+      lastSuccessAt: pushResult.data?.find((row) => row.endpoint === deviceSubscription?.endpoint)?.last_success_at,
     },
   }
 }

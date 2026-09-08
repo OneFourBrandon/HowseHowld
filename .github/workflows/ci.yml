@@ -20,9 +20,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm test:driveway-db
+      - run: pnpm test:penalties-db
+      - run: pnpm test:recovery-db
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm test:e2e
+      - run: pnpm test:auth
 
   database:
     runs-on: ubuntu-latest
