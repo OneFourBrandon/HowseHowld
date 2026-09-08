@@ -45,11 +45,11 @@ select ok(current_setting('test.recovery_code') like 'REC-%','email-linked roomm
 
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000003',true);
 select set_config('request.jwt.claims','{"is_anonymous":true}',true);
-select is(public.redeem_member_recovery_code(current_setting('test.recovery_code'),'Ignore this new name'),'10000000-0000-0000-0000-000000000000'::uuid,'recovery succeeds for a new device');
+select is(public.join_household_by_code(current_setting('test.recovery_code'),'Ignore this new name'),'10000000-0000-0000-0000-000000000000'::uuid,'recovery succeeds through the public house-code RPC');
 select is((select display_name from public.profiles where id='00000000-0000-0000-0000-000000000003'),'Original roommate','recovery retains original name');
 select is((select avatar_path from public.profiles where id='00000000-0000-0000-0000-000000000003'),'00000000-0000-0000-0000-000000000002/11111111-1111-4111-8111-111111111111.jpg','recovery retains avatar');
 select is((select onboarding_completed_at from public.profiles where id='00000000-0000-0000-0000-000000000003'),'2026-08-01T12:00:00Z'::timestamptz,'recovery skips repeated profile onboarding');
-select is(public.redeem_member_recovery_code(current_setting('test.recovery_code'),null),null::uuid,'recovery code is single use');
+select is(private.redeem_member_recovery_code_impl(current_setting('test.recovery_code'),null),null::uuid,'recovery code is single use');
 select throws_ok($$update public.profiles set avatar_path='00000000-0000-0000-0000-000000000001/11111111-1111-4111-8111-111111111111.jpg' where id='00000000-0000-0000-0000-000000000003'$$,'P0001','Choose a picture uploaded to your account','direct profile edit cannot inherit somebody else''s avatar');
 
 reset role;
