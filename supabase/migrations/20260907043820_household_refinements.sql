@@ -18,7 +18,7 @@ revoke all on function public.set_driveway_layout(uuid,integer,integer) from pub
 grant execute on function public.set_driveway_layout(uuid,integer,integer) to authenticated;
 
 -- An inherited avatar may retain its original storage path after device recovery.
-alter table public.profiles drop constraint profiles_avatar_path_shape;
+alter table public.profiles drop constraint if exists profiles_avatar_path_shape;
 alter table public.profiles add constraint profiles_avatar_path_shape check (
   avatar_path is null or avatar_path ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f-]+\.(jpg|png|webp)$'
 );
@@ -31,7 +31,9 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists guard_profile_avatar_path on public.profiles;
 create trigger guard_profile_avatar_path before update on public.profiles for each row execute function private.guard_profile_avatar_path();
+drop policy if exists avatars_recovered_household_select on storage.objects;
 create policy avatars_recovered_household_select on storage.objects for select to authenticated using (
   bucket_id='avatars' and exists (
     select 1 from public.profiles p join public.household_members subject on subject.profile_id=p.id and subject.active

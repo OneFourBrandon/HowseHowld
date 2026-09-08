@@ -1,4 +1,5 @@
 import { ThemeToggle } from '../components/ThemeToggle'
+import { EmailRecovery } from '../components/EmailRecovery'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
@@ -286,6 +287,7 @@ export function TodayPage() {
 
       <div className="grid grid-cols-[minmax(0,1fr)_315px] items-start gap-7 max-[980px]:grid-cols-1">
         <main className="grid min-w-0 gap-3 rounded-2xl border border-(--line) bg-(--surface-strong) p-3">
+          <EmailRecovery reminder />
           <section className="min-w-0 rounded-xl bg-(--surface) px-4 py-3">
           <div className="flex items-center justify-between border-b border-(--line) pb-2.5">
             <h2 className="text-[1.35rem]!">{selectedDateLabel}</h2>

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('purchase price opens a complete share breakdown on touch', async ({ page }) => {
   await page.goto('/money')
-  await page.getByRole('button', { name: /Show shares for/ }).first().click()
+  await page.getByRole('button', { name: /View breakdown for/ }).first().click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Who owes what' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Who paid', exact: true })).toBeVisible()
@@ -39,7 +39,7 @@ test('owner adds a garage tile and parks a car using touch controls', async ({ p
 
 test('correcting a purchase updates every share and the displayed total', async ({ page }) => {
   await page.goto('/money')
-  await page.getByRole('button', { name: 'Show shares for Toilet paper & paper towel' }).click()
+  await page.getByRole('button', { name: 'View breakdown for Toilet paper & paper towel' }).click()
   await page.getByRole('button', { name: 'Edit price' }).click()
   await page.getByRole('textbox', { name: 'Correct purchase total' }).fill('40.04')
   await page.getByRole('button', { name: 'Save total' }).click()
@@ -47,16 +47,16 @@ test('correcting a purchase updates every share and the displayed total', async 
   await expect(page.getByRole('dialog').getByText('$40.04', { exact: true }).first()).toBeVisible()
   await expect(page.getByRole('dialog').getByText('$10.01', { exact: true }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Close', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Show shares for Toilet paper & paper towel' })).toContainText('$40.04')
+  await expect(page.getByRole('button', { name: 'View breakdown for Toilet paper & paper towel' })).toContainText('$40.04')
 })
 
 test('desktop hover shows shares and both palettes render', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/money')
-  await page.getByRole('button', { name: 'Show shares for Toilet paper & paper towel' }).hover()
+  await page.getByRole('button', { name: 'View breakdown for Toilet paper & paper towel' }).getByText('$48.36', { exact: true }).hover()
   await expect(page.getByRole('tooltip')).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('money-hover.png') })
-  await page.getByRole('button', { name: 'Show shares for Toilet paper & paper towel' }).click()
+  await page.getByRole('button', { name: 'View breakdown for Toilet paper & paper towel' }).click()
   await page.screenshot({ path: testInfo.outputPath('purchase-detail.png') })
   await page.getByRole('button', { name: 'Close', exact: true }).click()
   const toggle = page.getByRole('button', { name: 'Use dark mode' })

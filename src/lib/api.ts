@@ -140,7 +140,7 @@ export async function sendAdminMagicLink(email: string) {
 }
 
 export async function signOut() {
-  const { error } = await requireClient().auth.signOut()
+  const { error } = await requireClient().auth.signOut({ scope: 'local' })
   if (error) throw error
 }
 
@@ -153,19 +153,26 @@ export async function addRecoveryEmail(email: string) {
 
 export async function joinHouseWithCode(code: string, displayName: string) {
   const client = requireClient()
-  const { error: authError } = await client.auth.signInAnonymously({
-    options: { data: { display_name: displayName.trim() } },
-  })
-  if (authError) throw authError
-  try {
+  const existing = await client.auth.getSession()
+  if (existing.error) throw existing.error
+  if (!existing.data.session) {
+    const { error: authError } = await client.auth.signInAnonymously({
+      options: { data: { display_name: displayName.trim() } },
+    })
+    if (authError) throw authError
+  }
+  // A prior request may have committed before its response was lost. Reuse this
+  // identity and check membership before redeeming again; never discard it on a
+  // transient RPC failure.
+  const current = await client.auth.getUser()
+  if (current.error) throw current.error
+  const membership = await client.from('household_members').select('id').eq('profile_id', current.data.user.id).eq('active', true).limit(1)
+  if (membership.error) throw membership.error
+  if (membership.data.length) return
     await invokeRpc<UUID>('join_household_by_code', {
       p_code: code,
       p_display_name: displayName,
     })
-  } catch (error) {
-    await client.auth.signOut()
-    throw error
-  }
 }
 
 export async function invokeRpc<T>(

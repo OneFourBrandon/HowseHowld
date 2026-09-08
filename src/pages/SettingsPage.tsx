@@ -20,12 +20,13 @@ import {
   UserRoundX,
 } from 'lucide-react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { addRecoveryEmail, signOut } from '../lib/api'
+import { signOut } from '../lib/api'
 import { hasSupabaseConfig } from '../lib/supabase'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, SectionHeader, Toggle } from '../components/ui'
 import { FeatureChecklist } from '../components/FeatureChecklist'
 import { PenaltySettings } from '../components/PenaltySettings'
+import { EmailRecovery } from '../components/EmailRecovery'
 import { formatDateTime } from '../lib/utils'
 
 export function SettingsPage() {
@@ -45,8 +46,6 @@ export function SettingsPage() {
   const [shareCode, setShareCode] = useState(
     () => sessionStorage.getItem('howsehowld:last-share-code') ?? '',
   )
-  const [recoveryEmail, setRecoveryEmail] = useState('')
-  const [recoveryStatus, setRecoveryStatus] = useState('')
   const [selfRecoveryCode, setSelfRecoveryCode] = useState('')
   const [memberRecoveryCodes, setMemberRecoveryCodes] = useState<Record<string, string>>({})
   const [morning, setMorning] = useState(
@@ -207,6 +206,7 @@ export function SettingsPage() {
             </div>
           </section>
 
+          {currentMember.role === 'owner' && <EmailRecovery />}
           {currentMember.role !== 'owner' && (
             <section>
               <SectionHeader eyebrow="ACCOUNT RECOVERY" title="Protect this account" />
@@ -250,44 +250,7 @@ export function SettingsPage() {
                     </span>
                   </div>
                 )}
-                <div className="border-t border-(--line) pt-5">
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(240px,.75fr)] items-end gap-7 max-[640px]:grid-cols-1">
-                    <div>
-                      <strong className="text-[.9rem]">Recovery email</strong>
-                      <p className="mt-1.25 text-[.75rem] leading-[1.5] text-(--muted)">
-                        Verify your email, then use Email sign-in on the login page to return to this account. Recovery codes remain available here.
-                      </p>
-                    </div>
-                    <form className="grid grid-cols-[1fr_auto] items-end gap-2.25 max-[640px]:grid-cols-1"
-                      onSubmit={async (event) => {
-                        event.preventDefault()
-                        setRecoveryStatus('')
-                        try {
-                          await addRecoveryEmail(recoveryEmail)
-                          setRecoveryStatus('Check your inbox to finish linking this account.')
-                          setRecoveryEmail('')
-                        } catch (cause) {
-                          setRecoveryStatus(
-                            cause instanceof Error ? cause.message : 'Could not add that email.',
-                          )
-                        }
-                      }}
-                    >
-                      <label>
-                        Recovery email
-                        <input
-                          type="email"
-                          value={recoveryEmail}
-                          onChange={(event) => setRecoveryEmail(event.target.value)}
-                          placeholder="you@example.com"
-                          required
-                        />
-                      </label>
-                      <Button type="submit" size="sm">Send verification</Button>
-                    </form>
-                  </div>
-                  {recoveryStatus && <p className="settings-note mt-2.25 flex items-center gap-1.5 text-[.75rem] text-(--muted)">{recoveryStatus}</p>}
-                </div>
+                <EmailRecovery />
               </Card>
             </section>
           )}

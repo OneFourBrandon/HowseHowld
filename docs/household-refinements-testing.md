@@ -1,6 +1,6 @@
 # Household refinements: branch testing
 
-Branch: `codex/household-refinements`. No production push, PR, or Edge Function deployment was performed. With user authorization, the scoped driveway migrations and expense-details editor migration were applied to production on September 8, 2026 UTC. The broader household-refinements migration remains unapplied after automatic approval review rejected its unrelated recovery, accounting, and scheduler changes.
+Branch: `codex/household-refinements`; review PR #2 targets `master`. No direct production branch push or Edge Function deployment was performed. With user authorization, scoped driveway, expense editing, penalty/review, and recovery migrations were applied to production on September 8, 2026 UTC. The broader household-refinements migration remains unapplied. See [the current auth rollout notes](reliable-auth-rollout.md) for the new OTP flow, hosted configuration and validation limits; the original testing notes below describe the earlier refinement pass.
 
 ## UI preview
 

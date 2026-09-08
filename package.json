@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:auth": "playwright test --config playwright.auth.config.ts",
+    "test:recovery-db": "node --test scripts/recovery-db.test.mjs",
     "test:driveway-db": "node --test scripts/driveway-db.test.mjs",
     "test:penalties-db": "node --test scripts/penalties-db.test.mjs",
     "icons": "node scripts/generate-icons.mjs",
