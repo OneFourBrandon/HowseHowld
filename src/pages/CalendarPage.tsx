@@ -1,4 +1,5 @@
 import { cn } from '../lib/cn'
+import './two-tone.css'
 import { useMemo, useState } from 'react'
 import {
   BookOpen,
@@ -95,11 +96,10 @@ export function CalendarPage() {
   }
 
   return (
-    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
-      <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
+    <div className="calendar-page page-stack grid gap-8">
+      <header className="page-header flex items-end justify-between gap-10 pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
         <div className="grid gap-3.75">
-          <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>THE WHOLE HOUSE, IN SYNC</p>
-          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Calendar</h1>
+          <h1 className="page-title">Calendar</h1>
           <p>Visits, exams and class schedules—shared with the right people.</p>
         </div>
         <div className="button-row flex flex-wrap items-center gap-2.25 max-[640px]:w-full">
@@ -331,7 +331,7 @@ export function CalendarPage() {
       {data.household.enabledFeatures.includes('courses') && (
         <section className="calendar-courses-section pt-1.5">
           <SharedCourseSchedule />
-          <div className="mt-14">
+          <div className="calendar-imports mt-6">
           <SectionHeader eyebrow="IMPORTED COURSES" title="Calendar imports" />
           <div className={"course-list grid gap-0 calendar-course-grid grid-cols-3 max-[980px]:grid-cols-2 max-[760px]:grid-cols-1"}>
             {data.courses.map((course) => {

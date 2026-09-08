@@ -199,7 +199,7 @@ export function SharedCourseSchedule() {
           description="Add your weekly lectures and labs, or join a class a roommate already entered."
           action={<Button size="sm" onClick={openNew}><Plus size={16} /> Add class</Button>}
         />
-        <div className="grid border-t border-(--line)">
+        <div className="grid">
           {data.sharedCourses.map((course) => {
             const enrolled = course.enrollmentMemberIds.includes(currentMemberId)
             return (
@@ -239,7 +239,7 @@ export function SharedCourseSchedule() {
           title="Everyone's classes"
           description="Filter roommates, then select a weekday for the combined agenda."
         />
-        <div className="mb-6 flex flex-wrap gap-x-5 gap-y-3 border-y border-(--line) py-4" aria-label="Filter schedule by roommate">
+        <div className="mb-6 flex flex-wrap gap-x-5 gap-y-3 border-b border-(--line) py-4" aria-label="Filter schedule by roommate">
           {data.members.map((member) => {
             const checked = selectedMembers.has(member.id)
             return (

@@ -1,4 +1,5 @@
 import { cn } from '../lib/cn'
+import './two-tone.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BellRing,
@@ -24,6 +25,7 @@ import { hasSupabaseConfig } from '../lib/supabase'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, SectionHeader, Toggle } from '../components/ui'
 import { FeatureChecklist } from '../components/FeatureChecklist'
+import { PenaltySettings } from '../components/PenaltySettings'
 import { formatDateTime } from '../lib/utils'
 
 export function SettingsPage() {
@@ -85,11 +87,11 @@ export function SettingsPage() {
   )
 
   return (
-    <div className={"page-stack grid gap-14.5 max-[980px]:gap-13 max-[640px]:gap-11.5"}>
+    <div className="settings-page page-stack grid gap-8">
       <header className="page-header flex items-end justify-between gap-10 border-b border-b-(--line-strong) pb-7.5 max-[640px]:flex-col max-[640px]:items-start max-[640px]:gap-5.5 max-[640px]:pb-4.5">
         <div className="grid gap-3.75">
           <p className={"eyebrow text-(--gold) font-sans text-[.75rem] font-extrabold leading-[1.3] tracking-[.11em] max-[640px]:text-[.75rem]"}>HOUSE RULES & DEVICES</p>
-          <h1 className="text-[clamp(3.15rem,4.5vw,4.8rem)] max-[640px]:text-[clamp(2.55rem,13vw,3.35rem)]">Settings</h1>
+          <h1 className="page-title">Settings</h1>
           <p>Manage people, reminders and the health of this installation.</p>
         </div>
         {hasSupabaseConfig && (
@@ -381,6 +383,8 @@ export function SettingsPage() {
             </Card>
           </section>}
 
+          {currentMember.role === 'owner' && data.household.enabledFeatures.includes('chores') && <PenaltySettings />}
+
           <section>
             <SectionHeader eyebrow="TRANSPARENCY" title="Recent audit history" />
             <Card className={"audit-list p-0"}>
@@ -399,6 +403,7 @@ export function SettingsPage() {
         </div>
 
         <aside>
+          <section className="household-members">
           <SectionHeader eyebrow="MEMBERS" title={data.household.name} />
           <Card className={"member-list-card p-0"}>
             {data.members.map((member) => (
@@ -412,6 +417,8 @@ export function SettingsPage() {
               </div>
             ))}
           </Card>
+
+          </section>
 
           {currentMember.role === 'owner' && data.members.some((member) => member.role !== 'owner') && (
             <section className={"member-admin-section mt-8.5"}>

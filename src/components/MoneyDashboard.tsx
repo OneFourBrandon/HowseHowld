@@ -85,22 +85,22 @@ function MonthNavigator({
   }
 
   return (
-    <div className="relative grid gap-1">
-      <span className="text-[.66rem] text-(--muted)">Month</span>
-      <div className="flex h-9 items-stretch overflow-hidden rounded-[9px] border border-(--line) bg-(--surface-strong)">
-        <button className="grid w-8.5 place-items-center border-0 border-r border-(--line) bg-transparent text-(--muted) hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => moveMonth(-1)} aria-label="Previous month">
+    <div className="relative w-52 shrink-0">
+      <div className="grid h-12 grid-cols-[44px_minmax(0,1fr)_44px] items-stretch overflow-hidden rounded-xl border border-(--line) bg-(--surface-strong)">
+        <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => moveMonth(-1)} aria-label="Previous month">
           <ChevronLeft size={15} />
         </button>
-        <button className="w-36 shrink-0 overflow-hidden border-0 bg-transparent px-2.5 font-sans text-[.72rem] font-semibold text-ellipsis whitespace-nowrap text-(--ink) hover:bg-(--sage-2)" type="button" onClick={() => setOpen((shown) => !shown)} aria-expanded={open} aria-haspopup="dialog">
-          <span className="block overflow-hidden text-ellipsis whitespace-nowrap">{monthNames[selectedMonth - 1]} {selectedYear}</span>
+        <button className="flex min-w-0 flex-col items-center justify-center gap-0.5 border-0 bg-transparent px-1 font-sans text-(--ink) hover:bg-(--sage-2)" type="button" onClick={() => setOpen((shown) => !shown)} aria-label={`Choose month and year, ${monthNames[selectedMonth - 1]} ${selectedYear}`} aria-expanded={open} aria-haspopup="dialog">
+          <span className="text-[.8rem] font-semibold leading-tight whitespace-nowrap">{monthNames[selectedMonth - 1]}</span>
+          <span className="text-[.68rem] leading-tight text-(--muted) tabular-nums">{selectedYear}</span>
         </button>
-        <button className="grid w-8.5 place-items-center border-0 border-l border-(--line) bg-transparent text-(--muted) hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => moveMonth(1)} aria-label="Next month">
+        <button className="grid place-items-center border-0 bg-transparent text-(--muted) hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => moveMonth(1)} aria-label="Next month">
           <ChevronRight size={15} />
         </button>
       </div>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-20 grid w-64 gap-3 rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-3 shadow-[0_12px_35px_rgba(20,35,28,.16)]" role="dialog" aria-label="Choose month and year">
+        <div className="absolute left-0 top-[calc(100%+8px)] z-20 grid w-64 max-w-[calc(100vw-4rem)] gap-3 rounded-[10px] border border-(--line-strong) bg-(--surface-strong) p-3 shadow-[0_12px_35px_rgba(20,35,28,.16)]" role="dialog" aria-label="Choose month and year">
           <div className="grid grid-cols-[1fr_92px] gap-2">
             <label className="grid gap-1 text-[.7rem] font-semibold text-(--muted)">
               Month
@@ -197,7 +197,7 @@ export function MoneyDashboard({
       {selectedExpense && <PurchaseDetails key={selectedExpense.id} expense={selectedExpense} onClose={() => setDetailId(null)} />}
       <header className="flex items-end justify-between gap-8 max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-4">
         <div className="grid gap-1">
-          <h1 className="text-[2.35rem]! leading-none max-[640px]:text-[2rem]!">Shared money</h1>
+          <h1 className="page-title">Shared money</h1>
           <p className="text-[.94rem] text-(--muted)">Every purchase, share and payment stays balanced and traceable.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 max-[500px]:w-full">
@@ -210,8 +210,8 @@ export function MoneyDashboard({
         </div>
       </header>
 
-      <section className="grid min-h-46 grid-cols-[310px_minmax(260px,1fr)_minmax(330px,1.15fr)] overflow-hidden rounded-xl border border-(--line-strong) bg-(--surface-strong) max-[1120px]:grid-cols-[280px_1fr] max-[760px]:grid-cols-1">
-        <div className="flex items-center border-l-4 border-l-(--gold) px-8 py-6 max-[760px]:px-5 max-[760px]:py-5">
+      <section className="grid min-h-46 grid-cols-[minmax(0,.8fr)_minmax(0,1.1fr)_minmax(0,1.2fr)] gap-3 rounded-2xl border border-(--line) bg-(--surface-strong) p-3 max-[1120px]:grid-cols-[280px_minmax(0,1fr)] max-[760px]:grid-cols-1">
+        <div className="flex min-w-0 items-center rounded-2xl bg-(--surface) px-6 py-6 max-[760px]:px-5 max-[760px]:py-5">
           <div>
             <p className="text-[.73rem] font-extrabold tracking-[.06em] text-(--gold)">HOUSE SPEND</p>
             <strong className="mt-1 block font-display text-[3rem] leading-none text-(--forest)">{formatMoney(totalHouseSpend)}</strong>
@@ -222,7 +222,7 @@ export function MoneyDashboard({
           </div>
         </div>
 
-        <div className="grid content-center grid-cols-2 gap-x-5 gap-y-4 border-l border-(--line) px-7 py-5 max-[760px]:border-l-0 max-[760px]:border-t max-[520px]:grid-cols-1">
+        <div className="grid min-w-0 content-center grid-cols-2 gap-x-5 gap-y-4 rounded-2xl bg-(--surface) px-5 py-5 max-[520px]:grid-cols-1">
           {data.balances.map((balance) => {
             const member = data.members.find((item) => item.id === balance.memberId)!
             return (
@@ -240,7 +240,7 @@ export function MoneyDashboard({
           })}
         </div>
 
-        <div className="balance-metrics col-span-1 grid content-center gap-5 border-l border-(--line) px-8 py-6 max-[1120px]:col-span-2 max-[1120px]:border-l-0 max-[1120px]:border-t max-[760px]:col-span-1 max-[760px]:px-5">
+        <div className="balance-metrics col-span-1 grid min-w-0 content-center gap-5 rounded-2xl bg-(--surface) px-6 py-6 max-[1120px]:col-span-2 max-[760px]:col-span-1 max-[760px]:px-5">
           <div className="grid grid-cols-3 gap-5">
             <div><span className="block text-[.76rem]">Paid</span><strong className="mt-1 block font-sans tabular-nums">{formatMoney(paidCents)}</strong></div>
             <div><span className="block text-[.76rem]">Used</span><strong className="mt-1 block font-sans tabular-nums">{formatMoney(usedCents)}</strong></div>
@@ -256,7 +256,8 @@ export function MoneyDashboard({
       </section>
 
       <div className="grid grid-cols-[1.2fr_.92fr] items-start gap-5 max-[980px]:grid-cols-1">
-        <section className="rounded-xl border border-(--line-strong) bg-(--surface-strong) px-5 py-4">
+        <section className="rounded-2xl border border-(--line) bg-(--surface-strong) p-3">
+          <div className="rounded-xl bg-(--surface) px-4 py-3">
           <div className="flex items-center justify-between gap-4 border-b border-(--line) pb-3">
             <h2 className="text-[1.25rem]!">Recent activity</h2>
             <label className="relative inline-flex items-center gap-2 text-[.8rem] font-semibold text-(--muted)">
@@ -282,20 +283,34 @@ export function MoneyDashboard({
                 return (
                   <div key={`expense-${expense.id}`}>
                     {showDate && <p className="pt-3 pb-1 text-[.72rem] font-semibold text-(--muted)">{activityDate.format(new Date(activity.date))}</p>}
-                    <div className={cn('grid min-h-15 grid-cols-[42px_minmax(0,1.15fr)_minmax(135px,.8fr)_auto] items-center gap-3 border-b border-(--line) py-2.5 max-[620px]:grid-cols-[40px_1fr_auto]', expense.reversed && 'opacity-50')}>
+                    <div
+                      className={cn('grid min-h-15 cursor-pointer grid-cols-[42px_minmax(0,1.15fr)_minmax(135px,.8fr)_auto] items-center gap-3 rounded-xl border-b border-(--line) px-2 py-2.5 transition-colors hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--green) max-[620px]:grid-cols-[40px_1fr_auto]', expense.reversed && 'opacity-50')}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View breakdown for ${expense.title}`}
+                      onClick={() => { setPeekId(null); setDetailId(expense.id) }}
+                      onKeyDown={event => {
+                        if (event.target !== event.currentTarget) return
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setPeekId(null)
+                          setDetailId(expense.id)
+                        }
+                      }}
+                    >
                       <ExpenseCategoryIcon category={expense.category} />
                       <div className="min-w-0"><strong className="block truncate text-[.86rem]">{expense.title}</strong><span className="block truncate text-[.73rem] text-(--muted)">{getExpenseCategory(expense.category).description}{expense.receiptPath ? ' · Receipt attached' : ''}</span></div>
-                      <div className="grid min-w-0 gap-2 max-[620px]:hidden"><div className="flex min-w-0 items-center gap-2"><Avatar initials={creator.initials} color={creator.color} imageUrl={creator.avatarUrl} size="sm" /><span className="truncate text-[.76rem] text-(--muted)">{payerNames.join(' & ')} paid</span></div><div className="flex items-center gap-2"><ShareBar className="w-20" height={5} breakdown={breakdown} /><span className="text-[.65rem] text-(--muted)">{(breakdown.mine?.percent ?? 0).toFixed(0)}% you</span></div></div>
+                      <div className="grid min-w-0 gap-2 max-[620px]:hidden"><div className="flex min-w-0 items-center gap-2"><Avatar initials={creator.initials} color={creator.color} imageUrl={creator.avatarUrl} size="sm" /><span className="truncate text-[.76rem] text-(--muted)">{payerNames.join(' & ')} paid</span></div><div className="flex items-center gap-2"><ShareBar className="w-20 shrink-0" height={6} breakdown={breakdown} /><span className="whitespace-nowrap text-[.65rem] text-(--muted)">{(breakdown.mine?.percent ?? 0).toFixed(0)}% you</span></div></div>
                       <div className="flex items-center gap-2">
                         <div className="relative" onMouseEnter={() => setPeekId(expense.id)} onMouseLeave={() => setPeekId(null)}>
-                          <button className="min-w-18 rounded-lg border-0 bg-transparent px-1 py-2 text-right font-sans text-[.84rem] font-bold tabular-nums hover:text-(--green)" type="button" aria-label={`Show shares for ${expense.title}`} aria-haspopup="dialog" onFocus={() => setPeekId(expense.id)} onBlur={() => setPeekId(null)} onKeyDown={e => { if (e.key === 'Escape') setPeekId(null) }} onClick={() => { setPeekId(null); setDetailId(expense.id) }}>{formatMoney(expense.amountCents)}</button>
+                          <strong className="block min-w-18 px-1 py-2 text-right font-sans text-[.84rem] font-bold tabular-nums">{formatMoney(expense.amountCents)}</strong>
                           {peekId === expense.id && <SharePeek className="pointer-events-none absolute bottom-full right-0 z-30 mb-1 max-[620px]:hidden" title={expense.title} breakdown={breakdown} />}
                         </div>
                         {expense.receiptPath ? (
-                          <button className="grid size-8 place-items-center rounded-full border-0 bg-transparent text-(--muted) hover:bg-(--sage-2)" type="button" onClick={() => openReceipt(expense.receiptPath!)} aria-label={`Open receipt for ${expense.title}`}><Camera size={16} /></button>
-                        ) : <ChevronRight className="text-(--muted)" size={17} />}
+                          <button className="grid size-8 place-items-center rounded-full border-0 bg-transparent text-(--muted) hover:bg-(--surface-strong)" type="button" onClick={event => { event.stopPropagation(); openReceipt(expense.receiptPath!) }} aria-label={`Open receipt for ${expense.title}`}><Camera size={16} /></button>
+                        ) : null}
                         {!expense.reversed && expense.createdBy === currentMemberId && (
-                          <button className="grid size-8 place-items-center rounded-full border-0 bg-transparent text-(--muted) hover:bg-(--gold-soft)" type="button" onClick={() => { const reason = window.prompt('Why are you reversing this purchase?'); if (reason?.trim()) void reverseExpense(expense.id, reason.trim()) }} aria-label={`Reverse ${expense.title}`}><RotateCcw size={15} /></button>
+                          <button className="grid size-8 place-items-center rounded-full border-0 bg-transparent text-(--muted) hover:bg-(--gold-soft)" type="button" onClick={event => { event.stopPropagation(); const reason = window.prompt('Why are you reversing this purchase?'); if (reason?.trim()) void reverseExpense(expense.id, reason.trim()) }} aria-label={`Reverse ${expense.title}`}><RotateCcw size={15} /></button>
                         )}
                       </div>
                     </div>
@@ -326,16 +341,18 @@ export function MoneyDashboard({
             {!visibleActivities.length && <p className="py-10 text-center text-[.82rem] text-(--muted)">No activity yet.</p>}
           </div>
           {activities.length > 5 && <button className="mt-2 border-0 bg-transparent py-1 text-[.8rem] font-bold text-(--forest)" type="button" onClick={() => setShowAllActivity((shown) => !shown)}>{showAllActivity ? 'Show less' : 'View all activity'}</button>}
+          </div>
         </section>
 
         <div className="grid gap-4">
-          <section className="rounded-xl border border-(--line-strong) bg-(--surface-strong) px-5 py-4" id="bills">
+          <section className="rounded-2xl border border-(--line) bg-(--surface-strong) p-3" id="bills">
+            <div className="rounded-xl bg-(--surface) px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--line) pb-3 max-[520px]:flex-col max-[520px]:items-stretch">
               <div className="flex min-w-44 flex-1 self-stretch flex-col justify-center">
                 <h2 className="text-[1.18rem]! leading-tight!">Utilities &amp; rent</h2>
                 <p className="mt-0.5 text-[.66rem] leading-tight text-(--muted)">Track your individual payment each month.</p>
               </div>
-              <div className="flex shrink-0 items-end gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <MonthNavigator value={selectedMonth} onChange={onMonthChange} />
                 <Button size="sm" variant="ghost" onClick={onAddBill}><Plus size={16} /> Add bill</Button>
               </div>
@@ -360,9 +377,11 @@ export function MoneyDashboard({
               {!data.bills.length && <p className="py-8 text-center text-[.8rem] text-(--muted)">No monthly bills yet.</p>}
             </div>
             {data.bills.length > 4 && <button className="mt-2 border-0 bg-transparent py-1 text-[.8rem] font-bold text-(--forest)" type="button" onClick={() => setShowAllBills((shown) => !shown)}>{showAllBills ? 'Show fewer bills' : 'View all bills'}</button>}
+            </div>
           </section>
 
-          <section className="rounded-xl border border-(--line-strong) bg-(--surface-strong) px-5 py-4">
+          <section className="rounded-2xl border border-(--line) bg-(--surface-strong) p-3">
+            <div className="rounded-xl bg-(--surface) px-4 py-3">
             <h2 className="text-[1.18rem]! leading-tight!">Penalty account</h2>
             <div className="mt-3 flex min-h-13 items-center gap-3 border-t border-(--line) pt-3">
               <div className="grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)"><ArrowDownLeft size={19} /></div>
@@ -374,6 +393,7 @@ export function MoneyDashboard({
               const canConfirm = payment.memberId !== currentMemberId && payment.status === 'pending'
               return <div className="mt-2 flex items-center gap-2 border-t border-(--line) pt-3" key={payment.id}><Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" /><span className="text-[.76rem]">{member.displayName} paid {formatMoney(payment.amountCents)}</span>{canConfirm ? <div className="ml-auto flex gap-1"><Button size="sm" variant="ghost" onClick={() => void confirmFundPayment(payment.id, false)}>Reject</Button><Button size="sm" onClick={() => void confirmFundPayment(payment.id, true)}>Confirm</Button></div> : <span className="ml-auto"><Badge tone={payment.status === 'confirmed' ? 'green' : payment.status === 'rejected' ? 'red' : 'amber'}>{payment.status}</Badge></span>}</div>
             })}
+            </div>
           </section>
         </div>
       </div>

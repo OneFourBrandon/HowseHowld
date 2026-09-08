@@ -65,7 +65,7 @@ export function DrivewayPage() {
   return (
     <div className="grid gap-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <div><h1 className="text-3xl!">Driveway</h1><p className="mt-1 text-sm text-(--muted)">A place for every car, with a clear path out.</p></div>
+        <div><h1 className="page-title">Driveway</h1><p className="mt-1 text-sm text-(--muted)">A place for every car, with a clear path out.</p></div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <Button size="sm" variant="secondary" onClick={() => { resetVehicleEditor(); setVehicleModal(true) }}><CarFront size={16} /> Manage vehicles</Button>
           <Button size="sm" variant="secondary" disabled={!data.vehicles.length} onClick={() => openDeparture(true)}><LogOut size={16} /> Quick remove</Button>

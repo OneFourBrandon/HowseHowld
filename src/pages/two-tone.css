@@ -1,0 +1,161 @@
+/* Page-scoped surfaces share the same two tones as Chores and Overview. */
+.settings-page .settings-main > section,
+.settings-page .household-members,
+.settings-page .member-admin-section,
+.settings-page .invite-card,
+.settings-page .house-details,
+.calendar-page .calendar-workspace,
+.calendar-page .calendar-courses-section > div > section,
+.calendar-page .calendar-imports {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface-strong);
+  padding: 16px;
+}
+
+.settings-page .settings-layout {
+  gap: 24px;
+}
+
+.settings-page .settings-main,
+.calendar-page .calendar-courses-section > div {
+  gap: 24px;
+}
+
+.settings-page .section-header,
+.calendar-page .calendar-courses-section .section-header {
+  min-height: 0;
+  border: 0;
+  margin-bottom: 12px;
+  padding-bottom: 0;
+}
+
+.settings-page .settings-main > section > form,
+.settings-page .settings-feature-list,
+.settings-page .settings-card,
+.settings-page .notification-health-card,
+.settings-page .audit-list,
+.settings-page .member-list-card,
+.settings-page .member-admin-item,
+.settings-page .house-details dl,
+.settings-page .masked-share-code {
+  min-width: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.settings-page .member-admin-section,
+.settings-page .invite-card,
+.settings-page .house-details {
+  margin-top: 24px;
+}
+
+.settings-page .member-row {
+  min-height: 72px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.settings-page .member-row > div,
+.settings-page .member-admin-heading > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-page .audit-row {
+  padding-block: 10px;
+}
+
+.settings-page .audit-icon {
+  background: var(--surface-strong);
+}
+
+.calendar-page .calendar-workspace {
+  grid-template-columns: minmax(260px, .72fr) minmax(0, 1.28fr);
+  gap: 16px;
+}
+
+.calendar-page .month-browser,
+.calendar-page .selected-agenda {
+  min-width: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 16px;
+}
+
+.calendar-page .month-browser-header,
+.calendar-page .calendar-day-strip {
+  margin-bottom: 20px;
+}
+
+.calendar-page .calendar-day-strip button {
+  border-color: var(--line);
+  background: var(--surface-strong);
+}
+
+.calendar-page .calendar-event-block {
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.calendar-page .calendar-timeline-rail::after {
+  background: var(--line-strong);
+}
+
+.calendar-page .calendar-course-grid {
+  gap: 12px;
+}
+
+.calendar-page .course-card,
+.calendar-page .privacy-note {
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 16px;
+}
+
+.calendar-page .course-stripe {
+  inset: 16px auto 16px 0;
+  border-radius: 4px;
+}
+
+.calendar-page .calendar-courses-section > div > section > .grid {
+  gap: 8px;
+}
+
+.calendar-page .calendar-courses-section > div > section > .grid > div,
+.calendar-page .calendar-courses-section > div > section > .grid > button,
+.calendar-page [aria-label="Filter schedule by roommate"],
+.calendar-page .calendar-courses-section .overflow-x-auto,
+.calendar-page .calendar-courses-section section > div > .grid > div {
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+@media (max-width: 760px) {
+  .calendar-page .calendar-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-page .calendar-workspace,
+  .calendar-page .calendar-courses-section > div > section,
+  .calendar-page .calendar-imports,
+  .settings-page .settings-main > section,
+  .settings-page .household-members,
+  .settings-page .member-admin-section {
+    padding: 12px;
+  }
+
+  .calendar-page .month-browser,
+  .calendar-page .selected-agenda {
+    padding: 12px;
+  }
+
+}

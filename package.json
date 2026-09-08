@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:driveway-db": "node --test scripts/driveway-db.test.mjs",
+    "test:penalties-db": "node --test scripts/penalties-db.test.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "dev:stack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-stack.ps1",
     "supabase:start": "supabase start",

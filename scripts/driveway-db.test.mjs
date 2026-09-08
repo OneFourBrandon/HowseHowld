@@ -39,7 +39,7 @@ before(async () => {
     insert into public.vehicles(id,household_id,owner_member_id,label) values
       ('${car(1)}','${house}','${owner}','First'),('${car(2)}','${house}','${member}','Second'),('${car(3)}','${house}','${member}','Third'),('${car(4)}','${house}','${owner}','Target');
   `)
-  const migration = await readFile(new URL('../supabase/migrations/20260907155100_editable_driveway_slots.sql',import.meta.url),'utf8')
+  const migration = await readFile(new URL('../supabase/migrations/20260908032739_editable_driveway_slots.sql',import.meta.url),'utf8')
   await db.exec(migration.replace('alter publication supabase_realtime add table public.driveway_slots;',''))
   await actAs(owner)
 })

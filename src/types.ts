@@ -67,6 +67,7 @@ export interface Household {
   }
   enabledFeatures: HouseholdFeature[]
   defaultTaskReminderTimes: string[]
+  penaltyTiers?: number[]
   shareCodeLast4?: string
 }
 
@@ -122,6 +123,7 @@ export interface Infraction {
   amountCents: MoneyCents
   status: InfractionStatus
   disputeDeadline: ISODateTime
+  resolvedAt?: ISODateTime
   disputeReason?: string
   upholdVotes: UUID[]
   excuseVotes: UUID[]

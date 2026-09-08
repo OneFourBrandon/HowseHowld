@@ -1,5 +1,6 @@
 import { format, formatDistanceToNowStrict, isToday, isTomorrow } from 'date-fns'
 import type { ISODateTime, MoneyCents, TaskOccurrenceStatus } from '../types'
+import { DEFAULT_PENALTY_TIERS } from './penalties'
 
 export type TaskCompletionAvailability = 'early' | 'available' | 'expired'
 
@@ -88,8 +89,8 @@ export function splitEvenly(totalCents: number, memberIds: string[]) {
     }))
 }
 
-export function penaltyForPriorMisses(priorConfirmedMisses: number) {
-  return cents(Math.min(1_000 + Math.max(0, priorConfirmedMisses) * 500, 3_000))
+export function penaltyForPriorMisses(priorConfirmedMisses: number, tiers = DEFAULT_PENALTY_TIERS) {
+  return cents(tiers[Math.min(tiers.length - 1, Math.max(0, Math.floor(priorConfirmedMisses)))])
 }
 
 export function blockerIds(orderedVehicleIds: string[], targetVehicleId: string, width = 1) {

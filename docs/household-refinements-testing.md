@@ -1,6 +1,6 @@
 # Household refinements: branch testing
 
-Branch: `codex/household-refinements`. No production push, PR, database mutation, or Edge Function deployment was performed for this work.
+Branch: `codex/household-refinements`. No production push, PR, or Edge Function deployment was performed. With user authorization, the scoped driveway migrations and expense-details editor migration were applied to production on September 8, 2026 UTC. The broader household-refinements migration remains unapplied after automatic approval review rejected its unrelated recovery, accounting, and scheduler changes.
 
 ## UI preview
 
@@ -15,12 +15,12 @@ Demo changes are in-memory. Test purchase-price hover and tap, price corrections
 
 ### Editable driveway
 
-- Admin: choose **Add slot** to fill the next available cell, or **Edit layout** to change existing slots. Drag a grip to move a tile right/down into new grid space; drag any of its four edges to stretch it. Grid space expands as you move, and zoom controls help with larger layouts.
+- Admin: choose **Add slot** to fill the next available cell, or **Edit layout** to change existing slots. Drag anywhere on a tile to move it right/down into new grid space; drag any of its four edges to stretch it. Grid space expands as you move, and zoom controls help with larger layouts.
 - Tap a tile in editing mode to change its row, column, width, length or garage type. A stretched tile still holds one car. Slots cannot overlap. Unpark a car before deleting its slot.
 - Choose **Save driveway** to share the layout. Cancel discards the draft. Saving a layout preserves current vehicle assignments, including changes made while the admin was editing.
 - Residents can drag cars between slots (occupied slots swap cars), or tap a slot and select a vehicle. Newly added vehicles start in **Not parked**. Selecting Empty unparks a car without deleting its slot.
 - Exit blockers are occupied slots above the car whose horizontal footprints overlap its path. A wide slot can have blockers in multiple lanes. Moving or unparking cars cancels pending warnings that no longer apply.
-- Apply `20260907155100_editable_driveway_slots.sql` to the test backend after the earlier migrations before trying these features against Supabase. Existing active cars are seeded into individual tiles. No production migration was applied.
+- Production has `20260908032721_driveway_slot_prerequisites.sql` and `20260908032739_editable_driveway_slots.sql` applied; local filenames match the remote migration versions. Both existing active cars were seeded into individual tiles. Apply these migrations to a separate test backend before testing there.
 - `pnpm test:driveway-db` runs the actual slot migration and its routines in embedded PostgreSQL with a minimal household fixture. It verifies permissions, migration seeding, overlap rejection, occupancy preservation, swaps, blocker notifications and cancellation. Realtime transport and delivery to a real device still require Supabase integration testing.
 
 ## Backend testing required before release

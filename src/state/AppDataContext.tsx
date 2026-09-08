@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react'
 import { renewPushSubscription } from '../lib/push'
+import { validatePenaltyTiers } from '../lib/penalties'
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import * as api from '../lib/api'
@@ -63,6 +64,7 @@ interface AppDataContextValue {
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
   updateExpenseAmount: (id: UUID, amount: number, expected: number) => Promise<void>
+  updateExpenseShares: (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number) => Promise<void>
   saveDrivewaySlots: (slots: DrivewaySlot[]) => Promise<void>
   parkVehicle: (vehicleId: string, slotId: string | null) => Promise<void>
   reverseExpense: (id: UUID, reason: string) => Promise<void>
@@ -99,6 +101,7 @@ interface AppDataContextValue {
   updateProfile: (displayName: string, avatar?: File | null) => Promise<void>
   updateHouseholdFeatures: (features: HouseholdFeature[]) => Promise<void>
   updateHouseholdTaskReminders: (times: string[]) => Promise<void>
+  updatePenaltyTiers: (tiers: number[]) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -453,7 +456,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
   const updateExpenseAmount = useCallback(async (id: UUID, amount: number, expected: number) => run(
     'expense:edit:' + id, async () => {
       if (!Number.isSafeInteger(amount) || amount < 1 || amount > 2147483647) throw new Error('Enter a valid purchase total.')
-      if (!demoMode) { await api.invokeRpc('update_expense_amount', { p_expense_id: id, p_amount: amount, p_expected: expected }); await refresh(false); return }
+      if (!demoMode) { await api.invokeRpc('update_expense_details', { p_expense_id: id, p_amount: amount, p_expected: expected, p_beneficiaries: null }); await refresh(false); return }
         const expense = data.expenses.find(e => e.id === id)
         if (!expense || expense.reversed) throw new Error('This purchase is no longer editable.')
         if (expense.createdBy !== data.household.currentMemberId) throw new Error('Only the creator can edit this purchase')
@@ -479,6 +482,40 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       })
     }, 'Purchase total and shares updated.',
   ), [data.expenses, data.household.currentMemberId, demoMode, refresh, run])
+
+  const updateExpenseShares = useCallback(async (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number) => run(
+    'expense:shares:' + id, async () => {
+      if (!beneficiaries.length || beneficiaries.some(share => !Number.isSafeInteger(share.amountCents) || share.amountCents < 1)) throw new Error('Choose at least one person and enter valid shares.')
+      if (new Set(beneficiaries.map(share => share.memberId)).size !== beneficiaries.length) throw new Error('Each person can only have one share.')
+      if (beneficiaries.reduce((sum, share) => sum + share.amountCents, 0) !== expected) throw new Error('The shares must equal the purchase total.')
+      if (!demoMode) {
+        await api.invokeRpc('update_expense_details', {
+          p_expense_id: id,
+          p_amount: expected,
+          p_expected: expected,
+          p_beneficiaries: beneficiaries.map(share => ({ member_id: share.memberId, amount: share.amountCents })),
+        })
+        await refresh(false)
+        return
+      }
+      const expense = data.expenses.find(item => item.id === id)
+      if (!expense || expense.reversed) throw new Error('This purchase is no longer editable.')
+      if (expense.createdBy !== data.household.currentMemberId) throw new Error('Only the creator can edit this purchase')
+      if (expense.amountCents !== expected) throw new Error('This purchase changed. Reload it before editing.')
+      if (beneficiaries.some(share => !data.members.some(member => member.id === share.memberId))) throw new Error('A selected person is no longer in this household.')
+      const updated = { ...expense, beneficiaries: beneficiaries.map(share => ({ ...share })) }
+      setData(current => ({
+        ...current,
+        expenses: current.expenses.map(item => item.id === id ? updated : item),
+        balances: current.balances.map(balance => {
+          const previousUse = expense.beneficiaries.find(share => share.memberId === balance.memberId)?.amountCents ?? 0
+          const nextUse = updated.beneficiaries.find(share => share.memberId === balance.memberId)?.amountCents ?? 0
+          const difference = nextUse - previousUse
+          return { ...balance, resourceUseCents: cents(balance.resourceUseCents + difference), netCents: cents(balance.netCents - difference) }
+        }),
+      }))
+    }, 'Purchase shares updated.',
+  ), [data.expenses, data.household.currentMemberId, data.members, demoMode, refresh, run])
 
   const saveDrivewaySlots = useCallback(async (slots: DrivewaySlot[]) => run(
     'driveway:slots', async () => {
@@ -1200,6 +1237,15 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.id, demoMode, run],
   )
 
+  const updatePenaltyTiers = useCallback(async (tiers: number[]) => run(
+    'household:penalties', async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can change penalty tiers.')
+      validatePenaltyTiers(tiers)
+      if (!demoMode) await api.invokeRpc('update_penalty_tiers', { p_household_id: data.household.id, p_tiers: tiers })
+      setData(current => ({ ...current, household: { ...current.household, penaltyTiers: [...tiers] } }))
+    }, 'Penalty tiers saved.',
+  ), [data.members, data.household.currentMemberId, data.household.id, demoMode, run])
+
   const value = useMemo<AppDataContextValue>(
     () => ({
       data,
@@ -1218,6 +1264,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addExpense,
       reverseExpense,
       updateExpenseAmount,
+      updateExpenseShares,
       saveDrivewaySlots,
       parkVehicle,
       addSettlement,
@@ -1246,6 +1293,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateProfile,
       updateHouseholdFeatures,
       updateHouseholdTaskReminders,
+      updatePenaltyTiers,
       refresh,
     }),
     [
@@ -1265,6 +1313,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addExpense,
       reverseExpense,
       updateExpenseAmount,
+      updateExpenseShares,
       saveDrivewaySlots,
       parkVehicle,
       addSettlement,
@@ -1292,6 +1341,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       updateProfile,
       updateHouseholdFeatures,
       updateHouseholdTaskReminders,
+      updatePenaltyTiers,
       refresh,
     ],
   )

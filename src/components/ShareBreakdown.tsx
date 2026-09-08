@@ -30,10 +30,7 @@ export function ShareBar({
         <span
           key={share.member.id}
           title={`${share.member.displayName} · ${formatMoney(share.owedCents)}`}
-          className={cn(
-            'block transition-[flex-grow] duration-500',
-            share.isCurrentMember && 'ring-1 ring-white/45 ring-inset',
-          )}
+          className="block min-w-0 basis-0 transition-[flex-grow] duration-500"
           style={{ flexGrow: Math.max(share.owedCents, 1), background: share.member.color }}
         />
       ))}
@@ -54,7 +51,8 @@ export function ShareDonut({
   sublabel?: string
 }) {
   const stroke = Math.round(size * 0.14)
-  const radius = (size - stroke) / 2
+  const activeStrokeExtra = 3
+  const radius = (size - stroke - activeStrokeExtra) / 2
   const circumference = 2 * Math.PI * radius
   const owed = breakdown.shares.filter((share) => share.owedCents > 0)
   const total = owed.reduce((sum, share) => sum + share.owedCents, 0) || 1
@@ -93,7 +91,7 @@ export function ShareDonut({
               r={radius}
               fill="none"
               stroke={arc.color}
-              strokeWidth={arc.current ? stroke + 3 : stroke}
+              strokeWidth={arc.current ? stroke + activeStrokeExtra : stroke}
               strokeDasharray={arc.dash}
               strokeDashoffset={arc.offset}
               strokeLinecap="butt"

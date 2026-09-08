@@ -21,6 +21,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm test:driveway-db
+      - run: pnpm test:penalties-db
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm test:e2e

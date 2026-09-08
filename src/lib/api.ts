@@ -551,6 +551,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         .filter((reminder: { type?: string }) => reminder.type === 'local_time')
         .map((reminder: { value: string }) => reminder.value.slice(0, 5)),
       shareCodeLast4: household.join_code_last4 ?? undefined,
+      penaltyTiers: household.penalty_tiers ?? undefined,
     },
     members: memberRows.map((row) => {
       const profile = profileOf(row)
@@ -618,6 +619,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         amountCents: row.amount_cents,
         status: row.status,
         disputeDeadline: row.dispute_deadline,
+        resolvedAt: row.resolved_at ?? undefined,
         disputeReason: row.dispute_reason ?? undefined,
         upholdVotes: votes
           .filter((vote: { choice: string }) => vote.choice === 'uphold')

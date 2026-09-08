@@ -56,7 +56,7 @@ export function AppShell() {
 
   return (
     <div className={"app-frame min-h-screen grid grid-cols-[238px_1fr] max-[980px]:block max-[980px]:min-h-dvh"}>
-      <aside className={"sidebar fixed inset-[0_auto_0_0] w-59.5 overflow-hidden p-[28px_18px] text-[#edf3ee] bg-(--forest) flex flex-col z-[20] border-r max-[980px]:hidden"}>
+      <aside className={"sidebar fixed inset-[0_auto_0_0] w-59.5 overflow-hidden p-[28px_18px] text-[#edf3ee] bg-(--forest) flex flex-col z-[20] border-r border-white/15 dark:border-white/7 max-[980px]:hidden"}>
         <div className={"brand flex items-center gap-3"}>
           <div className={"brand-mark w-9.5 h-9.5 grid place-items-center rounded-xl text-(--forest) bg-[#f1d799] font-display text-[1.3rem] font-bold"} aria-hidden="true">
             H
@@ -85,7 +85,7 @@ export function AppShell() {
           ))}
         </nav>
 
-        <div className={"sidebar-footer mt-auto p-[15px_10px_0] border-t flex items-center gap-2.5"}>
+        <div className={"sidebar-footer mt-auto p-[15px_10px_0] border-t border-white/15 dark:border-white/7 flex items-center gap-2.5"}>
           <Avatar
             initials={currentMember.initials}
             color={currentMember.color}
