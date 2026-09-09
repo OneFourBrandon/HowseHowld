@@ -113,20 +113,21 @@ export function AppShell() {
             Offline — viewing cached data. Changes are paused.
           </div>
         )}
-        {pathname !== '/' && <div className="absolute right-18 top-3 z-30 min-[981px]:right-5"><ThemeToggle /></div>}
         {pathname !== '/' && (
+          <div className={cn('absolute right-5 top-3 z-30 flex items-center gap-3', demoMode && 'max-[980px]:top-12')}>
+          <ThemeToggle />
           <NavLink
             to="/settings"
             aria-label="Settings"
             className={({ isActive }) =>
               cn(
-                'mobile-settings-link hidden max-[980px]:absolute max-[980px]:top-4.5 max-[980px]:right-5 max-[980px]:z-[35] max-[980px]:grid max-[980px]:w-10.5 max-[980px]:h-10.5 max-[980px]:place-items-center max-[980px]:border max-[980px]:rounded-[10px] max-[980px]:text-(--forest) max-[980px]:bg-[rgba(244,241,232,.78)] max-[980px]:shadow-[0_8px_24px_rgba(29,46,24,.09)]  max-[980px]:backdrop-blur-[14px] max-[980px]:backdrop-saturate-[1.35]',
-                demoMode && 'mobile-settings-link-with-banner max-[980px]:top-12.5',
-                isActive && 'is-active max-[980px]:bg-(--forest)! max-[980px]:text-white',
+                'mobile-settings-link hidden size-10 shrink-0 items-center justify-center rounded-full border border-(--line) bg-(--surface-strong) text-(--ink) transition-colors hover:bg-(--sage-2) max-[980px]:inline-flex',
+                isActive && 'border-(--forest)',
               )}
           >
-            <Settings size={21} strokeWidth={1.9} />
+            <Settings size={19} />
           </NavLink>
+          </div>
         )}
         <main className={"page-content m-[0_auto] pt-13.5 max-[980px]:pt-19 w-[min(1400px,100%)] p-[58px_64px_104px] max-[980px]:w-full max-[980px]:p-[48px_40px_calc(112px+env(safe-area-inset-bottom,0px))] max-[640px]:p-[32px_20px_calc(116px+env(safe-area-inset-bottom,0px))]"}>
           <Outlet />

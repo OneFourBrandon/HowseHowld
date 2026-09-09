@@ -105,7 +105,7 @@ export function SettingsPage() {
           <section>
             <SectionHeader eyebrow="YOUR ACCOUNT" title="Profile" />
             <form
-              className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-6 gap-y-5 py-4 border-b border-(--line) max-[640px]:grid-cols-1"
+              className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 py-4 border-b border-(--line) min-[641px]:grid-cols-[auto_minmax(0,1fr)] min-[641px]:gap-x-6"
               onSubmit={async (event) => {
                 event.preventDefault()
                 setProfileError('')
@@ -127,7 +127,7 @@ export function SettingsPage() {
                 imageUrl={removeProfileAvatar ? undefined : profilePreview ?? currentMember.avatarUrl}
                 size="xl"
               />
-              <div className="grid gap-2">
+              <div className="grid min-w-0 gap-2">
                 <label className="text-[.78rem] font-bold">
                   Username
                   <input
@@ -172,7 +172,7 @@ export function SettingsPage() {
                 <p className="text-(--muted) text-[.74rem]">JPG, PNG, or WebP up to 5 MB.</p>
               </div>
               {profileError && <p className="col-span-full text-(--coral) text-[.76rem]">{profileError}</p>}
-              <Button className="col-2 justify-self-start max-640px:col-1" type="submit" disabled={busy === 'profile:update'}>
+              <Button className="col-start-1 justify-self-start min-[641px]:col-start-2" type="submit" disabled={busy === 'profile:update'}>
                 {busy === 'profile:update' ? 'Saving…' : 'Save profile'}
               </Button>
             </form>
