@@ -417,7 +417,7 @@ export async function unsubscribePush(subscription: PushSubscription) {
 }
 
 export async function sendTestPush() {
-  const subscription = await currentPushSubscription()
+  const subscription = await currentPushSubscription(true)
   if (!subscription) throw new Error('Enable reminders on this device before sending a test.')
   const { data, error } = await requireClient().functions.invoke('push-dispatch', {
     body: { test: true, endpoint: subscription.endpoint },
