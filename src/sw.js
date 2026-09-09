@@ -1,7 +1,11 @@
 /* global clients */
 const sw = self
 const shellCache = 'howsehowld-shell-v1'
-const precacheUrls = self.__WB_MANIFEST.map((entry) => entry.url)
+// The build can list icons both as assets and as manifest entries. Cache.addAll
+// rejects the entire install if any request URL appears more than once.
+const precacheUrls = [...new Set(self.__WB_MANIFEST.map((entry) =>
+  new URL(entry.url, sw.location.href).href,
+))]
 
 sw.addEventListener('install', (event) => {
   event.waitUntil(

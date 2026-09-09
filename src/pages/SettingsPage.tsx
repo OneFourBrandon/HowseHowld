@@ -293,14 +293,14 @@ export function SettingsPage() {
               <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
                 <Button
                   disabled={busy === 'notifications:enable'}
-                  onClick={enableNotifications}
+                  onClick={() => { void enableNotifications().catch(() => {}) }}
                 >
                   <BellRing size={17} /> Enable reminders
                 </Button>
                 <Button
                   variant="secondary"
                   disabled={busy === 'notifications:test'}
-                  onClick={sendTestNotification}
+                  onClick={() => { void sendTestNotification().catch(() => {}) }}
                 >
                   <Send size={17} /> Send a test
                 </Button>
@@ -308,7 +308,7 @@ export function SettingsPage() {
                   <Button
                     variant="ghost"
                     disabled={busy === 'notifications:disable'}
-                    onClick={disableNotifications}
+                    onClick={() => { void disableNotifications().catch(() => {}) }}
                   >
                     Disable on this device
                   </Button>
