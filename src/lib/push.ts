@@ -32,11 +32,12 @@ export async function currentPushSubscription(waitUntilReady = false) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
   try {
     const registration = await navigator.serviceWorker.getRegistration()
-    if (registration?.active) return registration.pushManager.getSubscription()
+    if (registration?.active) return await registration.pushManager.getSubscription()
     if (!waitUntilReady) return null
     const readyRegistration = await waitForActiveServiceWorker()
-    return readyRegistration.pushManager.getSubscription()
-  } catch {
+    return await readyRegistration.pushManager.getSubscription()
+  } catch (error) {
+    if (waitUntilReady) throw error
     // Restricted browser contexts must not prevent the household from loading.
     return null
   }
