@@ -254,6 +254,8 @@ export const ensureRollingQueueOccurrences = (householdId: UUID, horizonDays = 3
 export const updateTask = (taskId: UUID, input: Record<string, unknown>) =>
   invokeRpc('update_task', { p_task_id: taskId, p_input: input })
 
+export const deleteTask = (taskId: UUID) => invokeRpc('delete_task', { p_task_id: taskId })
+
 export const completeOccurrence = (occurrenceId: UUID) =>
   invokeRpc('complete_task_occurrence', { p_occurrence_id: occurrenceId })
 export const assignManualTask = (
@@ -577,7 +579,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         active: row.active,
       }
     }),
-    tasks: tasks.map((task) => {
+    tasks: tasks.filter(task => !task.deleted_at).map((task) => {
       const taskRotations = rotations
         .filter((rotation) => rotation.task_id === task.id)
         .sort((a, b) => a.position - b.position)
