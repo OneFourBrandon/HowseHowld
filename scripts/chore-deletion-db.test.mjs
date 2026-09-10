@@ -24,7 +24,7 @@ test('deletion is household scoped and preserves completed history and penalties
       insert into infractions values ('00000000-0000-0000-0000-000000000004');
       insert into notification_outbox values ('00000000-0000-0000-0000-000000000002','task_occurrence','pending');
     `)
-    await db.exec(await readFile(new URL('../supabase/migrations/20260909234126_chore_deletion.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20260910004540_chore_deletion.sql', import.meta.url), 'utf8'))
     await db.exec('set role authenticated;')
     await assert.rejects(db.query('select public.delete_task($1)', [task]), /Chore not found/)
     await db.exec("set test.allowed='yes';")
