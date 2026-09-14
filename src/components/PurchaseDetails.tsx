@@ -22,6 +22,7 @@ export function PurchaseDetails({ expense, onClose }: { expense: Expense; onClos
   const { data, busy, updateExpenseAmount, updateExpenseShares } = useAppData()
   const [editingAmount, setEditingAmount] = useState(false)
   const [editingShares, setEditingShares] = useState(false)
+  const [splitKind, setSplitKind] = useState<'shares' | 'payers'>('shares')
   const [amount, setAmount] = useState((expense.amountCents / 100).toFixed(2))
   const [expectedAmount, setExpectedAmount] = useState(expense.amountCents)
   const [beneficiaries, setBeneficiaries] = useState(() => new Set(expense.beneficiaries.map(share => share.memberId)))
@@ -30,15 +31,18 @@ export function PurchaseDetails({ expense, onClose }: { expense: Expense; onClos
   const [error, setError] = useState('')
   const breakdown = expenseBreakdown(expense, data.members, data.household.currentMemberId)
   const monthTotal = data.expenses.filter(e => !e.reversed && e.purchasedAt.slice(0, 7) === expense.purchasedAt.slice(0, 7)).reduce((sum, e) => sum + e.amountCents, 0)
-  const canEdit = !expense.reversed && expense.createdBy === data.household.currentMemberId
+  const canEdit = !expense.reversed
+  const canEditPrice = canEdit && expense.createdBy === data.household.currentMemberId
   const beneficiaryPreview = customShares
     ? [...beneficiaries].map(memberId => ({ memberId, amountCents: cents(Math.round(Number(shareAmounts[memberId] || 0) * 100)) }))
     : splitEvenly(expense.amountCents, [...beneficiaries])
   const shareTotal = beneficiaryPreview.reduce((sum, share) => sum + share.amountCents, 0)
-  const openShareEditor = () => {
-    setBeneficiaries(new Set(expense.beneficiaries.map(share => share.memberId)))
-    setCustomShares(!hasEqualShares(expense))
-    setShareAmounts(shareAmountFields(expense))
+  const openShareEditor = (kind: 'shares' | 'payers') => {
+    const selectedExpense = kind === 'payers' ? { ...expense, beneficiaries: expense.payers } : expense
+    setSplitKind(kind)
+    setBeneficiaries(new Set(selectedExpense.beneficiaries.map(share => share.memberId)))
+    setCustomShares(!hasEqualShares(selectedExpense))
+    setShareAmounts(shareAmountFields(selectedExpense))
     setError('')
     setEditingShares(true)
   }
@@ -66,7 +70,7 @@ export function PurchaseDetails({ expense, onClose }: { expense: Expense; onClos
         <div className="mt-2 divide-y divide-(--line)">{breakdown.shares.map(share => <ShareRow key={share.member.id} share={share} />)}</div>
       </section>
       {canEdit && <div className="grid gap-2 border-t border-(--line) pt-4">
-      {editingAmount ? <form className="grid gap-3" onSubmit={async event => {
+      {canEditPrice && (editingAmount ? <form className="grid gap-3" onSubmit={async event => {
         event.preventDefault()
         setError('')
         try { await updateExpenseAmount(expense.id, Math.round(Number(amount) * 100), expectedAmount); setEditingAmount(false) }
@@ -82,19 +86,20 @@ export function PurchaseDetails({ expense, onClose }: { expense: Expense; onClos
         setEditingShares(false)
         setError('')
         setEditingAmount(true)
-      }}><Pencil size={16} /> Edit price</Button>}
+      }}><Pencil size={16} /> Edit price</Button>)}
 
       {editingShares ? <form className="mt-1 grid gap-3 rounded-xl bg-(--surface) p-3" onSubmit={async event => {
         event.preventDefault()
         setError('')
         if (!beneficiaryPreview.length) { setError('Choose at least one person.'); return }
         if (beneficiaryPreview.some(share => share.amountCents < 1) || shareTotal !== expense.amountCents) { setError('Shares must be positive and equal the purchase total.'); return }
-        try { await updateExpenseShares(expense.id, beneficiaryPreview, expense.amountCents); setEditingShares(false) }
+        try { await updateExpenseShares(expense.id, beneficiaryPreview, expense.amountCents, splitKind); setEditingShares(false) }
         catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update shares.') }
       }}>
+        <h3 className="text-sm font-bold">{splitKind === 'payers' ? 'Edit who paid' : 'Edit shares'}</h3>
         <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-(--line-strong) bg-(--surface-strong)">
           <button className={cn('inline-flex min-h-10 items-center justify-center gap-2 border-0 bg-transparent px-2 text-xs font-semibold', !customShares && 'bg-(--sage-2)! text-(--forest)')} type="button" onClick={() => setCustomShares(false)}><UsersRound size={16} /> Equal split</button>
-          <button className={cn('inline-flex min-h-10 items-center justify-center gap-2 border-0 border-l border-(--line) bg-transparent px-2 text-xs font-semibold', customShares && 'bg-(--sage-2)! text-(--forest)')} type="button" onClick={() => setCustomShares(true)}><UserRound size={16} /> Custom shares</button>
+          <button className={cn('inline-flex min-h-10 items-center justify-center gap-2 border-0 border-l border-(--line) bg-transparent px-2 text-xs font-semibold', customShares && 'bg-(--sage-2)! text-(--forest)')} type="button" onClick={() => setCustomShares(true)}><UserRound size={16} /> {splitKind === 'payers' ? 'Custom contributions' : 'Custom shares'}</button>
         </div>
         <div className="grid gap-2">
           {data.members.map(member => {
@@ -105,14 +110,15 @@ export function PurchaseDetails({ expense, onClose }: { expense: Expense; onClos
                 <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                 <span className="truncate">{member.displayName}</span>
               </label>
-              {customShares && selected && <label className="flex items-center rounded-lg border border-(--line) bg-(--surface-strong) px-2 text-(--muted)">$<input className="mt-0! min-w-0 border-0! bg-transparent! px-1.5 py-2 text-right text-(--ink) shadow-none! focus:shadow-none!" type="text" inputMode="decimal" aria-label={`${member.displayName} share amount`} value={shareAmounts[member.id] ?? ''} onChange={event => { if (/^\d*(\.\d{0,2})?$/.test(event.target.value)) setShareAmounts(current => ({ ...current, [member.id]: event.target.value })) }} /></label>}
+              {customShares && selected && <label className="flex items-center rounded-lg border border-(--line) bg-(--surface-strong) px-2 text-(--muted)">$<input className="mt-0! min-w-0 border-0! bg-transparent! px-1.5 py-2 text-right text-(--ink) shadow-none! focus:shadow-none!" type="text" inputMode="decimal" aria-label={`${member.displayName} ${splitKind === 'payers' ? 'paid' : 'share'} amount`} value={shareAmounts[member.id] ?? ''} onChange={event => { if (/^\d*(\.\d{0,2})?$/.test(event.target.value)) setShareAmounts(current => ({ ...current, [member.id]: event.target.value })) }} /></label>}
             </div>
           })}
         </div>
-        <div className="flex items-center justify-between text-xs"><span className="text-(--muted)">Share total</span><strong className={cn('tabular-nums', shareTotal !== expense.amountCents && 'text-(--coral)')}>{formatMoney(shareTotal)} / {formatMoney(expense.amountCents)}</strong></div>
+        <div className="flex items-center justify-between text-xs"><span className="text-(--muted)">{splitKind === 'payers' ? 'Paid total' : 'Share total'}</span><strong className={cn('tabular-nums', shareTotal !== expense.amountCents && 'text-(--coral)')}>{formatMoney(shareTotal)} / {formatMoney(expense.amountCents)}</strong></div>
         {error && <p role="alert" className="text-sm text-(--coral)">{error}</p>}
-        <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setEditingShares(false)}>Cancel</Button><Button disabled={busy === 'expense:shares:' + expense.id || !beneficiaryPreview.length || shareTotal !== expense.amountCents}>Save shares</Button></div>
-      </form> : <Button variant="secondary" disabled={editingAmount} onClick={() => { setEditingAmount(false); openShareEditor() }}><UsersRound size={16} /> Edit shares</Button>}
+        <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setEditingShares(false)}>Cancel</Button><Button disabled={busy === 'expense:shares:' + expense.id || !beneficiaryPreview.length || shareTotal !== expense.amountCents}>{splitKind === 'payers' ? 'Save who paid' : 'Save shares'}</Button></div>
+      </form> : <><Button variant="secondary" disabled={editingAmount} onClick={() => { setEditingAmount(false); openShareEditor('shares') }}><UsersRound size={16} /> Edit shares</Button>
+      <Button variant="secondary" disabled={editingAmount} onClick={() => openShareEditor('payers')}><UserRound size={16} /> Edit who paid</Button></>}
       </div>}
     </div>
   </Modal>
