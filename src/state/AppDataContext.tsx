@@ -66,7 +66,7 @@ interface AppDataContextValue {
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
   updateExpenseAmount: (id: UUID, amount: number, expected: number) => Promise<void>
-  updateExpenseShares: (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number) => Promise<void>
+  updateExpenseShares: (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number, kind?: 'shares' | 'payers') => Promise<void>
   saveDrivewaySlots: (slots: DrivewaySlot[]) => Promise<void>
   parkVehicle: (vehicleId: string, slotId: string | null) => Promise<void>
   reverseExpense: (id: UUID, reason: string) => Promise<void>
@@ -499,7 +499,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }, 'Purchase total and shares updated.',
   ), [data.expenses, data.household.currentMemberId, demoMode, refresh, run])
 
-  const updateExpenseShares = useCallback(async (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number) => run(
+  const updateExpenseShares = useCallback(async (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number, kind: 'shares' | 'payers' = 'shares') => run(
     'expense:shares:' + id, async () => {
       if (!beneficiaries.length || beneficiaries.some(share => !Number.isSafeInteger(share.amountCents) || share.amountCents < 1)) throw new Error('Choose at least one person and enter valid shares.')
       if (new Set(beneficiaries.map(share => share.memberId)).size !== beneficiaries.length) throw new Error('Each person can only have one share.')
@@ -509,29 +509,34 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           p_expense_id: id,
           p_amount: expected,
           p_expected: expected,
-          p_beneficiaries: beneficiaries.map(share => ({ member_id: share.memberId, amount: share.amountCents })),
+          [kind === 'payers' ? 'p_payers' : 'p_beneficiaries']: beneficiaries.map(share => ({ member_id: share.memberId, amount: share.amountCents })),
         })
         await refresh(false)
         return
       }
       const expense = data.expenses.find(item => item.id === id)
       if (!expense || expense.reversed) throw new Error('This purchase is no longer editable.')
-      if (expense.createdBy !== data.household.currentMemberId) throw new Error('Only the creator can edit this purchase')
       if (expense.amountCents !== expected) throw new Error('This purchase changed. Reload it before editing.')
       if (beneficiaries.some(share => !data.members.some(member => member.id === share.memberId))) throw new Error('A selected person is no longer in this household.')
-      const updated = { ...expense, beneficiaries: beneficiaries.map(share => ({ ...share })) }
+      const updated = { ...expense, [kind === 'payers' ? 'payers' : 'beneficiaries']: beneficiaries.map(share => ({ ...share })) }
       setData(current => ({
         ...current,
         expenses: current.expenses.map(item => item.id === id ? updated : item),
         balances: current.balances.map(balance => {
+          if (kind === 'payers') {
+            const previousPaid = expense.payers.find(payer => payer.memberId === balance.memberId)?.amountCents ?? 0
+            const nextPaid = updated.payers.find(payer => payer.memberId === balance.memberId)?.amountCents ?? 0
+            const difference = nextPaid - previousPaid
+            return { ...balance, contributionCents: cents(balance.contributionCents + difference), netCents: cents(balance.netCents + difference) }
+          }
           const previousUse = expense.beneficiaries.find(share => share.memberId === balance.memberId)?.amountCents ?? 0
           const nextUse = updated.beneficiaries.find(share => share.memberId === balance.memberId)?.amountCents ?? 0
           const difference = nextUse - previousUse
           return { ...balance, resourceUseCents: cents(balance.resourceUseCents + difference), netCents: cents(balance.netCents - difference) }
         }),
       }))
-    }, 'Purchase shares updated.',
-  ), [data.expenses, data.household.currentMemberId, data.members, demoMode, refresh, run])
+    }, kind === 'payers' ? 'Who paid updated.' : 'Purchase shares updated.',
+  ), [data.expenses, data.members, demoMode, refresh, run])
 
   const saveDrivewaySlots = useCallback(async (slots: DrivewaySlot[]) => run(
     'driveway:slots', async () => {
