@@ -23,6 +23,7 @@ jobs:
       - run: pnpm test:driveway-db
       - run: pnpm test:penalties-db
       - run: pnpm test:recovery-db
+      - run: node --test scripts/chore-deletion-db.test.mjs
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm test:pwa

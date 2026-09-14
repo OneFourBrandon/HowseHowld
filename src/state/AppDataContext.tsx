@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react'
 import { renewPushSubscription } from '../lib/push'
+import { randomRotationStart } from '../lib/rotation'
 import { validatePenaltyTiers } from '../lib/penalties'
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
@@ -55,6 +56,7 @@ interface AppDataContextValue {
   toast: string | null
   completeOccurrence: (id: UUID) => Promise<void>
   addTask: (task: NewTask) => Promise<void>
+  deleteTask: (id: UUID) => Promise<void>
   updateTask: (
     id: UUID,
     input: Partial<Omit<TaskDefinition, 'id' | 'householdId'>>,
@@ -281,6 +283,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       run(
         'task:new',
         async () => {
+          input = { ...input, rotationMemberIds: input.assignmentMode === 'rotation'
+            ? randomRotationStart(input.rotationMemberIds) : input.rotationMemberIds }
           if (!demoMode) {
             await api.createTask({
               ...input,
@@ -332,6 +336,18 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       ),
     [demoMode, run],
   )
+
+  const deleteTask = useCallback(async (id: UUID) => run(`task:delete:${id}`, async () => {
+    if (!demoMode) {
+      await api.deleteTask(id)
+      await refresh()
+      return
+    }
+    setData(current => ({ ...current,
+      tasks: current.tasks.filter(task => task.id !== id),
+      occurrences: current.occurrences.filter(item => item.taskId !== id || item.status !== 'assigned'),
+    }))
+  }, 'Chore deleted.'), [demoMode, refresh, run])
 
   const assignManualTask = useCallback(
     async (taskId: UUID, memberId: UUID, scheduledDate: string) =>
@@ -1258,6 +1274,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       completeOccurrence,
       addTask,
       updateTask,
+      deleteTask,
       assignManualTask,
       disputeInfraction,
       voteInfraction,
@@ -1307,6 +1324,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       completeOccurrence,
       addTask,
       updateTask,
+      deleteTask,
       assignManualTask,
       disputeInfraction,
       voteInfraction,

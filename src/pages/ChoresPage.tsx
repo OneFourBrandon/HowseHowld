@@ -16,6 +16,7 @@ import {
   Plus,
   RotateCw,
   Scale,
+  Trash2,
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
@@ -47,6 +48,7 @@ export function ChoresPage() {
     completeOccurrence,
     addTask,
     updateTask,
+    deleteTask,
     assignManualTask,
     disputeInfraction,
     voteInfraction,
@@ -317,6 +319,14 @@ export function ChoresPage() {
                         if (title?.trim()) updateTask(task.id, { title: title.trim() })
                       }}>
                         <Pencil size={15} /> Edit
+                      </Button>
+                      <Button size="sm" variant="ghost" disabled={busy === `task:delete:${task.id}`}
+                        onClick={() => {
+                          if (window.confirm(`Delete "${task.title}"? Pending assignments and reminders will be removed. Completed history and penalties will be kept.`)) {
+                            void deleteTask(task.id).catch(() => {})
+                          }
+                        }}>
+                        <Trash2 size={15} /> Delete
                       </Button>
                     </div>
                   </div>
