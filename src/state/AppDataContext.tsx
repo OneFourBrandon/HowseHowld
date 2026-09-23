@@ -64,6 +64,7 @@ interface AppDataContextValue {
   assignManualTask: (taskId: UUID, memberId: UUID, scheduledDate: string) => Promise<void>
   disputeInfraction: (id: UUID, reason: string) => Promise<void>
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
+  forgiveInfraction: (id: UUID) => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
   updateExpenseAmount: (id: UUID, amount: number, expected: number) => Promise<void>
   updateExpenseShares: (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number, kind?: 'shares' | 'payers') => Promise<void>
@@ -75,6 +76,7 @@ interface AppDataContextValue {
   proposeFundPayment: (amountCents: number) => Promise<void>
   confirmFundPayment: (id: UUID, accept: boolean) => Promise<void>
   addBill: (bill: NewBill) => Promise<void>
+  editBill: (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents']) => Promise<void>
   setBillPaid: (periodId: UUID, paid: boolean) => Promise<void>
   addEvent: (event: NewEvent) => Promise<void>
   updateScheduleItemKind: (id: UUID, kind: 'class' | 'exam' | 'other') => Promise<void>
@@ -418,6 +420,21 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [demoMode, run],
   )
 
+  const forgiveInfraction = useCallback(async (id: UUID) =>
+    run(`forgive:${id}`, async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') {
+        throw new Error('Only the admin can forgive an infraction.')
+      }
+      if (!demoMode) {
+        await api.forgiveInfraction(id)
+        await refresh()
+        return
+      }
+      setData(current => ({ ...current, infractions: current.infractions.map(item =>
+        item.id === id ? { ...item, status: 'excused', resolvedAt: toIso(new Date()) } : item),
+      }))
+    }, 'Infraction forgiven.'), [data.members, data.household.currentMemberId, demoMode, refresh, run])
+
   const addExpense = useCallback(
     async (input: NewExpense) =>
       run(
@@ -739,6 +756,22 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       ),
     [data.household.id, demoMode, refresh, run],
   )
+
+  const editBill = useCallback(async (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents']) =>
+    run(`bill:edit:${id}`, async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can edit bills.')
+      if (!demoMode) {
+        await api.editHouseholdBill(id, category, amount ?? null, `${month}-01`, monthlyAmount ?? null)
+        await refresh()
+        return
+      }
+      setData(current => {
+        const bill = current.bills.find(item => item.id === id)!
+        const existing = current.billPeriods.find(period => period.billId === id && period.periodMonth === `${month}-01`)
+        const period = { id: existing?.id ?? uid('bill-period'), billId: id, periodMonth: `${month}-01`, dueAt: existing?.dueAt ?? toIso(new Date(`${month}-${String(bill.dueDay).padStart(2, '0')}T09:00:00`)), amountCents: monthlyAmount ?? amount, paidMemberIds: existing?.paidMemberIds ?? [] }
+        return { ...current, bills: current.bills.map(item => item.id === id ? { ...item, category, amountCents: amount } : item), billPeriods: [...current.billPeriods.filter(item => item.id !== period.id), period] }
+      })
+    }, 'Bill updated.'), [data.members, data.household.currentMemberId, demoMode, refresh, run])
 
   const setBillPaid = useCallback(
     async (periodId: UUID, paid: boolean) =>
@@ -1283,6 +1316,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       assignManualTask,
       disputeInfraction,
       voteInfraction,
+      forgiveInfraction,
       addExpense,
       reverseExpense,
       updateExpenseAmount,
@@ -1294,6 +1328,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       proposeFundPayment,
       confirmFundPayment,
       addBill,
+      editBill,
       setBillPaid,
       addEvent,
       updateScheduleItemKind,
@@ -1333,6 +1368,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       assignManualTask,
       disputeInfraction,
       voteInfraction,
+      forgiveInfraction,
       addExpense,
       reverseExpense,
       updateExpenseAmount,
@@ -1344,6 +1380,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       proposeFundPayment,
       confirmFundPayment,
       addBill,
+      editBill,
       setBillPaid,
       addEvent,
       updateScheduleItemKind,

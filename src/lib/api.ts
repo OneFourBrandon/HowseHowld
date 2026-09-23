@@ -282,6 +282,9 @@ export const castInfractionVote = (
     p_vote: vote,
   })
 
+export const forgiveInfraction = (infractionId: UUID) =>
+  invokeRpc('forgive_infraction', { p_infraction_id: infractionId })
+
 export async function createExpense(
   input: Omit<Expense, 'id' | 'reversed'> & { householdId?: UUID },
 ) {
@@ -859,3 +862,6 @@ function expandRecurringEvents(events: CalendarEvent[]) {
     return instances
   })
 }
+
+export const editHouseholdBill = (id: UUID, category: HouseholdBill['category'], amountCents: number | null, periodMonth: string, monthlyAmountCents: number | null) =>
+  invokeRpc('edit_household_bill', { p_bill_id: id, p_category: category, p_amount_cents: amountCents, p_period_month: periodMonth, p_monthly_amount_cents: monthlyAmountCents })
