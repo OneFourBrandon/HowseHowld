@@ -32,10 +32,10 @@ export function EmailRecovery({ reminder = false }: { reminder?: boolean }) {
       try { await auth.verifyEmail(email, token) } catch (cause) { setError(authMessage(cause)) } finally { setBusy(false) }
     }}>
       <label className="min-w-0 flex-1">{sent ? 'Six-digit verification code' : 'Recovery email'}
-        {sent ? <input value={token} onChange={event => setToken(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required /> : <input type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} required />}
+        {sent ? <input value={token} onChange={event => setToken(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" disabled={busy} required /> : <input type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} disabled={busy} required />}
       </label>
       <Button type="submit" disabled={busy || (!sent && wait > 0)}>{sent ? 'Verify email' : wait ? `Send again in ${wait}s` : 'Send code'}</Button>
-      {sent && <><Button type="button" variant="ghost" disabled={busy || wait > 0} onClick={() => void send()}>{wait ? `Resend in ${wait}s` : 'Resend code'}</Button><Button type="button" variant="ghost" onClick={() => { setSent(false); setToken('') }}>Change email</Button></>}
+      {sent && <><Button type="button" variant="ghost" disabled={busy || wait > 0} onClick={() => void send()}>{wait ? `Resend in ${wait}s` : 'Resend code'}</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => { setSent(false); setWait(0); setToken('') }}>Change email</Button></>}
       {reminder && <Button type="button" variant="ghost" onClick={() => { setDismissed(true); try { sessionStorage.setItem(key, 'true') } catch { /* Optional persistence. */ } }}>Later</Button>}
     </form>
     {sent && <p className="mt-2 text-xs text-(--muted)">Code sent to {email}. Use the newest code; it expires in one hour.</p>}

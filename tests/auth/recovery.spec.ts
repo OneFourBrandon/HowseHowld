@@ -57,6 +57,10 @@ test('anonymous linking, second-device OTP, persistence, local logout, and inval
     await a.getByLabel('Recovery email', { exact: true }).fill('roommate@example.com')
     await a.getByRole('button', { name: 'Send code', exact: true }).click()
     await expect(a.getByRole('button', { name: /Resend in/ })).toBeDisabled()
+    await a.getByRole('button', { name: 'Change email' }).click()
+    await a.getByLabel('Recovery email', { exact: true }).fill('roommate@example.com')
+    await expect(a.getByRole('button', { name: 'Send code', exact: true })).toBeEnabled()
+    await a.getByRole('button', { name: 'Send code', exact: true }).click()
     await a.getByLabel('Six-digit verification code').fill('123456')
     await a.getByRole('button', { name: 'Verify email', exact: true }).click()
     await expect(a.getByText(/Email sign-in enabled/)).toBeVisible()
@@ -82,4 +86,87 @@ test('anonymous linking, second-device OTP, persistence, local logout, and inval
     await a.getByRole('button', { name: 'Email me a code' }).click()
     await expect(a.getByRole('alert')).toContainText('No sign-in account was found')
   } finally { await first.close(); await second.close() }
+})
+
+test('recovery sign-in handles invalid codes, retries on the same identity, then persists', async ({ browser }) => {
+  const context = await browser.newContext()
+  const id = '00000000-0000-0000-0000-000000000456'
+  const user = { id, aud: 'authenticated', role: 'authenticated', is_anonymous: true, email: '', email_confirmed_at: '', app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }
+  let signedIn = false
+  let recovered = false
+  let anonymousSignups = 0
+  let redemptions = 0
+  const token = () => `${Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')}.${Buffer.from(JSON.stringify({ sub: id, exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated' })).toString('base64url')}.test-signature`
+  const session = () => ({ access_token: token(), refresh_token: 'recovery-refresh-token', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user })
+  await context.route('http://127.0.0.1:54399/**', async route => {
+    const url = new URL(route.request().url())
+    const body = route.request().method() === 'GET' ? {} : route.request().postDataJSON() ?? {}
+    let response: unknown = {}
+    let status = 200
+    if (url.pathname.endsWith('/signup')) { signedIn = true; anonymousSignups++; response = session() }
+    else if (url.pathname.endsWith('/token')) response = session()
+    else if (url.pathname.endsWith('/user')) response = user
+    else if (url.pathname.endsWith('/household_members')) response = recovered ? [{ id: 'recovered-membership' }] : []
+    else if (url.pathname.endsWith('/join_household_by_code')) {
+      redemptions++
+      if (body.p_code === 'REC-VALID-1234') recovered = true
+      else { status = 400; response = { message: 'Share code is invalid' } }
+    } else if (url.pathname.endsWith('/logout')) { signedIn = false; status = 204 }
+    else throw new Error(`Unexpected mock API request: ${url.pathname}`)
+    await route.fulfill({ status, contentType: 'application/json', body: status === 204 ? undefined : JSON.stringify(response) })
+  })
+  try {
+    const page = await context.newPage()
+    await page.goto('/tests/auth/harness.html')
+    await page.getByRole('button', { name: 'Use a recovery code instead' }).click()
+    await page.getByLabel('Recovery code').fill('REC-WRONG-1234')
+    await page.getByRole('button', { name: 'Restore my account' }).click()
+    await expect(page.getByRole('alert')).toContainText('recovery code is invalid or expired')
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Restore your account' })).toBeVisible()
+    await page.getByLabel('Recovery code').fill('REC-VALID-1234')
+    await page.getByRole('button', { name: 'Restore my account' }).click()
+    await expect(page.getByTestId('identity')).toHaveText(id)
+    expect(anonymousSignups).toBe(1)
+    expect(redemptions).toBe(2)
+    await page.reload()
+    await expect(page.getByTestId('identity')).toHaveText(id)
+    expect(signedIn).toBe(true)
+  } finally { await context.close() }
+})
+
+test('sign-in and account creation allow correcting an email immediately', async ({ browser }) => {
+  const context = await browser.newContext()
+  const email = 'owner@example.com'
+  const user = { id: '00000000-0000-0000-0000-000000000789', aud: 'authenticated', role: 'authenticated', is_anonymous: false, email, email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() }
+  const requested: Array<{ email: string; create: boolean }> = []
+  const token = () => `${Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')}.${Buffer.from(JSON.stringify({ sub: user.id, exp: Math.floor(Date.now() / 1000) + 3600, role: 'authenticated' })).toString('base64url')}.test-signature`
+  const session = () => ({ access_token: token(), refresh_token: 'create-refresh-token', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user })
+  await context.route('http://127.0.0.1:54399/**', async route => {
+    const url = new URL(route.request().url())
+    const body = route.request().method() === 'GET' ? {} : route.request().postDataJSON() ?? {}
+    let response: unknown = {}
+    let status = 200
+    if (url.pathname.endsWith('/otp')) requested.push({ email: body.email, create: body.create_user })
+    else if (url.pathname.endsWith('/verify')) response = session()
+    else if (url.pathname.endsWith('/user')) response = user
+    else if (url.pathname.endsWith('/token')) response = session()
+    else throw new Error(`Unexpected mock API request: ${url.pathname}`)
+    await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(response) })
+  })
+  try {
+    const page = await context.newPage()
+    await page.goto('/tests/auth/harness.html')
+    await page.getByLabel('Email address').fill('typo@example.com')
+    await page.getByRole('button', { name: 'Email me a code' }).click()
+    await page.getByRole('button', { name: 'Use another email' }).click()
+    await page.getByLabel('Email address').fill(email)
+    await expect(page.getByRole('button', { name: 'Email me a code' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Create a house' }).click()
+    await page.getByRole('button', { name: 'Email me a code' }).click()
+    await page.getByLabel('Six-digit code').fill('123456')
+    await page.getByRole('button', { name: 'Verify and continue' }).click()
+    await expect(page.getByTestId('identity')).toHaveText(user.id)
+    expect(requested).toEqual([{ email: 'typo@example.com', create: false }, { email, create: true }])
+  } finally { await context.close() }
 })
