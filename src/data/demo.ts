@@ -183,7 +183,7 @@ export const demoSnapshot: AppSnapshot = {
       taskTitle: 'Vacuum the kitchen',
       amountCents: cents(1_500),
       status: 'disputed',
-      disputeDeadline: at(0, 20),
+      disputeDeadline: at(1, 20),
       disputeReason: 'The vacuum battery would not charge.',
       upholdVotes: ['member-noah'],
       excuseVotes: ['member-maya'],
