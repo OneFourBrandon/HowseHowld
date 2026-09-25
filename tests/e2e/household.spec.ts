@@ -69,6 +69,10 @@ test('bill edit controls are visible and open the editor', async ({ page }) => {
   await expect(edit).toBeVisible()
   await edit.click()
   await expect(page.getByRole('button', { name: 'Save bill' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Name' })).toBeVisible()
+  await expect(page.getByRole('spinbutton', { name: 'Due day' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Remind unpaid roommates' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Who needs to pay?' })).toBeVisible()
 })
 
 test('future bill prices do not change past months and variable prices stay pending', async ({ page }) => {
@@ -97,4 +101,26 @@ test('future bill prices do not change past months and variable prices stay pend
   await expect(page.getByText('$125.00')).toBeVisible()
   await page.getByRole('button', { name: 'Previous month' }).click()
   await expect(page.locator('#bills').getByText('Pending')).toBeVisible()
+})
+
+test('admin sets unequal bill shares and tracks another roommate payment', async ({ page }) => {
+  await page.goto('/money')
+  await page.getByRole('button', { name: 'Add bill' }).click()
+  await page.getByRole('textbox', { name: 'Name' }).fill('Test rent')
+  await page.getByRole('spinbutton', { name: /Household amount/ }).fill('100.00')
+  const payers = page.getByRole('group', { name: 'Who needs to pay?' })
+  await payers.getByRole('checkbox', { name: 'Liam' }).uncheck()
+  await payers.getByRole('checkbox', { name: 'Noah' }).uncheck()
+  await payers.getByRole('checkbox', { name: 'Different amounts per roommate' }).check()
+  await payers.getByRole('spinbutton', { name: 'Brandon share (CAD)' }).fill('70.00')
+  await payers.getByRole('spinbutton', { name: 'Maya share (CAD)' }).fill('30.00')
+  await page.getByRole('button', { name: 'Add monthly bill' }).click()
+
+  const row = page.locator('#bills').getByText('Test rent').locator('..').locator('..').locator('..')
+  await row.getByRole('button', { name: 'Payment breakdown' }).click()
+  const breakdown = page.getByLabel('Test rent payment breakdown')
+  await expect(breakdown).toContainText('$70.00')
+  await expect(breakdown).toContainText('$30.00')
+  await breakdown.getByTitle('Track payment from Maya').click()
+  await expect(breakdown).toContainText('Paid · marked by Brandon')
 })

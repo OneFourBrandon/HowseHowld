@@ -89,3 +89,62 @@ test('future price changes preserve past snapshots and monthly bills stay pendin
   assert.ok((await db.query('select amount_cents from household_bill_periods where bill_id=$1',[created])).rows.every(row=>row.amount_cents===null))
  } finally { await db.close() }
 })
+
+test('custom bill shares sum to the month and admin can track another roommate payment', async () => {
+ const db = new PGlite()
+ try {
+  await db.exec(`create role authenticated; create role anon; create schema private;
+    create table households(id uuid primary key, timezone text);
+    create table household_members(id uuid primary key, household_id uuid, active boolean, role text);
+    create table notification_outbox(entity_id uuid,member_id uuid,status text);
+    create function private.current_member_id(uuid) returns uuid language sql as $$ select nullif(current_setting('test.actor',true),'')::uuid $$;
+    create function private.is_household_owner(uuid) returns boolean language sql as $$
+      select exists(select 1 from public.household_members where id=private.current_member_id($1) and household_id=$1 and active and role='owner') $$;
+    create function private.is_household_member(uuid) returns boolean language sql as $$
+      select exists(select 1 from public.household_members where id=private.current_member_id($1) and household_id=$1 and active) $$;
+    grant usage on schema private to authenticated;`)
+  const original = await readFile('supabase/migrations/20260731025528_monthly_household_bills.sql','utf8')
+  await db.exec(original.slice(original.indexOf('create table public.household_bills'),original.indexOf('create or replace function private.generate_household_bill_periods')))
+  await db.exec(await readFile('supabase/migrations/20260915000942_admin_bill_editing.sql','utf8'))
+  await db.exec(await readFile('supabase/migrations/20260925035559_monthly_bill_price_confirmation.sql','utf8'))
+  await db.exec(await readFile('supabase/migrations/20260925040807_bill_shares_and_admin_payment_tracking.sql','utf8'))
+  const h='00000000-0000-0000-0000-000000000001', owner='00000000-0000-0000-0000-000000000002', member='00000000-0000-0000-0000-000000000003'
+  await db.exec(`insert into households values ('${h}','America/Toronto');
+    insert into household_members values ('${owner}','${h}',true,'owner'),('${member}','${h}',true,'member');
+    set role authenticated; set test.actor='${owner}';`)
+  const bill=(await db.query('select public.save_household_bill($1::jsonb) as id',[JSON.stringify({
+    householdId:h,name:'Rent',category:'rent',amountCents:20000,dueDay:1,
+    reminderDaysBefore:[3,1,0],requiresMonthlyPrice:false,
+    members:[{memberId:owner,shareWeight:12000},{memberId:member,shareWeight:8000}],
+  })])).rows[0].id
+  await db.exec('reset role')
+  const period=(await db.query('select id from household_bill_periods where bill_id=$1 order by period_month limit 1',[bill])).rows[0].id
+  assert.deepEqual((await db.query('select member_id,amount_cents from household_bill_period_shares where period_id=$1 order by member_id',[period])).rows,
+    [{member_id:owner,amount_cents:12000},{member_id:member,amount_cents:8000}])
+  await db.exec(`set role authenticated; set test.actor='${member}';`)
+  await assert.rejects(db.query('select public.set_household_bill_member_paid($1,$2,true)',[period,owner]),/Only the admin/)
+  await db.exec(`set test.actor='${owner}';`)
+  await db.query('select public.set_household_bill_member_paid($1,$2,true)',[period,member])
+  await db.exec('reset role')
+  assert.deepEqual((await db.query('select member_id,marked_by from household_bill_payments where period_id=$1',[period])).rows,
+    [{member_id:member,marked_by:owner}])
+  await db.query('select private.generate_household_bill_periods(3)')
+  const counts=(await db.query(`select count(distinct period.id)::int as periods,
+    count(distinct share.period_id)::int as priced_periods
+    from household_bill_periods period left join household_bill_period_shares share on share.period_id=period.id
+    where period.bill_id=$1`,[bill])).rows[0]
+  assert.equal(counts.periods,4)
+  assert.equal(counts.priced_periods,4)
+  const future=(await db.query('select period_month from household_bill_periods where bill_id=$1 order by period_month desc limit 1',[bill])).rows[0].period_month.toISOString().slice(0,10)
+  await db.exec(`set role authenticated; set test.actor='${owner}';`)
+  await db.query('select public.save_household_bill($1::jsonb)',[JSON.stringify({
+    id:bill,householdId:h,name:'Updated rent',category:'rent',amountCents:20000,dueDay:5,
+    reminderDaysBefore:[7,1],requiresMonthlyPrice:false,periodMonth:future,
+    members:[{memberId:owner,shareWeight:15000},{memberId:member,shareWeight:5000}],
+  })])
+  await db.exec('reset role')
+  assert.deepEqual((await db.query('select amount_cents from household_bill_period_shares where period_id=$1 order by member_id',[period])).rows.map(row=>row.amount_cents),[12000,8000])
+  assert.deepEqual((await db.query('select share.amount_cents from household_bill_period_shares share join household_bill_periods period on period.id=share.period_id where period.bill_id=$1 and period.period_month=$2 order by share.member_id',[bill,future])).rows.map(row=>row.amount_cents),[15000,5000])
+  assert.deepEqual((await db.query('select name,due_day from household_bills where id=$1',[bill])).rows,[{name:'Updated rent',due_day:5}])
+ } finally { await db.close() }
+})

@@ -196,6 +196,7 @@ export interface HouseholdBill {
   reminderDaysBefore: number[]
   active: boolean
   memberIds: UUID[]
+  memberShares?: { memberId: UUID; shareWeight: number }[]
 }
 
 export interface HouseholdBillPeriod {
@@ -206,6 +207,8 @@ export interface HouseholdBillPeriod {
   amountCents?: MoneyCents
   priceConfirmed?: boolean
   paidMemberIds: UUID[]
+  shares?: { memberId: UUID; amountCents: MoneyCents }[]
+  payments?: { memberId: UUID; markedBy: UUID; paidAt: ISODateTime }[]
 }
 
 export interface MemberBalance {

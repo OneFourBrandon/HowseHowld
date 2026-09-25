@@ -25,6 +25,7 @@ import {
   timeUntil,
 } from '../lib/utils'
 import { useAppData } from '../state/AppDataContext'
+import { billOutstandingByMember } from '../lib/shares'
 import type { MoneyCents, UUID } from '../types'
 import { Avatar, Badge, Button } from '../components/ui'
 import { ChoreOccurrenceIcon } from '../components/ChoreOccurrenceIcon'
@@ -107,6 +108,8 @@ export function TodayPage() {
   const visibleDayCount = compactDateRange ? 3 : 7
   const visibleDays = Array.from({ length: visibleDayCount }, (_, index) => addDateKeyDays(rangeStart, index))
   const myBalance = data.balances.find((balance) => balance.memberId === currentMember.id)
+  const myBillOwing = billOutstandingByMember(data.bills, data.billPeriods, data.household.timezone).get(currentMember.id) ?? 0
+  const myTotalBalance = (myBalance?.netCents ?? 0) - myBillOwing
   const now = new Date()
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
 
@@ -366,9 +369,9 @@ export function TodayPage() {
               {myBalance && (
                 <section className="flex min-w-0 flex-col rounded-2xl bg-(--surface) px-5 py-6">
                   <h3 className="text-[.75rem]! font-semibold! tracking-wide text-(--muted) uppercase">Shared money</h3>
-                  <strong className={cn('mt-6 break-words font-sans text-[clamp(1.75rem,3vw,2.75rem)] font-medium leading-tight tracking-tight tabular-nums', myBalance.netCents < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(myBalance.netCents, true)}</strong>
+                  <strong className={cn('mt-6 break-words font-sans text-[clamp(1.75rem,3vw,2.75rem)] font-medium leading-tight tracking-tight tabular-nums', myTotalBalance < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(myTotalBalance, true)}</strong>
                   <span className="mt-7 text-[.72rem] font-semibold tracking-wide text-(--muted) uppercase">Your house balance</span>
-                  <span className="mt-2 text-[.9rem] text-(--muted)">{myBalance.netCents < 0 ? 'You owe the house' : 'The house owes you'}</span>
+                  <span className="mt-2 text-[.9rem] text-(--muted)">{myTotalBalance < 0 ? 'You owe the house' : 'The house owes you'}{myBillOwing > 0 ? ` · includes ${formatMoney(myBillOwing)} unpaid bills` : ''}</span>
                   <Link className="mt-6 w-fit rounded text-[.9rem] font-medium text-(--forest-2) underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4" to="/money">Open shared money</Link>
                 </section>
               )}
