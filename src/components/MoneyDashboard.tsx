@@ -142,12 +142,14 @@ export function MoneyDashboard({
   onSettle,
   onAddPurchase,
   onAddBill,
+  onEditBill,
 }: {
   selectedMonth: string
   onMonthChange: (month: string) => void
   onSettle: () => void
   onAddPurchase: () => void
   onAddBill: () => void
+  onEditBill: (id: string) => void
 }) {
   const {
     data,
@@ -299,7 +301,7 @@ export function MoneyDashboard({
                       }}
                     >
                       <ExpenseCategoryIcon category={expense.category} />
-                      <div className="min-w-0"><strong className="block truncate text-[.86rem]">{expense.title}</strong><span className="block truncate text-[.73rem] text-(--muted)">{getExpenseCategory(expense.category).description}{expense.receiptPath ? ' · Receipt attached' : ''}</span></div>
+                      <div className="min-w-0"><strong className="block truncate text-[.86rem]">{expense.title}</strong><span className="block truncate text-[.73rem] text-(--muted)">{getExpenseCategory(expense.category).description}{expense.receiptPath ? ' · Receipt attached' : ''}</span><span className="hidden text-[.73rem] font-semibold text-(--forest) max-[620px]:block">Your share {formatMoney(breakdown.mine?.owedCents ?? 0)}</span></div>
                       <div className="grid min-w-0 gap-2 max-[620px]:hidden"><div className="flex min-w-0 items-center gap-2"><Avatar initials={creator.initials} color={creator.color} imageUrl={creator.avatarUrl} size="sm" /><span className="truncate text-[.76rem] text-(--muted)">{payerNames.join(' & ')} paid</span></div><div className="flex items-center gap-2"><ShareBar className="w-20 shrink-0" height={6} breakdown={breakdown} /><span className="whitespace-nowrap text-[.65rem] text-(--muted)">{(breakdown.mine?.percent ?? 0).toFixed(0)}% you</span></div></div>
                       <div className="flex items-center gap-2">
                         <div className="relative" onMouseEnter={() => setPeekId(expense.id)} onMouseLeave={() => setPeekId(null)}>
@@ -365,7 +367,7 @@ export function MoneyDashboard({
                 return (
                   <div className="grid min-h-15 grid-cols-[42px_minmax(0,1fr)_90px_34px] items-center gap-3 border-b border-(--line) py-2.5" key={bill.id}>
                     <div className={cn('grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)', bill.category === 'electricity' && 'bg-(--gold-soft) text-[#8b6413] dark:text-(--gold)', bill.category === 'gas' && 'bg-[#fbe8dd] dark:bg-(--coral-soft) text-[#a34e28] dark:text-(--coral)')}><BillIcon category={bill.category} /></div>
-                    <div className="min-w-0"><strong className="block truncate text-[.83rem]">{bill.name}</strong><span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}</span></div>
+                    <div className="min-w-0"><strong className="block truncate text-[.83rem]">{bill.name}</strong>{currentMember.role === 'owner' && <button type="button" className="text-[.72rem] font-semibold text-(--forest)" aria-label={`Edit ${bill.name}`} onClick={() => onEditBill(bill.id)}>Edit</button>}<span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}</span></div>
                     <div className="text-right"><strong className="block font-sans text-[.82rem] tabular-nums">{formatMoney(period?.amountCents ?? bill.amountCents ?? 0)}</strong><span className="block truncate text-[.7rem] text-(--muted)">{currentMember.displayName}</span></div>
                     <label className="grid size-8 cursor-pointer place-items-center" title={paid ? 'Paid' : 'Mark paid'}>
                       <input className="sr-only" type="checkbox" checked={paid} disabled={!period || busy === `bill:paid:${period.id}`} onChange={(event) => { if (period) void setBillPaid(period.id, event.target.checked) }} />

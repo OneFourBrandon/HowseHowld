@@ -15,7 +15,13 @@ export function MoneyPage() {
     busy,
     addSettlement,
     addBill,
+    editBill,
   } = useAppData()
+  const [editingBill, setEditingBill] = useState<string | null>(null)
+  const [editCategory, setEditCategory] = useState<HouseholdBillCategory>('other')
+  const [editBaseline, setEditBaseline] = useState('')
+  const [editMonthly, setEditMonthly] = useState('')
+  const [editError, setEditError] = useState('')
   const [expenseModal, setExpenseModal] = useState(false)
   const [settleModal, setSettleModal] = useState(false)
   const [billModal, setBillModal] = useState(false)
@@ -42,7 +48,43 @@ export function MoneyPage() {
         onSettle={() => setSettleModal(true)}
         onAddPurchase={() => setExpenseModal(true)}
         onAddBill={() => setBillModal(true)}
+        onEditBill={(id) => {
+          const bill = data.bills.find(item => item.id === id)!
+          const period = data.billPeriods.find(item => item.billId === id && item.periodMonth.slice(0, 7) === selectedMonth)
+          setEditingBill(id)
+          setEditCategory(bill.category)
+          setEditBaseline(bill.amountCents == null ? '' : (bill.amountCents / 100).toFixed(2))
+          const amount = period?.amountCents ?? bill.amountCents
+          setEditMonthly(amount == null ? '' : (amount / 100).toFixed(2))
+          setEditError('')
+        }}
       />
+
+      <Modal open={editingBill !== null} onClose={() => setEditingBill(null)} title={`Edit ${data.bills.find(bill => bill.id === editingBill)?.name ?? 'bill'}`} description="The baseline is used for newly generated months. Existing months keep their saved amounts.">
+        <form className="form-grid grid gap-4" onSubmit={async event => {
+          event.preventDefault()
+          if (!editingBill) return
+          try {
+            const parse = (value: string) => {
+              if (!value.trim()) return undefined
+              const amount = Math.round(Number(value) * 100)
+              if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 2147483647) throw new Error('Enter an amount between $0.01 and $21,474,836.47.')
+              return cents(amount)
+            }
+            await editBill(editingBill, editCategory, parse(editBaseline), selectedMonth, parse(editMonthly))
+            setEditingBill(null)
+          } catch (error) { setEditError(error instanceof Error ? error.message : 'Could not save bill.') }
+        }}>
+          <label>Category<select value={editCategory} onChange={event => setEditCategory(event.target.value as HouseholdBillCategory)}>
+            {(['rent', 'electricity', 'water', 'gas', 'internet', 'insurance', 'other'] as const).map(category => <option key={category} value={category}>{category[0].toUpperCase() + category.slice(1)}</option>)}
+          </select></label>
+          <label>Baseline amount (CAD)<input type="number" min="0.01" max="21474836.47" step="0.01" placeholder="Variable" value={editBaseline} onChange={event => setEditBaseline(event.target.value)} /></label>
+          <label>Amount for {selectedMonth} (CAD)<input type="number" min="0.01" max="21474836.47" step="0.01" placeholder="Use baseline" value={editMonthly} onChange={event => setEditMonthly(event.target.value)} /></label>
+          <p className="text-sm text-(--muted)">Enter this month's total to account for a price difference. Leave it blank to use the baseline.</p>
+          {editError && <p role="alert">{editError}</p>}
+          <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setEditingBill(null)}>Cancel</Button><Button type="submit" disabled={busy === `bill:edit:${editingBill}`}>Save bill</Button></div>
+        </form>
+      </Modal>
 
       <Modal
         open={billModal}

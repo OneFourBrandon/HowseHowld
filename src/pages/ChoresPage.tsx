@@ -52,6 +52,7 @@ export function ChoresPage() {
     assignManualTask,
     disputeInfraction,
     voteInfraction,
+    forgiveInfraction,
   } = useAppData()
   const [taskModal, setTaskModal] = useState(false)
   const [reviewNow, setReviewNow] = useState(() => Date.now())
@@ -72,6 +73,7 @@ export function ChoresPage() {
   const [assignDate, setAssignDate] = useState(new Date().toISOString().slice(0, 10))
   const [upcomingPageIndex, setUpcomingPageIndex] = useState(0)
   const currentMemberId = data.household.currentMemberId
+  const isAdmin = data.members.some(member => member.id === currentMemberId && member.role === 'owner')
   const {
     register,
     handleSubmit,
@@ -371,9 +373,9 @@ export function ChoresPage() {
                     </Button>
                   )}
                 {reviewOpen &&
-                  infraction.status === 'disputed' &&
+                  (infraction.status === 'pending' || infraction.status === 'disputed') &&
                   !hasVoted && (
-                    <div className={"button-row flex items-center gap-2.25 flex-wrap"}>
+                    <div className="button-row flex flex-wrap gap-2.25 max-[640px]:grid max-[640px]:grid-cols-2 [&_button]:min-h-11">
                       <Button
                         variant="secondary"
                         onClick={() => voteInfraction(infraction.id, 'excuse')}
@@ -388,6 +390,12 @@ export function ChoresPage() {
                       </Button>
                     </div>
                   )}
+                {isAdmin && infraction.status !== 'excused' && (
+                  <Button size="sm" variant="secondary" disabled={busy === `forgive:${infraction.id}`}
+                    onClick={() => { void forgiveInfraction(infraction.id).catch(() => {}) }}>
+                    Forgive infraction
+                  </Button>
+                )}
                 <div className={"deadline-note flex items-center gap-1.5 text-(--muted) text-[.75rem] font-sans tabular-nums"}>
                   <Scale size={15} />
                   {reviewOpen ? `Review closes ${formatDateTime(infraction.disputeDeadline)}` : `Closed${infraction.resolvedAt ? ` ${formatDateTime(infraction.resolvedAt)}` : new Date(infraction.disputeDeadline).getTime() <= reviewNow ? ` ${formatDateTime(infraction.disputeDeadline)}` : ''}`}
