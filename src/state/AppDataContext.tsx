@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { renewPushSubscription } from '../lib/push'
 import { randomRotationStart } from '../lib/rotation'
+import { allocateBillShares } from '../lib/shares'
 import { validatePenaltyTiers } from '../lib/penalties'
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
@@ -24,6 +25,7 @@ import type {
   Expense,
   HouseholdBill,
   HouseholdFeature,
+  MoneyCents,
   SaveSharedCourseInput,
   Settlement,
   TaskDefinition,
@@ -44,6 +46,7 @@ type NewSettlement = Pick<
   'toMemberId' | 'amountCents' | 'note'
 >
 type NewBill = Omit<HouseholdBill, 'id' | 'householdId' | 'active'>
+type BillEditInput = NewBill & { periodMonth: string; monthlyAmountCents?: MoneyCents }
 type NewEvent = Omit<CalendarEvent, 'id' | 'creatorId'>
 
 interface AppDataContextValue {
@@ -76,8 +79,9 @@ interface AppDataContextValue {
   proposeFundPayment: (amountCents: number) => Promise<void>
   confirmFundPayment: (id: UUID, accept: boolean) => Promise<void>
   addBill: (bill: NewBill) => Promise<void>
-  editBill: (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents']) => Promise<void>
+  editBill: (id: UUID, input: BillEditInput) => Promise<void>
   setBillPaid: (periodId: UUID, paid: boolean) => Promise<void>
+  setBillMemberPaid: (periodId: UUID, memberId: UUID, paid: boolean) => Promise<void>
   addEvent: (event: NewEvent) => Promise<void>
   updateScheduleItemKind: (id: UUID, kind: 'class' | 'exam' | 'other') => Promise<void>
   updateCourse: (id: UUID, name: string, color: string) => Promise<void>
@@ -326,7 +330,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       run(
         `task:update:${id}`,
         async () => {
-          if (!demoMode) await api.updateTask(id, input)
+          if (!demoMode) {
+            await api.updateTask(id, input)
+            await refresh()
+            return
+          }
           setData((current) => ({
             ...current,
             tasks: current.tasks.map((task) =>
@@ -336,7 +344,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         },
         'Chore settings updated.',
       ),
-    [demoMode, run],
+    [demoMode, refresh, run],
   )
 
   const deleteTask = useCallback(async (id: UUID) => run(`task:delete:${id}`, async () => {
@@ -720,10 +728,12 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         'bill:new',
         async () => {
           if (!demoMode) {
-            await api.upsertHouseholdBill({
+            await api.saveHouseholdBill({
               ...input,
               householdId: data.household.id,
-              active: true,
+              members: input.memberIds.map(memberId => ({
+                memberId, shareWeight: input.memberShares?.find(share => share.memberId === memberId)?.shareWeight ?? 1,
+              })),
             })
             await refresh()
             return
@@ -746,8 +756,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
                 billId: id,
                 periodMonth,
                 dueAt: toIso(due),
-                amountCents: input.amountCents,
+                amountCents: input.requiresMonthlyPrice ? undefined : input.amountCents,
+                priceConfirmed: false,
                 paidMemberIds: [],
+                shares: input.requiresMonthlyPrice || input.amountCents == null ? [] : allocateBillShares(input.amountCents, input).map(share => ({ ...share, amountCents: cents(share.amountCents) })),
+                payments: [],
               }],
             }
           })
@@ -757,21 +770,37 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.id, demoMode, refresh, run],
   )
 
-  const editBill = useCallback(async (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents']) =>
+  const editBill = useCallback(async (id: UUID, input: BillEditInput) =>
     run(`bill:edit:${id}`, async () => {
       if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can edit bills.')
       if (!demoMode) {
-        await api.editHouseholdBill(id, category, amount ?? null, `${month}-01`, monthlyAmount ?? null)
+        await api.saveHouseholdBill({ ...input, id, householdId: data.household.id,
+          members: input.memberIds.map(memberId => ({
+            memberId, shareWeight: input.memberShares?.find(share => share.memberId === memberId)?.shareWeight ?? 1,
+          })),
+        })
         await refresh()
         return
       }
       setData(current => {
         const bill = current.bills.find(item => item.id === id)!
+        const month = input.periodMonth.slice(0, 7)
         const existing = current.billPeriods.find(period => period.billId === id && period.periodMonth === `${month}-01`)
-        const period = { id: existing?.id ?? uid('bill-period'), billId: id, periodMonth: `${month}-01`, dueAt: existing?.dueAt ?? toIso(new Date(`${month}-${String(bill.dueDay).padStart(2, '0')}T09:00:00`)), amountCents: monthlyAmount ?? amount, paidMemberIds: existing?.paidMemberIds ?? [] }
-        return { ...current, bills: current.bills.map(item => item.id === id ? { ...item, category, amountCents: amount } : item), billPeriods: [...current.billPeriods.filter(item => item.id !== period.id), period] }
+        const amount = input.monthlyAmountCents ?? (input.requiresMonthlyPrice ? undefined : input.amountCents)
+        const updatedBill = { ...bill, ...input }
+        const period = { id: existing?.id ?? uid('bill-period'), billId: id, periodMonth: `${month}-01`, dueAt: toIso(new Date(`${month}-${String(input.dueDay).padStart(2, '0')}T09:00:00`)), amountCents: amount, priceConfirmed: input.monthlyAmountCents != null, paidMemberIds: existing?.paidMemberIds ?? [], payments: existing?.payments ?? [], shares: amount == null ? [] : allocateBillShares(amount, updatedBill).map(share => ({ ...share, amountCents: cents(share.amountCents) })) }
+        const currentMonth = new Date().toISOString().slice(0, 7)
+        const periodIsPast = month < currentMonth
+        const selectedPeriod = (periodIsPast || Boolean(existing?.paidMemberIds.length)) && input.monthlyAmountCents == null && existing ? existing : period
+        return { ...current, bills: current.bills.map(item => item.id === id ? updatedBill : item), billPeriods: [...current.billPeriods.filter(item => item.id !== selectedPeriod.id).map(item => {
+          if (item.billId !== id || item.periodMonth.slice(0, 7) < month || item.periodMonth.slice(0, 7) < currentMonth || item.priceConfirmed || item.paidMemberIds.length) return item
+          const nextAmount = input.requiresMonthlyPrice ? undefined : input.amountCents
+          return { ...item, amountCents: nextAmount,
+            shares: nextAmount == null ? [] : allocateBillShares(nextAmount, updatedBill).map(share => ({ ...share, amountCents: cents(share.amountCents) })),
+          }
+        }), selectedPeriod] }
       })
-    }, 'Bill updated.'), [data.members, data.household.currentMemberId, demoMode, refresh, run])
+    }, 'Bill updated.'), [data.members, data.household.currentMemberId, data.household.id, demoMode, refresh, run])
 
   const setBillPaid = useCallback(
     async (periodId: UUID, paid: boolean) =>
@@ -784,11 +813,15 @@ export function AppDataProvider({ children }: PropsWithChildren) {
             billPeriods: current.billPeriods.map((period) => {
               if (period.id !== periodId) return period
               const memberId = current.household.currentMemberId
+              const payments = period.payments ?? []
               return {
                 ...period,
                 paidMemberIds: paid
                   ? [...new Set([...period.paidMemberIds, memberId])]
                   : period.paidMemberIds.filter((id) => id !== memberId),
+                payments: paid
+                  ? [...payments.filter(item => item.memberId !== memberId), { memberId, markedBy: memberId, paidAt: toIso(new Date()) }]
+                  : payments.filter(item => item.memberId !== memberId),
               }
             }),
           }))
@@ -797,6 +830,25 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       ),
     [demoMode, run],
   )
+
+  const setBillMemberPaid = useCallback(async (periodId: UUID, memberId: UUID, paid: boolean) =>
+    run(`bill:member-paid:${periodId}:${memberId}`, async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can track roommate payments.')
+      if (!demoMode) {
+        await api.setHouseholdBillMemberPaid(periodId, memberId, paid)
+        await refresh()
+        return
+      }
+      setData(current => ({ ...current, billPeriods: current.billPeriods.map(period => {
+        if (period.id !== periodId) return period
+        return { ...period,
+          paidMemberIds: paid ? [...new Set([...period.paidMemberIds, memberId])] : period.paidMemberIds.filter(id => id !== memberId),
+          payments: paid
+            ? [...(period.payments ?? []).filter(item => item.memberId !== memberId), { memberId, markedBy: current.household.currentMemberId, paidAt: toIso(new Date()) }]
+            : (period.payments ?? []).filter(item => item.memberId !== memberId),
+        }
+      }) }))
+    }, paid ? 'Roommate marked paid.' : 'Roommate marked unpaid.'), [data.members, data.household.currentMemberId, demoMode, refresh, run])
 
   const addEvent = useCallback(
     async (input: NewEvent) =>
@@ -1330,6 +1382,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addBill,
       editBill,
       setBillPaid,
+      setBillMemberPaid,
       addEvent,
       updateScheduleItemKind,
       updateCourse,
@@ -1382,6 +1435,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       addBill,
       editBill,
       setBillPaid,
+      setBillMemberPaid,
       addEvent,
       updateScheduleItemKind,
       updateCourse,

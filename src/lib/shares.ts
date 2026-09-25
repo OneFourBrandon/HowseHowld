@@ -5,7 +5,7 @@ import type {
   Member,
   UUID,
 } from '../types'
-import { splitEvenly } from './utils'
+import { dateKeyInTimeZone, splitEvenly } from './utils'
 
 /** One person's stake in a single item: what they put in, what they owe, and the gap. */
 export interface MemberShare {
@@ -92,11 +92,12 @@ export function billBreakdown(
   members: Member[],
   currentMemberId: UUID,
 ): ShareBreakdown {
-  const totalCents = period?.amountCents ?? bill.amountCents ?? 0
-  const split = splitEvenly(totalCents, bill.memberIds)
+  const totalCents = period?.amountCents ?? 0
+  const split = period?.shares?.length ? period.shares : allocateBillShares(totalCents, bill)
+  const involved = new Set(period?.shares?.length ? period.shares.map(share => share.memberId) : bill.memberIds)
 
   const rows = members
-    .filter((member) => bill.memberIds.includes(member.id))
+    .filter((member) => involved.has(member.id))
     .map((member) => {
       const owedCents = split.find((share) => share.memberId === member.id)?.amountCents ?? 0
       const settled = Boolean(period?.paidMemberIds.includes(member.id))
@@ -104,6 +105,38 @@ export function billBreakdown(
     })
 
   return assemble(totalCents, rows, currentMemberId)
+}
+
+export function allocateBillShares(totalCents: number, bill: Pick<HouseholdBill, 'memberIds' | 'memberShares'>) {
+  const members = [...bill.memberIds].sort()
+  const weights = members.map(memberId => bill.memberShares?.find(share => share.memberId === memberId)?.shareWeight ?? 1)
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  if (!totalWeight) return splitEvenly(totalCents, members)
+  let runningWeight = 0
+  return members.map((memberId, index) => {
+    const previous = Math.round(totalCents * runningWeight / totalWeight)
+    runningWeight += weights[index]
+    return { memberId, amountCents: Math.round(totalCents * runningWeight / totalWeight) - previous }
+  })
+}
+
+export function billOutstandingByMember(
+  bills: HouseholdBill[], periods: HouseholdBillPeriod[], timeZone: string, now = new Date(),
+) {
+  const currentMonth = dateKeyInTimeZone(now, timeZone).slice(0, 7)
+  const byBill = new Map(bills.map(bill => [bill.id, bill]))
+  const owing = new Map<UUID, number>()
+  for (const period of periods) {
+    if (period.amountCents == null || period.periodMonth.slice(0, 7) > currentMonth) continue
+    const bill = byBill.get(period.billId)
+    if (!bill) continue
+    const shares = period.shares?.length ? period.shares : allocateBillShares(period.amountCents, bill)
+    for (const share of shares) {
+      if (period.paidMemberIds.includes(share.memberId)) continue
+      owing.set(share.memberId, (owing.get(share.memberId) ?? 0) + share.amountCents)
+    }
+  }
+  return owing
 }
 
 /** Share of a running total, used for "this is 12% of the month" style stats. */

@@ -252,7 +252,12 @@ export const ensureRollingQueueOccurrences = (householdId: UUID, horizonDays = 3
   })
 
 export const updateTask = (taskId: UUID, input: Record<string, unknown>) =>
-  invokeRpc('update_task', { p_task_id: taskId, p_input: input })
+  invokeRpc('update_task', { p_task_id: taskId, p_input: {
+    ...input,
+    ...(Array.isArray(input.reminderTimes) ? {
+      reminderOverride: input.reminderTimes.map((value) => ({ type: 'local_time', value })),
+    } : {}),
+  } })
 
 export const deleteTask = (taskId: UUID) => invokeRpc('delete_task', { p_task_id: taskId })
 
@@ -466,8 +471,8 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('expenses').select('*, expense_payers(*), expense_shares(*)').eq('household_id', householdId).order('purchased_at', { ascending: false }),
     client.from('settlements').select('*').eq('household_id', householdId),
     client.from('fund_payments').select('*').eq('household_id', householdId).order('created_at', { ascending: false }),
-    client.from('household_bills').select('*, household_bill_members(member_id)').eq('household_id', householdId).eq('active', true).order('due_day'),
-    client.from('household_bill_periods').select('*, household_bill_payments(member_id)').eq('household_id', householdId).gte('period_month', new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1).toISOString().slice(0, 10)).order('period_month', { ascending: false }),
+    client.from('household_bills').select('*, household_bill_members(member_id,share_weight)').eq('household_id', householdId).eq('active', true).order('due_day'),
+    client.from('household_bill_periods').select('*, household_bill_payments(member_id,marked_by,paid_at), household_bill_period_shares(member_id,amount_cents)').eq('household_id', householdId).order('period_month', { ascending: false }),
     client.from('member_balances').select('*').eq('household_id', householdId),
     client.from('calendar_events').select('*, event_audiences(member_id)').eq('household_id', householdId).order('start_at'),
     client.from('courses').select('*').eq('household_id', householdId),
@@ -682,11 +687,15 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       name: row.name,
       category: row.category,
       amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),
+      requiresMonthlyPrice: row.requires_monthly_price ?? false,
       dueDay: row.due_day,
       reminderDaysBefore: row.reminder_days_before ?? [7, 3, 1, 0],
       active: row.active,
       memberIds: (row.household_bill_members ?? []).map(
         (member: { member_id: string }) => member.member_id,
+      ),
+      memberShares: (row.household_bill_members ?? []).map(
+        (member: { member_id: string; share_weight: number }) => ({ memberId: member.member_id, shareWeight: member.share_weight }),
       ),
     })),
     billPeriods: (billPeriodResult.data ?? []).map((row) => ({
@@ -695,8 +704,15 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       periodMonth: row.period_month,
       dueAt: row.due_at,
       amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),
+      priceConfirmed: row.price_confirmed ?? false,
       paidMemberIds: (row.household_bill_payments ?? []).map(
         (payment: { member_id: string }) => payment.member_id,
+      ),
+      shares: (row.household_bill_period_shares ?? []).map(
+        (share: { member_id: string; amount_cents: number }) => ({ memberId: share.member_id, amountCents: cents(share.amount_cents) }),
+      ),
+      payments: (row.household_bill_payments ?? []).map(
+        (payment: { member_id: string; marked_by: string; paid_at: string }) => ({ memberId: payment.member_id, markedBy: payment.marked_by, paidAt: payment.paid_at }),
       ),
     })),
     balances: (balanceResult.data ?? []).map((row) => ({
@@ -863,5 +879,8 @@ function expandRecurringEvents(events: CalendarEvent[]) {
   })
 }
 
-export const editHouseholdBill = (id: UUID, category: HouseholdBill['category'], amountCents: number | null, periodMonth: string, monthlyAmountCents: number | null) =>
-  invokeRpc('edit_household_bill', { p_bill_id: id, p_category: category, p_amount_cents: amountCents, p_period_month: periodMonth, p_monthly_amount_cents: monthlyAmountCents })
+export const saveHouseholdBill = (input: Record<string, unknown>) =>
+  invokeRpc<UUID>('save_household_bill', { p_input: input })
+
+export const setHouseholdBillMemberPaid = (periodId: UUID, memberId: UUID, paid: boolean) =>
+  invokeRpc('set_household_bill_member_paid', { p_period_id: periodId, p_member_id: memberId, p_paid: paid })

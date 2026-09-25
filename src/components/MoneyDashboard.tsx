@@ -1,6 +1,6 @@
 import { PurchaseDetails } from './PurchaseDetails'
 import { ShareBar, SharePeek } from './ShareBreakdown'
-import { expenseBreakdown } from '../lib/shares'
+import { billBreakdown, billOutstandingByMember, expenseBreakdown } from '../lib/shares'
 import { useMemo, useState } from 'react'
 import {
   ArrowDownLeft,
@@ -19,6 +19,7 @@ import {
   ListFilter,
   MoreHorizontal,
   Plus,
+  Pencil,
   RotateCcw,
   ShieldCheck,
   WalletCards,
@@ -159,6 +160,7 @@ export function MoneyDashboard({
     proposeFundPayment,
     confirmFundPayment,
     setBillPaid,
+    setBillMemberPaid,
     openReceipt,
   } = useAppData()
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -167,15 +169,18 @@ export function MoneyDashboard({
   const [activityFilter, setActivityFilter] = useState<'all' | 'expense' | 'settlement'>('all')
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [showAllBills, setShowAllBills] = useState(false)
+  const [expandedBillId, setExpandedBillId] = useState<string | null>(null)
   const currentMemberId = data.household.currentMemberId
   const currentMember = data.members.find((member) => member.id === currentMemberId)!
   const currentBalance = data.balances.find((balance) => balance.memberId === currentMemberId)
+  const billOwings = billOutstandingByMember(data.bills, data.billPeriods, data.household.timezone)
+  const myBillOwing = billOwings.get(currentMemberId) ?? 0
   const activeExpenses = data.expenses.filter((expense) => !expense.reversed)
   const totalHouseSpend = activeExpenses.reduce((sum, expense) => sum + expense.amountCents, 0)
   const currentMonthPurchases = activeExpenses.filter((expense) => expense.purchasedAt.slice(0, 7) === selectedMonth)
   const paidCents = currentBalance?.contributionCents ?? 0
   const usedCents = currentBalance?.resourceUseCents ?? 0
-  const netCents = currentBalance?.netCents ?? 0
+  const netCents = (currentBalance?.netCents ?? 0) - myBillOwing
   const paidPercent = paidCents + usedCents > 0 ? Math.round((paidCents / (paidCents + usedCents)) * 100) : 50
   const totalFundOwed = data.balances.reduce((sum, balance) => sum + balance.fundOwedCents, 0)
   const myFundOwed = currentBalance?.fundOwedCents ?? 0
@@ -232,10 +237,11 @@ export function MoneyDashboard({
                 <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="md" />
                 <div className="min-w-0">
                   <strong className="block truncate text-[.9rem]">{member.displayName}</strong>
-                  <span className="block text-[.73rem] text-(--muted)">{member.id === currentMemberId ? 'You' : balance.netCents > 0 ? 'Is owed' : balance.netCents < 0 ? 'Owes' : 'Settled'}</span>
-                  <strong className={cn('mt-0.5 block font-sans text-[.9rem] tabular-nums', balance.netCents < 0 ? 'text-(--coral)' : 'text-(--green)')}>
-                    {formatMoney(balance.netCents, true)}
+                  <span className="block text-[.73rem] text-(--muted)">{member.id === currentMemberId ? 'You' : balance.netCents - (billOwings.get(member.id) ?? 0) > 0 ? 'Is owed' : balance.netCents - (billOwings.get(member.id) ?? 0) < 0 ? 'Owes' : 'Settled'}</span>
+                  <strong className={cn('mt-0.5 block font-sans text-[.9rem] tabular-nums', balance.netCents - (billOwings.get(member.id) ?? 0) < 0 ? 'text-(--coral)' : 'text-(--green)')}>
+                    {formatMoney(balance.netCents - (billOwings.get(member.id) ?? 0), true)}
                   </strong>
+                  {(billOwings.get(member.id) ?? 0) > 0 && <span className="block text-[.68rem] text-(--muted)">Includes {formatMoney(billOwings.get(member.id) ?? 0)} unpaid bills</span>}
                 </div>
               </div>
             )
@@ -246,13 +252,14 @@ export function MoneyDashboard({
           <div className="grid grid-cols-3 gap-5">
             <div><span className="block text-[.76rem]">Paid</span><strong className="mt-1 block font-sans tabular-nums">{formatMoney(paidCents)}</strong></div>
             <div><span className="block text-[.76rem]">Used</span><strong className="mt-1 block font-sans tabular-nums">{formatMoney(usedCents)}</strong></div>
-            <div className="text-right"><span className="block text-[.76rem]">Net</span><strong className={cn('mt-1 block font-sans tabular-nums', netCents < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(netCents, true)}</strong></div>
+            <div className="text-right"><span className="block text-[.76rem]">Net incl. bills</span><strong className={cn('mt-1 block font-sans tabular-nums', netCents < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(netCents, true)}</strong></div>
           </div>
           <div>
             <div className="flex h-2 overflow-hidden rounded-full bg-[#bfd4b8]">
               <span className="bg-(--forest)" style={{ width: `${paidPercent}%` }} />
             </div>
             <div className="mt-2 flex justify-between text-[.73rem] text-(--muted)"><span>{paidPercent}% paid</span><span>{100 - paidPercent}% used</span></div>
+            <p className="mt-2 text-[.73rem] text-(--muted)">Your unpaid bills: {formatMoney(myBillOwing)}</p>
           </div>
         </div>
       </section>
@@ -364,15 +371,36 @@ export function MoneyDashboard({
               {visibleBills.map((bill) => {
                 const period = selectedPeriods.find((item) => item.billId === bill.id)
                 const paid = Boolean(period?.paidMemberIds.includes(currentMemberId))
+                const amount = period?.amountCents
+                const pending = amount == null
+                const breakdown = billBreakdown(bill, period, data.members, currentMemberId)
                 return (
-                  <div className="grid min-h-15 grid-cols-[42px_minmax(0,1fr)_90px_34px] items-center gap-3 border-b border-(--line) py-2.5" key={bill.id}>
+                  <div key={bill.id} className="border-b border-(--line)">
+                  <div className="grid min-h-15 grid-cols-[42px_minmax(0,1fr)_90px_34px] items-center gap-3 py-2.5">
                     <div className={cn('grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)', bill.category === 'electricity' && 'bg-(--gold-soft) text-[#8b6413] dark:text-(--gold)', bill.category === 'gas' && 'bg-[#fbe8dd] dark:bg-(--coral-soft) text-[#a34e28] dark:text-(--coral)')}><BillIcon category={bill.category} /></div>
-                    <div className="min-w-0"><strong className="block truncate text-[.83rem]">{bill.name}</strong>{currentMember.role === 'owner' && <button type="button" className="text-[.72rem] font-semibold text-(--forest)" aria-label={`Edit ${bill.name}`} onClick={() => onEditBill(bill.id)}>Edit</button>}<span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}</span></div>
-                    <div className="text-right"><strong className="block font-sans text-[.82rem] tabular-nums">{formatMoney(period?.amountCents ?? bill.amountCents ?? 0)}</strong><span className="block truncate text-[.7rem] text-(--muted)">{currentMember.displayName}</span></div>
+                    <div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><strong className="min-w-0 truncate text-[.83rem]">{bill.name}</strong>{currentMember.role === 'owner' && <button type="button" className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-(--line-strong) bg-(--surface-strong) px-2 text-[.72rem] font-bold text-(--forest) transition-colors hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--forest)" aria-label={`Edit ${bill.name}`} onClick={() => onEditBill(bill.id)}><Pencil size={13} aria-hidden="true" /> Edit</button>}</div><span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}</span><button type="button" className="mt-1 text-[.72rem] font-bold text-(--forest) underline underline-offset-2" aria-expanded={expandedBillId === bill.id} onClick={() => setExpandedBillId(expandedBillId === bill.id ? null : bill.id)}>Payment breakdown</button></div>
+                    <div className="text-right"><strong className={cn('block font-sans text-[.82rem] tabular-nums', pending && 'text-(--muted)')}>{pending ? bill.requiresMonthlyPrice || period ? 'Pending' : '—' : formatMoney(amount)}</strong><span className="block truncate text-[.7rem] text-(--muted)">{currentMember.displayName}</span></div>
                     <label className="grid size-8 cursor-pointer place-items-center" title={paid ? 'Paid' : 'Mark paid'}>
-                      <input className="sr-only" type="checkbox" checked={paid} disabled={!period || busy === `bill:paid:${period.id}`} onChange={(event) => { if (period) void setBillPaid(period.id, event.target.checked) }} />
+                      <input className="sr-only" type="checkbox" checked={paid} disabled={!period || pending || busy === `bill:paid:${period.id}`} onChange={(event) => { if (period) void setBillPaid(period.id, event.target.checked) }} />
                       {paid ? <CheckCircle2 className="text-[#6ca177] dark:text-(--green)" size={20} /> : <Circle className="text-(--muted)" size={20} />}
                     </label>
+                  </div>
+                  {expandedBillId === bill.id && <div className="grid gap-2 rounded-lg bg-(--surface-strong) px-3 py-3" aria-label={`${bill.name} payment breakdown`}>
+                    <p className="text-[.72rem] font-bold text-(--muted)">{selectedMonth} · {pending ? 'Price pending' : `${formatMoney(amount)} total`}</p>
+                    {breakdown.shares.map(share => {
+                      const payment = period?.payments?.find(item => item.memberId === share.member.id)
+                      const marker = data.members.find(member => member.id === payment?.markedBy)
+                      return <div className="flex min-h-10 items-center gap-2 border-t border-(--line) pt-2" key={share.member.id}>
+                        <Avatar initials={share.member.initials} color={share.member.color} imageUrl={share.member.avatarUrl} size="sm" />
+                        <div className="min-w-0 flex-1"><strong className="block truncate text-[.78rem]">{share.member.displayName}</strong><span className="block text-[.68rem] text-(--muted)">{share.settled ? `Paid${marker ? ` · marked by ${marker.displayName}` : ''}` : 'Unpaid'}</span></div>
+                        <strong className="font-sans text-[.78rem] tabular-nums">{pending ? 'Pending' : formatMoney(share.owedCents)}</strong>
+                        {currentMember.role === 'owner' && <label className="grid size-9 place-items-center" title={`Track payment from ${share.member.displayName}`}>
+                          <input className="sr-only" type="checkbox" aria-label={`${share.member.displayName} paid ${bill.name}`} checked={Boolean(share.settled)} disabled={!period || pending || busy === `bill:member-paid:${period.id}:${share.member.id}`} onChange={event => { if (period) void setBillMemberPaid(period.id, share.member.id, event.target.checked) }} />
+                          {share.settled ? <CheckCircle2 className="text-(--green)" size={20} /> : <Circle className="text-(--muted)" size={20} />}
+                        </label>}
+                      </div>
+                    })}
+                  </div>}
                   </div>
                 )
               })}

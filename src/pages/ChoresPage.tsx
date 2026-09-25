@@ -30,6 +30,7 @@ import {
 
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Give the chore a name.'),
+  description: z.string().trim(),
   area: z.string().trim().min(2, 'Choose an area.'),
   frequency: z.enum(['daily', 'weekly', 'monthly', 'once', 'rolling_queue']),
   interval: z.number().int().min(1).max(30),
@@ -55,6 +56,7 @@ export function ChoresPage() {
     forgiveInfraction,
   } = useAppData()
   const [taskModal, setTaskModal] = useState(false)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
   const [reviewNow, setReviewNow] = useState(() => Date.now())
   useEffect(() => {
     const timer = window.setInterval(() => setReviewNow(Date.now()), 1000)
@@ -78,12 +80,15 @@ export function ChoresPage() {
     register,
     handleSubmit,
     reset,
+    setError,
     setValue,
     watch,
     formState: { errors },
   } = useForm<TaskForm>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
+      title: '',
+      description: '',
       area: '',
       frequency: 'weekly',
       interval: 1,
@@ -120,14 +125,23 @@ export function ChoresPage() {
   }, [safeUpcomingPageIndex, upcomingPageIndex])
 
   const submitTask = handleSubmit(async (values) => {
+    if (values.frequency === 'weekly' && weekdays.length === 0) {
+      setError('frequency', { message: 'Choose at least one weekday.' })
+      return
+    }
+    if (values.assignmentMode === 'rotation' && rotationIds.length === 0) {
+      setError('assignmentMode', { message: 'Choose at least one roommate.' })
+      return
+    }
     const rollingQueue = values.frequency === 'rolling_queue'
     const recurrence = {
       frequency: values.assignmentMode === 'one_off' ? 'once' as const : values.frequency,
       interval: rollingQueue ? 1 : values.interval,
       weekdays: values.frequency === 'weekly' ? weekdays : undefined,
     }
-    await addTask({
+    const input = {
       title: values.title,
+      description: values.description,
       area: values.area,
       assignmentMode: values.assignmentMode,
       fixedMemberId: values.assignmentMode !== 'rotation' ? fixedMemberId : undefined,
@@ -137,15 +151,54 @@ export function ChoresPage() {
       dueTime: values.dueTime,
       reminderTimes,
       penaltyEnabled: values.penaltyEnabled,
-      description: '',
       rotationMemberIds:
         values.assignmentMode === 'rotation'
           ? rotationIds
           : [fixedMemberId],
-    })
+    }
+    if (editingTaskId) {
+      await updateTask(editingTaskId, input)
+    } else {
+      await addTask(input)
+    }
     reset()
     setTaskModal(false)
+    setEditingTaskId(null)
   })
+
+  const openTaskEditor = (taskId: string) => {
+    const task = data.tasks.find((item) => item.id === taskId)
+    if (!task) return
+    reset({
+      title: task.title,
+      description: task.description ?? '',
+      area: task.area,
+      frequency: task.recurrence.frequency,
+      interval: task.recurrence.interval,
+      startsOn: task.startsOn,
+      dueTime: task.dueTime,
+      assignmentMode: task.assignmentMode,
+      penaltyEnabled: task.penaltyEnabled,
+    })
+    setWeekdays(task.recurrence.weekdays ?? [1])
+    setRotationIds(task.rotationMemberIds)
+    setFixedMemberId(task.fixedMemberId ?? data.members[0]?.id ?? '')
+    setReminderTimes(task.reminderTimes)
+    setEditingTaskId(taskId)
+    setTaskModal(true)
+  }
+
+  const openNewTask = () => {
+    reset({ title: '', description: '', area: '', frequency: 'weekly', interval: 1,
+      startsOn: new Date().toISOString().slice(0, 10), dueTime: '23:59',
+      assignmentMode: 'rotation', penaltyEnabled: true })
+    setWeekdays([1])
+    setRotationIds(data.members.filter((member) => member.active).map((member) => member.id))
+    setFixedMemberId(data.members[0]?.id ?? '')
+    setReminderTimes(['09:00', '18:00', '22:00', '23:30'])
+    setEditingTaskId(null)
+    setTaskModal(true)
+  }
   const completedThisMonth = data.occurrences.filter((occurrence) => {
     if (occurrence.status !== 'completed' || !occurrence.completedAt) return false
     const completed = new Date(occurrence.completedAt)
@@ -160,7 +213,7 @@ export function ChoresPage() {
           <h1 className="page-title">Chores</h1>
           <p className="pl-2">Do your chores... or else.</p>
         </div>
-        <Button className="max-[640px]:w-full" onClick={() => setTaskModal(true)}>
+        <Button className="max-[640px]:w-full" onClick={openNewTask}>
           <Plus size={18} /> New chore
         </Button>
       </header>
@@ -312,16 +365,13 @@ export function ChoresPage() {
                       {task.assignmentMode === 'manual' && (
                         <Button size="sm" variant="ghost" onClick={() => setAssignTaskId(task.id)}>Assign</Button>
                       )}
-                      <Button size="sm" variant="ghost" onClick={() => updateTask(task.id, { active: !task.active })}>
+                      {isAdmin && <Button size="sm" variant="ghost" onClick={() => updateTask(task.id, { active: !task.active })}>
                         {task.active ? <Pause size={15} /> : <RotateCw size={15} />}
                         {task.active ? 'Pause' : 'Resume'}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => {
-                        const title = window.prompt('Rename this chore', task.title)
-                        if (title?.trim()) updateTask(task.id, { title: title.trim() })
-                      }}>
+                      </Button>}
+                      {isAdmin && <Button size="sm" variant="ghost" onClick={() => openTaskEditor(task.id)}>
                         <Pencil size={15} /> Edit
-                      </Button>
+                      </Button>}
                       <Button size="sm" variant="ghost" disabled={busy === `task:delete:${task.id}`}
                         onClick={() => {
                           if (window.confirm(`Delete "${task.title}"? Pending assignments and reminders will be removed. Completed history and penalties will be kept.`)) {
@@ -409,13 +459,16 @@ export function ChoresPage() {
       <Modal
         open={taskModal}
         onClose={() => setTaskModal(false)}
-        title="Create a chore"
-        description="Set the routine once. The server handles every turn."
+        title={editingTaskId ? 'Edit chore' : 'Create a chore'}
+        description={editingTaskId ? 'Changes to the schedule update upcoming assignments.' : 'Set the routine once. The server handles every turn.'}
       >
         <form className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"} onSubmit={submitTask}>
           <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Chore name
             <input {...register('title')} placeholder="Clean the bathroom" />
             {errors.title && <span className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{errors.title.message}</span>}
+          </label>
+          <label className="field-span-2 col-span-full max-[640px]:col-[1]">Details
+            <textarea {...register('description')} rows={3} placeholder="What needs to be done?" />
           </label>
           <label>Area
             <input {...register('area')} placeholder="e.g. Bathroom" />
@@ -483,6 +536,7 @@ export function ChoresPage() {
                   )
                 })}
               </div>
+              {errors.frequency && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.frequency.message}</span>}
             </fieldset>
           )}
           <label>Starts on
@@ -520,6 +574,7 @@ export function ChoresPage() {
                   </label>
                 ))}
               </div>
+              {errors.assignmentMode && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.assignmentMode.message}</span>}
             </fieldset>
           )}
           <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
@@ -552,7 +607,9 @@ export function ChoresPage() {
           </label>
           <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
             <Button type="button" variant="ghost" onClick={() => setTaskModal(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy === 'task:new'}>Create chore</Button>
+            <Button type="submit" disabled={busy === (editingTaskId ? `task:update:${editingTaskId}` : 'task:new')}>
+              {editingTaskId ? 'Save changes' : 'Create chore'}
+            </Button>
           </div>
         </form>
       </Modal>
