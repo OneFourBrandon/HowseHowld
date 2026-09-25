@@ -252,7 +252,12 @@ export const ensureRollingQueueOccurrences = (householdId: UUID, horizonDays = 3
   })
 
 export const updateTask = (taskId: UUID, input: Record<string, unknown>) =>
-  invokeRpc('update_task', { p_task_id: taskId, p_input: input })
+  invokeRpc('update_task', { p_task_id: taskId, p_input: {
+    ...input,
+    ...(Array.isArray(input.reminderTimes) ? {
+      reminderOverride: input.reminderTimes.map((value) => ({ type: 'local_time', value })),
+    } : {}),
+  } })
 
 export const deleteTask = (taskId: UUID) => invokeRpc('delete_task', { p_task_id: taskId })
 

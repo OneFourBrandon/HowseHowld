@@ -326,7 +326,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       run(
         `task:update:${id}`,
         async () => {
-          if (!demoMode) await api.updateTask(id, input)
+          if (!demoMode) {
+            await api.updateTask(id, input)
+            await refresh()
+            return
+          }
           setData((current) => ({
             ...current,
             tasks: current.tasks.map((task) =>
@@ -336,7 +340,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         },
         'Chore settings updated.',
       ),
-    [demoMode, run],
+    [demoMode, refresh, run],
   )
 
   const deleteTask = useCallback(async (id: UUID) => run(`task:delete:${id}`, async () => {

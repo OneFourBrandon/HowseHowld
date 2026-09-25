@@ -19,6 +19,7 @@ import {
   ListFilter,
   MoreHorizontal,
   Plus,
+  Pencil,
   RotateCcw,
   ShieldCheck,
   WalletCards,
@@ -367,7 +368,7 @@ export function MoneyDashboard({
                 return (
                   <div className="grid min-h-15 grid-cols-[42px_minmax(0,1fr)_90px_34px] items-center gap-3 border-b border-(--line) py-2.5" key={bill.id}>
                     <div className={cn('grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)', bill.category === 'electricity' && 'bg-(--gold-soft) text-[#8b6413] dark:text-(--gold)', bill.category === 'gas' && 'bg-[#fbe8dd] dark:bg-(--coral-soft) text-[#a34e28] dark:text-(--coral)')}><BillIcon category={bill.category} /></div>
-                    <div className="min-w-0"><strong className="block truncate text-[.83rem]">{bill.name}</strong>{currentMember.role === 'owner' && <button type="button" className="text-[.72rem] font-semibold text-(--forest)" aria-label={`Edit ${bill.name}`} onClick={() => onEditBill(bill.id)}>Edit</button>}<span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}</span></div>
+                    <div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><strong className="min-w-0 truncate text-[.83rem]">{bill.name}</strong>{currentMember.role === 'owner' && <button type="button" className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-(--line-strong) bg-(--surface-strong) px-2 text-[.72rem] font-bold text-(--forest) transition-colors hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--forest)" aria-label={`Edit ${bill.name}`} onClick={() => onEditBill(bill.id)}><Pencil size={13} aria-hidden="true" /> Edit</button>}</div><span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`}</span></div>
                     <div className="text-right"><strong className="block font-sans text-[.82rem] tabular-nums">{formatMoney(period?.amountCents ?? bill.amountCents ?? 0)}</strong><span className="block truncate text-[.7rem] text-(--muted)">{currentMember.displayName}</span></div>
                     <label className="grid size-8 cursor-pointer place-items-center" title={paid ? 'Paid' : 'Mark paid'}>
                       <input className="sr-only" type="checkbox" checked={paid} disabled={!period || busy === `bill:paid:${period.id}`} onChange={(event) => { if (period) void setBillPaid(period.id, event.target.checked) }} />
