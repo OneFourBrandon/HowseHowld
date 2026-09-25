@@ -76,7 +76,7 @@ interface AppDataContextValue {
   proposeFundPayment: (amountCents: number) => Promise<void>
   confirmFundPayment: (id: UUID, accept: boolean) => Promise<void>
   addBill: (bill: NewBill) => Promise<void>
-  editBill: (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents']) => Promise<void>
+  editBill: (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents'], requiresMonthlyPrice: boolean) => Promise<void>
   setBillPaid: (periodId: UUID, paid: boolean) => Promise<void>
   addEvent: (event: NewEvent) => Promise<void>
   updateScheduleItemKind: (id: UUID, kind: 'class' | 'exam' | 'other') => Promise<void>
@@ -750,7 +750,8 @@ export function AppDataProvider({ children }: PropsWithChildren) {
                 billId: id,
                 periodMonth,
                 dueAt: toIso(due),
-                amountCents: input.amountCents,
+                amountCents: input.requiresMonthlyPrice ? undefined : input.amountCents,
+                priceConfirmed: false,
                 paidMemberIds: [],
               }],
             }
@@ -761,19 +762,22 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     [data.household.id, demoMode, refresh, run],
   )
 
-  const editBill = useCallback(async (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents']) =>
+  const editBill = useCallback(async (id: UUID, category: HouseholdBill['category'], amount: HouseholdBill['amountCents'], month: string, monthlyAmount: HouseholdBill['amountCents'], requiresMonthlyPrice: boolean) =>
     run(`bill:edit:${id}`, async () => {
       if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can edit bills.')
       if (!demoMode) {
-        await api.editHouseholdBill(id, category, amount ?? null, `${month}-01`, monthlyAmount ?? null)
+        await api.editHouseholdBill(id, category, amount ?? null, `${month}-01`, monthlyAmount ?? null, requiresMonthlyPrice)
         await refresh()
         return
       }
       setData(current => {
         const bill = current.bills.find(item => item.id === id)!
         const existing = current.billPeriods.find(period => period.billId === id && period.periodMonth === `${month}-01`)
-        const period = { id: existing?.id ?? uid('bill-period'), billId: id, periodMonth: `${month}-01`, dueAt: existing?.dueAt ?? toIso(new Date(`${month}-${String(bill.dueDay).padStart(2, '0')}T09:00:00`)), amountCents: monthlyAmount ?? amount, paidMemberIds: existing?.paidMemberIds ?? [] }
-        return { ...current, bills: current.bills.map(item => item.id === id ? { ...item, category, amountCents: amount } : item), billPeriods: [...current.billPeriods.filter(item => item.id !== period.id), period] }
+        const period = { id: existing?.id ?? uid('bill-period'), billId: id, periodMonth: `${month}-01`, dueAt: existing?.dueAt ?? toIso(new Date(`${month}-${String(bill.dueDay).padStart(2, '0')}T09:00:00`)), amountCents: monthlyAmount ?? (requiresMonthlyPrice ? undefined : amount), priceConfirmed: monthlyAmount != null, paidMemberIds: existing?.paidMemberIds ?? [] }
+        const currentMonth = new Date().toISOString().slice(0, 7)
+        const periodIsPast = month < currentMonth
+        const selectedPeriod = (periodIsPast || Boolean(existing?.paidMemberIds.length)) && monthlyAmount == null && existing ? existing : period
+        return { ...current, bills: current.bills.map(item => item.id === id ? { ...item, category, amountCents: amount, requiresMonthlyPrice } : item), billPeriods: [...current.billPeriods.filter(item => item.id !== selectedPeriod.id).map(item => item.billId === id && item.periodMonth.slice(0, 7) >= month && item.periodMonth.slice(0, 7) >= currentMonth && !item.priceConfirmed && !item.paidMemberIds.length ? { ...item, amountCents: requiresMonthlyPrice ? undefined : amount } : item), selectedPeriod] }
       })
     }, 'Bill updated.'), [data.members, data.household.currentMemberId, demoMode, refresh, run])
 

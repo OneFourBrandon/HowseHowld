@@ -21,6 +21,7 @@ export function MoneyPage() {
   const [editCategory, setEditCategory] = useState<HouseholdBillCategory>('other')
   const [editBaseline, setEditBaseline] = useState('')
   const [editMonthly, setEditMonthly] = useState('')
+  const [editRequiresMonthlyPrice, setEditRequiresMonthlyPrice] = useState(false)
   const [editError, setEditError] = useState('')
   const [expenseModal, setExpenseModal] = useState(false)
   const [settleModal, setSettleModal] = useState(false)
@@ -29,6 +30,7 @@ export function MoneyPage() {
   const [billName, setBillName] = useState('')
   const [billCategory, setBillCategory] = useState<HouseholdBillCategory>('rent')
   const [billAmount, setBillAmount] = useState('')
+  const [billRequiresMonthlyPrice, setBillRequiresMonthlyPrice] = useState(false)
   const [billDueDay, setBillDueDay] = useState('1')
   const [billReminders, setBillReminders] = useState(() => new Set([7, 3, 1, 0]))
   const [billMembers, setBillMembers] = useState(
@@ -54,13 +56,14 @@ export function MoneyPage() {
           setEditingBill(id)
           setEditCategory(bill.category)
           setEditBaseline(bill.amountCents == null ? '' : (bill.amountCents / 100).toFixed(2))
-          const amount = period?.amountCents ?? bill.amountCents
+          setEditRequiresMonthlyPrice(Boolean(bill.requiresMonthlyPrice))
+          const amount = period?.priceConfirmed ? period.amountCents : undefined
           setEditMonthly(amount == null ? '' : (amount / 100).toFixed(2))
           setEditError('')
         }}
       />
 
-      <Modal open={editingBill !== null} onClose={() => setEditingBill(null)} title={`Edit ${data.bills.find(bill => bill.id === editingBill)?.name ?? 'bill'}`} description="The baseline is used for newly generated months. Existing months keep their saved amounts.">
+      <Modal open={editingBill !== null} onClose={() => setEditingBill(null)} title={`Edit ${data.bills.find(bill => bill.id === editingBill)?.name ?? 'bill'}`} description="Set the price for the selected month without changing past months.">
         <form className="form-grid grid gap-4" onSubmit={async event => {
           event.preventDefault()
           if (!editingBill) return
@@ -71,16 +74,17 @@ export function MoneyPage() {
               if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 2147483647) throw new Error('Enter an amount between $0.01 and $21,474,836.47.')
               return cents(amount)
             }
-            await editBill(editingBill, editCategory, parse(editBaseline), selectedMonth, parse(editMonthly))
+            await editBill(editingBill, editCategory, parse(editBaseline), selectedMonth, parse(editMonthly), editRequiresMonthlyPrice)
             setEditingBill(null)
           } catch (error) { setEditError(error instanceof Error ? error.message : 'Could not save bill.') }
         }}>
           <label>Category<select value={editCategory} onChange={event => setEditCategory(event.target.value as HouseholdBillCategory)}>
             {(['rent', 'electricity', 'water', 'gas', 'internet', 'insurance', 'other'] as const).map(category => <option key={category} value={category}>{category[0].toUpperCase() + category.slice(1)}</option>)}
           </select></label>
-          <label>Baseline amount (CAD)<input type="number" min="0.01" max="21474836.47" step="0.01" placeholder="Variable" value={editBaseline} onChange={event => setEditBaseline(event.target.value)} /></label>
-          <label>Amount for {selectedMonth} (CAD)<input type="number" min="0.01" max="21474836.47" step="0.01" placeholder="Use baseline" value={editMonthly} onChange={event => setEditMonthly(event.target.value)} /></label>
-          <p className="text-sm text-(--muted)">Enter this month's total to account for a price difference. Leave it blank to use the baseline.</p>
+          <label>Baseline amount (CAD)<input type="number" min="0.01" max="21474836.47" step="0.01" placeholder="Optional" value={editBaseline} onChange={event => setEditBaseline(event.target.value)} /></label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={editRequiresMonthlyPrice} onChange={event => setEditRequiresMonthlyPrice(event.target.checked)} /> Require a new price every month</label>
+          <label>Amount for {selectedMonth} (CAD)<input type="number" min="0.01" max="21474836.47" step="0.01" placeholder={editRequiresMonthlyPrice ? 'Pending until entered' : 'Use baseline'} value={editMonthly} onChange={event => setEditMonthly(event.target.value)} /></label>
+          <p className="text-sm text-(--muted)">{editRequiresMonthlyPrice ? 'Until you enter this month’s price, everyone sees Pending and cannot mark it paid.' : 'Leave this blank to use the baseline. A new baseline applies to unconfirmed current and future months only.'}</p>
           {editError && <p role="alert">{editError}</p>}
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setEditingBill(null)}>Cancel</Button><Button type="submit" disabled={busy === `bill:edit:${editingBill}`}>Save bill</Button></div>
         </form>
@@ -102,12 +106,14 @@ export function MoneyPage() {
               name: billName.trim(),
               category: billCategory,
               amountCents: amountCents && amountCents > 0 ? cents(amountCents) : undefined,
+              requiresMonthlyPrice: billRequiresMonthlyPrice,
               dueDay: Number(billDueDay),
               reminderDaysBefore: [...billReminders].sort((a, b) => b - a),
               memberIds: [...billMembers],
             })
             setBillName('')
             setBillAmount('')
+            setBillRequiresMonthlyPrice(false)
             setBillModal(false)
           }}
         >
@@ -128,6 +134,7 @@ export function MoneyPage() {
           <label>Household amount (CAD) <span className="optional">Optional</span>
             <input type="number" min="0.01" step="0.01" value={billAmount} onChange={(event) => setBillAmount(event.target.value)} placeholder="Variable" />
           </label>
+          <label className="col-span-full flex items-center gap-2"><input type="checkbox" checked={billRequiresMonthlyPrice} onChange={event => setBillRequiresMonthlyPrice(event.target.checked)} /> Require a new price every month before roommates can see or pay it</label>
           <label className="col-span-full">Due day
             <input type="number" min="1" max="28" value={billDueDay} onChange={(event) => setBillDueDay(event.target.value)} required />
           </label>

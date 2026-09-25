@@ -687,6 +687,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       name: row.name,
       category: row.category,
       amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),
+      requiresMonthlyPrice: row.requires_monthly_price ?? false,
       dueDay: row.due_day,
       reminderDaysBefore: row.reminder_days_before ?? [7, 3, 1, 0],
       active: row.active,
@@ -700,6 +701,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       periodMonth: row.period_month,
       dueAt: row.due_at,
       amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),
+      priceConfirmed: row.price_confirmed ?? false,
       paidMemberIds: (row.household_bill_payments ?? []).map(
         (payment: { member_id: string }) => payment.member_id,
       ),
@@ -868,5 +870,5 @@ function expandRecurringEvents(events: CalendarEvent[]) {
   })
 }
 
-export const editHouseholdBill = (id: UUID, category: HouseholdBill['category'], amountCents: number | null, periodMonth: string, monthlyAmountCents: number | null) =>
-  invokeRpc('edit_household_bill', { p_bill_id: id, p_category: category, p_amount_cents: amountCents, p_period_month: periodMonth, p_monthly_amount_cents: monthlyAmountCents })
+export const editHouseholdBill = (id: UUID, category: HouseholdBill['category'], amountCents: number | null, periodMonth: string, monthlyAmountCents: number | null, requiresMonthlyPrice: boolean) =>
+  invokeRpc('edit_household_bill', { p_bill_id: id, p_category: category, p_amount_cents: amountCents, p_period_month: periodMonth, p_monthly_amount_cents: monthlyAmountCents, p_requires_monthly_price: requiresMonthlyPrice })

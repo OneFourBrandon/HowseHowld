@@ -191,6 +191,7 @@ export interface HouseholdBill {
   name: string
   category: HouseholdBillCategory
   amountCents?: MoneyCents
+  requiresMonthlyPrice?: boolean
   dueDay: number
   reminderDaysBefore: number[]
   active: boolean
@@ -203,6 +204,7 @@ export interface HouseholdBillPeriod {
   periodMonth: string
   dueAt: ISODateTime
   amountCents?: MoneyCents
+  priceConfirmed?: boolean
   paidMemberIds: UUID[]
 }
 

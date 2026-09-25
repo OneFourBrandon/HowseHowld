@@ -92,7 +92,7 @@ export function billBreakdown(
   members: Member[],
   currentMemberId: UUID,
 ): ShareBreakdown {
-  const totalCents = period?.amountCents ?? bill.amountCents ?? 0
+  const totalCents = period?.amountCents ?? 0
   const split = splitEvenly(totalCents, bill.memberIds)
 
   const rows = members

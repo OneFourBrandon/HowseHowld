@@ -170,8 +170,8 @@ export function TodayPage() {
           sortAt: new Date(period.dueAt).getTime(),
           timeLabel: 'All day',
           title: `${bill.name} due`,
-          subtitle: period.paidMemberIds.includes(currentMember.id) ? 'Your payment is complete' : 'Your payment is due',
-          amountCents: period.amountCents ?? bill.amountCents,
+          subtitle: period.amountCents == null ? 'Price pending' : period.paidMemberIds.includes(currentMember.id) ? 'Your payment is complete' : 'Your payment is due',
+          amountCents: period.amountCents,
           paid: period.paidMemberIds.includes(currentMember.id),
           href: '/money',
         })
@@ -378,7 +378,7 @@ export function TodayPage() {
                   <>
                     <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                       <span className="min-w-0 break-words text-[1.05rem] font-semibold">{nextBill.title.replace(/ due$/, '')}</span>
-                      <strong className="font-sans text-[1.15rem] font-medium text-(--gold) tabular-nums">{nextBill.amountCents != null ? formatMoney(nextBill.amountCents) : 'Variable'}</strong>
+                      <strong className="font-sans text-[1.15rem] font-medium text-(--gold) tabular-nums">{nextBill.amountCents != null ? formatMoney(nextBill.amountCents) : 'Pending'}</strong>
                     </div>
                     <p className="mt-2 text-[.85rem] text-(--muted)">{nextBill.dateKey === householdToday ? 'Due today' : `Due ${shortDate.format(dateFromKey(nextBill.dateKey))}`}</p>
                   </>
