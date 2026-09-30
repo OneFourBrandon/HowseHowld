@@ -25,7 +25,7 @@ import {
   timeUntil,
 } from '../lib/utils'
 import { useAppData } from '../state/AppDataContext'
-import { billOutstandingByMember } from '../lib/shares'
+import { billBalanceAdjustments } from '../lib/shares'
 import type { MoneyCents, UUID } from '../types'
 import { Avatar, Badge, Button } from '../components/ui'
 import { ChoreOccurrenceIcon } from '../components/ChoreOccurrenceIcon'
@@ -96,7 +96,7 @@ function AgendaIcon({
 }
 
 export function TodayPage() {
-  const { data, busy, completeOccurrence } = useAppData()
+  const { data, demoMode, busy, completeOccurrence } = useAppData()
   const currentMember = data.members.find((member) => member.id === data.household.currentMemberId)!
   const householdToday = dateKeyInTimeZone(new Date(), data.household.timezone)
   const [selectedDate, setSelectedDate] = useState(householdToday)
@@ -108,8 +108,8 @@ export function TodayPage() {
   const visibleDayCount = compactDateRange ? 3 : 7
   const visibleDays = Array.from({ length: visibleDayCount }, (_, index) => addDateKeyDays(rangeStart, index))
   const myBalance = data.balances.find((balance) => balance.memberId === currentMember.id)
-  const myBillOwing = billOutstandingByMember(data.bills, data.billPeriods, data.household.timezone).get(currentMember.id) ?? 0
-  const myTotalBalance = (myBalance?.netCents ?? 0) - myBillOwing
+  const demoBillBalance = demoMode ? billBalanceAdjustments(data.bills, data.billPeriods, data.household.timezone).get(currentMember.id) ?? 0 : 0
+  const myTotalBalance = (myBalance?.netCents ?? 0) + demoBillBalance
   const now = new Date()
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
 
@@ -371,7 +371,7 @@ export function TodayPage() {
                   <h3 className="text-[.75rem]! font-semibold! tracking-wide text-(--muted) uppercase">Shared money</h3>
                   <strong className={cn('mt-6 break-words font-sans text-[clamp(1.75rem,3vw,2.75rem)] font-medium leading-tight tracking-tight tabular-nums', myTotalBalance < 0 ? 'text-(--coral)' : 'text-(--green)')}>{formatMoney(myTotalBalance, true)}</strong>
                   <span className="mt-7 text-[.72rem] font-semibold tracking-wide text-(--muted) uppercase">Your house balance</span>
-                  <span className="mt-2 text-[.9rem] text-(--muted)">{myTotalBalance < 0 ? 'You owe the house' : 'The house owes you'}{myBillOwing > 0 ? ` · includes ${formatMoney(myBillOwing)} unpaid bills` : ''}</span>
+                  <span className="mt-2 text-[.9rem] text-(--muted)">{myTotalBalance < 0 ? 'You owe the household' : 'The household owes you'}</span>
                   <Link className="mt-6 w-fit rounded text-[.9rem] font-medium text-(--forest-2) underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4" to="/money">Open shared money</Link>
                 </section>
               )}

@@ -686,6 +686,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
       householdId: row.household_id,
       name: row.name,
       category: row.category,
+      payeeMemberId: row.payee_member_id,
       amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),
       requiresMonthlyPrice: row.requires_monthly_price ?? false,
       dueDay: row.due_day,
@@ -701,6 +702,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     billPeriods: (billPeriodResult.data ?? []).map((row) => ({
       id: row.id,
       billId: row.bill_id,
+      payeeMemberId: row.payee_member_id,
       periodMonth: row.period_month,
       dueAt: row.due_at,
       amountCents: row.amount_cents == null ? undefined : cents(row.amount_cents),

@@ -73,6 +73,27 @@ test('bill edit controls are visible and open the editor', async ({ page }) => {
   await expect(page.getByRole('spinbutton', { name: 'Due day' })).toBeVisible()
   await expect(page.getByRole('group', { name: 'Remind unpaid roommates' })).toBeVisible()
   await expect(page.getByRole('group', { name: 'Who needs to pay?' })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Who is owed this bill?' })).toBeVisible()
+})
+
+test('future bill payer changes preserve the current month payer', async ({ page }) => {
+  await page.goto('/money')
+  await expect(page.locator('#bills')).toContainText('Owed to Brandon')
+  await page.getByRole('button', { name: 'Next month' }).click()
+  await page.getByRole('button', { name: 'Edit Monthly rent' }).click()
+  await page.getByRole('combobox', { name: 'Who is owed this bill?' }).selectOption('member-maya')
+  await page.getByRole('button', { name: 'Save bill' }).click()
+  await expect(page.locator('#bills')).toContainText('Owed to Maya')
+  await page.getByRole('button', { name: 'Previous month' }).click()
+  await expect(page.locator('#bills')).toContainText('Owed to Brandon')
+})
+
+test('incoming payment names its sender and admin can delete a roommate charge', async ({ page }) => {
+  await page.goto('/money')
+  await expect(page.getByText('Payment from Noah')).toBeVisible()
+  page.once('dialog', dialog => dialog.accept('Duplicate charge'))
+  await page.getByRole('button', { name: 'Delete charge Kitchen spices' }).click()
+  await expect(page.getByRole('button', { name: 'Delete charge Kitchen spices' })).toBeHidden()
 })
 
 test('future bill prices do not change past months and variable prices stay pending', async ({ page }) => {

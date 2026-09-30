@@ -245,6 +245,7 @@ export const demoSnapshot: AppSnapshot = {
       householdId: 'house-maple',
       name: 'Monthly rent',
       category: 'rent',
+      payeeMemberId: 'member-brandon',
       amountCents: cents(320_000),
       dueDay: 1,
       reminderDaysBefore: [7, 3, 1, 0],
@@ -256,6 +257,7 @@ export const demoSnapshot: AppSnapshot = {
       householdId: 'house-maple',
       name: 'Internet',
       category: 'internet',
+      payeeMemberId: 'member-brandon',
       amountCents: cents(8_900),
       dueDay: 15,
       reminderDaysBefore: [3, 1, 0],
@@ -267,6 +269,7 @@ export const demoSnapshot: AppSnapshot = {
     {
       id: 'bill-period-rent',
       billId: 'bill-rent',
+      payeeMemberId: 'member-brandon',
       periodMonth: currentMonth,
       dueAt: at(2, 9),
       amountCents: cents(320_000),
@@ -275,6 +278,7 @@ export const demoSnapshot: AppSnapshot = {
     {
       id: 'bill-period-internet',
       billId: 'bill-internet',
+      payeeMemberId: 'member-brandon',
       periodMonth: currentMonth,
       dueAt: at(8, 9),
       amountCents: cents(8_900),

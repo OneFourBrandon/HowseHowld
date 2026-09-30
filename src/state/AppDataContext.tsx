@@ -599,7 +599,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       run(
         `expense:reverse:${id}`,
         async () => {
-          if (!demoMode) await api.reverseExpense(id, reason)
+          if (!demoMode) {
+            await api.reverseExpense(id, reason)
+            await refresh()
+            return
+          }
           setData((current) => ({
             ...current,
             expenses: current.expenses.map((expense) =>
@@ -618,9 +622,9 @@ export function AppDataProvider({ children }: PropsWithChildren) {
             ],
           }))
         },
-        'Expense reversed with an audit entry.',
+        'Charge deleted with an audit entry.',
       ),
-    [demoMode, run],
+    [demoMode, refresh, run],
   )
 
   const addSettlement = useCallback(
@@ -754,6 +758,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
               billPeriods: [...current.billPeriods, {
                 id: uid('bill-period'),
                 billId: id,
+                payeeMemberId: input.payeeMemberId,
                 periodMonth,
                 dueAt: toIso(due),
                 amountCents: input.requiresMonthlyPrice ? undefined : input.amountCents,
@@ -788,7 +793,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         const existing = current.billPeriods.find(period => period.billId === id && period.periodMonth === `${month}-01`)
         const amount = input.monthlyAmountCents ?? (input.requiresMonthlyPrice ? undefined : input.amountCents)
         const updatedBill = { ...bill, ...input }
-        const period = { id: existing?.id ?? uid('bill-period'), billId: id, periodMonth: `${month}-01`, dueAt: toIso(new Date(`${month}-${String(input.dueDay).padStart(2, '0')}T09:00:00`)), amountCents: amount, priceConfirmed: input.monthlyAmountCents != null, paidMemberIds: existing?.paidMemberIds ?? [], payments: existing?.payments ?? [], shares: amount == null ? [] : allocateBillShares(amount, updatedBill).map(share => ({ ...share, amountCents: cents(share.amountCents) })) }
+        const period = { id: existing?.id ?? uid('bill-period'), billId: id, payeeMemberId: input.payeeMemberId, periodMonth: `${month}-01`, dueAt: toIso(new Date(`${month}-${String(input.dueDay).padStart(2, '0')}T09:00:00`)), amountCents: amount, priceConfirmed: input.monthlyAmountCents != null, paidMemberIds: existing?.paidMemberIds ?? [], payments: existing?.payments ?? [], shares: amount == null ? [] : allocateBillShares(amount, updatedBill).map(share => ({ ...share, amountCents: cents(share.amountCents) })) }
         const currentMonth = new Date().toISOString().slice(0, 7)
         const periodIsPast = month < currentMonth
         const selectedPeriod = (periodIsPast || Boolean(existing?.paidMemberIds.length)) && input.monthlyAmountCents == null && existing ? existing : period
@@ -796,6 +801,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
           if (item.billId !== id || item.periodMonth.slice(0, 7) < month || item.periodMonth.slice(0, 7) < currentMonth || item.priceConfirmed || item.paidMemberIds.length) return item
           const nextAmount = input.requiresMonthlyPrice ? undefined : input.amountCents
           return { ...item, amountCents: nextAmount,
+            payeeMemberId: input.payeeMemberId,
             shares: nextAmount == null ? [] : allocateBillShares(nextAmount, updatedBill).map(share => ({ ...share, amountCents: cents(share.amountCents) })),
           }
         }), selectedPeriod] }
@@ -807,7 +813,11 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       run(
         `bill:paid:${periodId}`,
         async () => {
-          if (!demoMode) await api.setHouseholdBillPaid(periodId, paid)
+          if (!demoMode) {
+            await api.setHouseholdBillPaid(periodId, paid)
+            await refresh()
+            return
+          }
           setData((current) => ({
             ...current,
             billPeriods: current.billPeriods.map((period) => {
@@ -828,7 +838,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         },
         paid ? 'Marked paid for this month.' : 'Marked unpaid for this month.',
       ),
-    [demoMode, run],
+    [demoMode, refresh, run],
   )
 
   const setBillMemberPaid = useCallback(async (periodId: UUID, memberId: UUID, paid: boolean) =>

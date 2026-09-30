@@ -79,6 +79,7 @@ export function MoneyPage() {
   } = useAppData()
   const [editingBill, setEditingBill] = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState<HouseholdBillCategory>('other')
+  const [editPayee, setEditPayee] = useState('')
   const [editName, setEditName] = useState('')
   const [editDueDay, setEditDueDay] = useState('1')
   const [editReminders, setEditReminders] = useState(() => new Set([7, 3, 1, 0]))
@@ -95,6 +96,7 @@ export function MoneyPage() {
   const [selectedMonth, setSelectedMonth] = useState(monthValue)
   const [billName, setBillName] = useState('')
   const [billCategory, setBillCategory] = useState<HouseholdBillCategory>('rent')
+  const [billPayee, setBillPayee] = useState(data.household.currentMemberId)
   const [billAmount, setBillAmount] = useState('')
   const [billRequiresMonthlyPrice, setBillRequiresMonthlyPrice] = useState(false)
   const [billCustomShares, setBillCustomShares] = useState(false)
@@ -118,13 +120,14 @@ export function MoneyPage() {
         onMonthChange={setSelectedMonth}
         onSettle={() => setSettleModal(true)}
         onAddPurchase={() => setExpenseModal(true)}
-        onAddBill={() => setBillModal(true)}
+        onAddBill={() => { setBillPayee(currentMemberId); setBillModal(true) }}
         onEditBill={(id) => {
           const bill = data.bills.find(item => item.id === id)!
           const period = data.billPeriods.find(item => item.billId === id && item.periodMonth.slice(0, 7) === selectedMonth)
           setEditingBill(id)
           setEditName(bill.name)
           setEditCategory(bill.category)
+          setEditPayee(period?.payeeMemberId ?? bill.payeeMemberId)
           setEditDueDay(String(bill.dueDay))
           setEditReminders(new Set(bill.reminderDaysBefore))
           setEditMembers(new Set(bill.memberIds))
@@ -150,7 +153,7 @@ export function MoneyPage() {
             const amountCents = parseAmount(editBaseline)
             const memberShares = billShareWeights(editMembers, editCustomShares, editShareAmounts, amountCents)
             await editBill(editingBill, {
-              name: editName.trim(), category: editCategory, amountCents,
+              name: editName.trim(), category: editCategory, payeeMemberId: editPayee, amountCents,
               dueDay: Number(editDueDay), reminderDaysBefore: [...editReminders].sort((a, b) => b - a),
               requiresMonthlyPrice: editRequiresMonthlyPrice, memberIds: [...editMembers], memberShares,
               periodMonth: `${selectedMonth}-01`, monthlyAmountCents: parseAmount(editMonthly),
@@ -161,6 +164,9 @@ export function MoneyPage() {
           <label>Name<input value={editName} onChange={event => setEditName(event.target.value)} required /></label>
           <label>Type<select value={editCategory} onChange={event => setEditCategory(event.target.value as HouseholdBillCategory)}>
             {(['rent', 'electricity', 'water', 'gas', 'internet', 'insurance', 'other'] as const).map(category => <option key={category} value={category}>{category[0].toUpperCase() + category.slice(1)}</option>)}
+          </select></label>
+          <label>Who is owed this bill?<select value={editPayee} onChange={event => setEditPayee(event.target.value)} required>
+            {data.members.filter(member => member.active).map(member => <option key={member.id} value={member.id}>{member.displayName}</option>)}
           </select></label>
           <label>Baseline amount (CAD)<input type="number" min="0.01" max="21474836.47" step="0.01" placeholder="Optional" value={editBaseline} onChange={event => setEditBaseline(event.target.value)} /></label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={editRequiresMonthlyPrice} onChange={event => setEditRequiresMonthlyPrice(event.target.checked)} /> Require a new price every month</label>
@@ -195,7 +201,7 @@ export function MoneyPage() {
               const amountCents = parseAmount(billAmount)
               const memberShares = billShareWeights(billMembers, billCustomShares, billShareAmounts, amountCents)
               await addBill({
-                name: billName.trim(), category: billCategory, amountCents,
+                name: billName.trim(), category: billCategory, payeeMemberId: billPayee, amountCents,
                 requiresMonthlyPrice: billRequiresMonthlyPrice, dueDay: Number(billDueDay),
                 reminderDaysBefore: [...billReminders].sort((a, b) => b - a),
                 memberIds: [...billMembers], memberShares,
@@ -224,6 +230,9 @@ export function MoneyPage() {
               <option value="other">Other</option>
             </select>
           </label>
+          <label>Who paid this bill?<select value={billPayee} onChange={event => setBillPayee(event.target.value)} required>
+            {data.members.filter(member => member.active).map(member => <option key={member.id} value={member.id}>{member.displayName}</option>)}
+          </select></label>
           <label>Household amount (CAD) <span className="optional">Optional</span>
             <input type="number" min="0.01" step="0.01" value={billAmount} onChange={(event) => setBillAmount(event.target.value)} placeholder="Variable" />
           </label>

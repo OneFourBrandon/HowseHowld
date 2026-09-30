@@ -120,23 +120,26 @@ export function allocateBillShares(totalCents: number, bill: Pick<HouseholdBill,
   })
 }
 
-export function billOutstandingByMember(
+/** Demo data does not use the database balance view; mirror its bill adjustment. */
+export function billBalanceAdjustments(
   bills: HouseholdBill[], periods: HouseholdBillPeriod[], timeZone: string, now = new Date(),
 ) {
   const currentMonth = dateKeyInTimeZone(now, timeZone).slice(0, 7)
   const byBill = new Map(bills.map(bill => [bill.id, bill]))
-  const owing = new Map<UUID, number>()
+  const net = new Map<UUID, number>()
   for (const period of periods) {
     if (period.amountCents == null || period.periodMonth.slice(0, 7) > currentMonth) continue
     const bill = byBill.get(period.billId)
     if (!bill) continue
+    const payee = period.payeeMemberId ?? bill.payeeMemberId
     const shares = period.shares?.length ? period.shares : allocateBillShares(period.amountCents, bill)
     for (const share of shares) {
-      if (period.paidMemberIds.includes(share.memberId)) continue
-      owing.set(share.memberId, (owing.get(share.memberId) ?? 0) + share.amountCents)
+      if (share.memberId === payee || period.paidMemberIds.includes(share.memberId)) continue
+      net.set(share.memberId, (net.get(share.memberId) ?? 0) - share.amountCents)
+      net.set(payee, (net.get(payee) ?? 0) + share.amountCents)
     }
   }
-  return owing
+  return net
 }
 
 /** Share of a running total, used for "this is 12% of the month" style stats. */
