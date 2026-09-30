@@ -166,4 +166,3 @@ test('admin sets unequal bill shares and tracks another roommate payment', async
   await breakdown.getByTitle('Track payment from Maya').click()
   await expect(breakdown).toContainText('Paid · marked by Brandon')
 })
-
