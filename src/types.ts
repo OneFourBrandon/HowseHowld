@@ -190,6 +190,7 @@ export interface HouseholdBill {
   householdId: UUID
   name: string
   category: HouseholdBillCategory
+  payeeMemberId: UUID
   amountCents?: MoneyCents
   requiresMonthlyPrice?: boolean
   dueDay: number
@@ -202,6 +203,7 @@ export interface HouseholdBill {
 export interface HouseholdBillPeriod {
   id: UUID
   billId: UUID
+  payeeMemberId: UUID
   periodMonth: string
   dueAt: ISODateTime
   amountCents?: MoneyCents
