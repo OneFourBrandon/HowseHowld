@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test'
 
+test('admin deletes a direct payment on mobile', async ({ page }) => {
+  await page.goto('/money')
+  await expect(page.getByText('Payment from Noah')).toBeVisible()
+  page.on('dialog', dialog => dialog.accept('Recorded by mistake'))
+  await page.getByRole('button', { name: 'Delete payment from Noah to Brandon' }).click()
+  await expect(page.getByText('Payment from Noah')).toHaveCount(0)
+  await expect(page.getByText('Payment deleted and balances updated.')).toBeVisible()
+})
+
+test('bill tap opens breakdown while edit stays independent', async ({ page }) => {
+  await page.goto('/money')
+  const row = page.getByRole('button', { name: 'View payment breakdown for Monthly rent' })
+  await row.click()
+  await expect(page.getByLabel('Monthly rent payment breakdown')).toBeVisible()
+  await row.click()
+  await expect(page.getByLabel('Monthly rent payment breakdown')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Edit Monthly rent' }).click()
+  await expect(page.getByLabel('Monthly rent payment breakdown')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Save bill' })).toBeVisible()
+})
+
 test('navigates the complete demo household', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)/ })).toBeVisible()
@@ -137,11 +158,12 @@ test('admin sets unequal bill shares and tracks another roommate payment', async
   await payers.getByRole('spinbutton', { name: 'Maya share (CAD)' }).fill('30.00')
   await page.getByRole('button', { name: 'Add monthly bill' }).click()
 
-  const row = page.locator('#bills').getByText('Test rent').locator('..').locator('..').locator('..')
-  await row.getByRole('button', { name: 'Payment breakdown' }).click()
+  const row = page.getByRole('button', { name: 'View payment breakdown for Test rent' })
+  await row.click()
   const breakdown = page.getByLabel('Test rent payment breakdown')
   await expect(breakdown).toContainText('$70.00')
   await expect(breakdown).toContainText('$30.00')
   await breakdown.getByTitle('Track payment from Maya').click()
   await expect(breakdown).toContainText('Paid · marked by Brandon')
 })
+

@@ -76,6 +76,7 @@ interface AppDataContextValue {
   reverseExpense: (id: UUID, reason: string) => Promise<void>
   addSettlement: (settlement: NewSettlement) => Promise<void>
   confirmSettlement: (id: UUID, accept: boolean) => Promise<void>
+  deleteSettlement: (id: UUID, reason: string) => Promise<void>
   proposeFundPayment: (amountCents: number) => Promise<void>
   confirmFundPayment: (id: UUID, accept: boolean) => Promise<void>
   addBill: (bill: NewBill) => Promise<void>
@@ -675,6 +676,31 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         accept ? 'Payment confirmed.' : 'Payment rejected.',
       ),
     [demoMode, run],
+  )
+
+  const deleteSettlement = useCallback(
+    async (id: UUID, reason: string) => run(`settlement:delete:${id}`, async () => {
+      if (!demoMode) {
+        await api.deleteSettlement(id, reason)
+        await refresh()
+        return
+      }
+      setData(current => {
+        const payment = current.settlements.find(item => item.id === id)
+        return {
+          ...current,
+          settlements: current.settlements.filter(item => item.id !== id),
+          balances: current.balances.map(balance => {
+            const adjustment = payment?.status === 'confirmed'
+              ? balance.memberId === payment.fromMemberId ? -payment.amountCents
+                : balance.memberId === payment.toMemberId ? payment.amountCents : 0
+              : 0
+            return { ...balance, netCents: cents(balance.netCents + adjustment), settlementAdjustmentCents: cents(balance.settlementAdjustmentCents + adjustment) }
+          }),
+        }
+      })
+    }, 'Payment deleted and balances updated.'),
+    [demoMode, refresh, run],
   )
 
   const proposeFundPayment = useCallback(
@@ -1387,6 +1413,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       parkVehicle,
       addSettlement,
       confirmSettlement,
+      deleteSettlement,
       proposeFundPayment,
       confirmFundPayment,
       addBill,
@@ -1440,6 +1467,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       parkVehicle,
       addSettlement,
       confirmSettlement,
+      deleteSettlement,
       proposeFundPayment,
       confirmFundPayment,
       addBill,
