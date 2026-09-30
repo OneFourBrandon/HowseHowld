@@ -318,6 +318,9 @@ export const confirmSettlement = (settlementId: UUID, accept: boolean) =>
     p_accept: accept,
   })
 
+export const deleteSettlement = (settlementId: UUID, reason: string) =>
+  invokeRpc('delete_settlement', { p_settlement_id: settlementId, p_reason: reason })
+
 export const proposeFundPayment = (amountCents: number) =>
   invokeRpc<UUID>('propose_fund_payment', { p_amount_cents: amountCents })
 
@@ -469,7 +472,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('task_occurrences').select('*').eq('household_id', householdId).order('due_at'),
     client.from('infractions').select('*, infraction_votes(voter_member_id,choice)').eq('household_id', householdId),
     client.from('expenses').select('*, expense_payers(*), expense_shares(*)').eq('household_id', householdId).order('purchased_at', { ascending: false }),
-    client.from('settlements').select('*').eq('household_id', householdId),
+    client.from('settlements').select('*').eq('household_id', householdId).is('reversed_at', null),
     client.from('fund_payments').select('*').eq('household_id', householdId).order('created_at', { ascending: false }),
     client.from('household_bills').select('*, household_bill_members(member_id,share_weight)').eq('household_id', householdId).eq('active', true).order('due_day'),
     client.from('household_bill_periods').select('*, household_bill_payments(member_id,marked_by,paid_at), household_bill_period_shares(member_id,amount_cents)').eq('household_id', householdId).order('period_month', { ascending: false }),

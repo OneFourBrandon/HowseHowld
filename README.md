@@ -94,7 +94,11 @@ to bypass Focus or silent mode.
 5. Generate one VAPID key pair. Add the values from
    `supabase/functions/.env.example` as Edge Function secrets.
 6. Deploy `push-subscribe`, `push-dispatch`, and `import-ics`.
-7. Replace the placeholders in `supabase/setup_push_cron.sql` and run it once.
+7. Replace the URL and publishable-key placeholders in
+   `supabase/setup_push_cron.sql` and run it once. It generates an encrypted
+   dispatch credential in Vault; the Edge Function verifies it through a
+   service-role-only database function. Check Cron run history for successful
+   dispatches after setup.
 8. Add `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and
    `VITE_VAPID_PUBLIC_KEY` to Vercel, then deploy the static Vite build.
 9. Run Supabase database advisors and complete the four-device acceptance

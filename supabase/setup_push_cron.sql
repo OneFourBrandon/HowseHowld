@@ -2,7 +2,9 @@
 -- executing in the Supabase SQL editor. Secrets remain encrypted in Vault.
 select vault.create_secret('https://PROJECT_REF.supabase.co', 'project_url');
 select vault.create_secret('PUBLISHABLE_KEY', 'publishable_key');
-select vault.create_secret('LONG_RANDOM_DISPATCH_SECRET', 'dispatch_secret');
+-- The Edge Function verifies this through a service-role-only RPC; it does not
+-- need to be copied into an environment variable.
+select vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'), 'dispatch_secret');
 
 select cron.schedule(
   'howsehowld-dispatch-web-push',
