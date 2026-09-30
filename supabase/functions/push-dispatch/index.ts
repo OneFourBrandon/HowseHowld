@@ -1,6 +1,7 @@
 import "@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "@supabase/supabase-js"
 import webpush from "web-push"
+import { isDispatchAuthorized } from "./dispatch-auth.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,11 +49,17 @@ export default {
           .single()
         if (memberError || !member) return json({ error: "No active household" }, 403)
         testMember = member
-      } else if (
-        !Deno.env.get("DISPATCH_SECRET") ||
-        req.headers.get("X-Dispatch-Secret") !== Deno.env.get("DISPATCH_SECRET")
-      ) {
-        return json({ error: "Invalid dispatcher secret" }, 401)
+      } else {
+        const authorized = await isDispatchAuthorized(
+          req.headers.get("X-Dispatch-Secret"),
+          Deno.env.get("DISPATCH_SECRET"),
+          async secret => {
+            const { data, error } = await admin.rpc("verify_push_dispatch_secret", { p_secret: secret })
+            if (error) throw error
+            return data === true
+          },
+        )
+        if (!authorized) return json({ error: "Invalid dispatcher secret" }, 401)
       }
 
       const publicKey = Deno.env.get("VAPID_PUBLIC_KEY")
