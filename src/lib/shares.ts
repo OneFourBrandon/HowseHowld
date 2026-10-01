@@ -100,7 +100,7 @@ export function billBreakdown(
     .filter((member) => involved.has(member.id))
     .map((member) => {
       const owedCents = split.find((share) => share.memberId === member.id)?.amountCents ?? 0
-      const settled = Boolean(period?.paidMemberIds.includes(member.id))
+      const settled = member.id === (period?.payeeMemberId ?? bill.payeeMemberId)
       return { member, paidCents: settled ? owedCents : 0, owedCents, settled }
     })
 
@@ -134,7 +134,7 @@ export function billBalanceAdjustments(
     const payee = period.payeeMemberId ?? bill.payeeMemberId
     const shares = period.shares?.length ? period.shares : allocateBillShares(period.amountCents, bill)
     for (const share of shares) {
-      if (share.memberId === payee || period.paidMemberIds.includes(share.memberId)) continue
+      if (share.memberId === payee) continue
       net.set(share.memberId, (net.get(share.memberId) ?? 0) - share.amountCents)
       net.set(payee, (net.get(payee) ?? 0) + share.amountCents)
     }
