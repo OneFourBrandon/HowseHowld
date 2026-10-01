@@ -145,7 +145,7 @@ test('future bill prices do not change past months and variable prices stay pend
   await expect(page.locator('#bills').getByText('Pending')).toBeVisible()
 })
 
-test('admin sets unequal bill shares and tracks another roommate payment', async ({ page }) => {
+test('admin sets unequal bill shares without paid checkboxes', async ({ page }) => {
   await page.goto('/money')
   await page.getByRole('button', { name: 'Add bill' }).click()
   await page.getByRole('textbox', { name: 'Name' }).fill('Test rent')
@@ -161,8 +161,8 @@ test('admin sets unequal bill shares and tracks another roommate payment', async
   const row = page.getByRole('button', { name: 'View payment breakdown for Test rent' })
   await row.click()
   const breakdown = page.getByLabel('Test rent payment breakdown')
-  await expect(breakdown).toContainText('$70.00')
+  await expect(breakdown).toContainText('$0.00')
   await expect(breakdown).toContainText('$30.00')
-  await breakdown.getByTitle('Track payment from Maya').click()
-  await expect(breakdown).toContainText('Paid · marked by Brandon')
+  await expect(breakdown.getByRole('checkbox')).toHaveCount(0)
+  await expect(breakdown).toContainText('Use Settle up')
 })

@@ -172,12 +172,13 @@ select set_config(
   '00000000-0000-0000-0000-000000000002',
   true
 );
-select lives_ok(
+select throws_ok(
   $$select public.set_household_bill_paid(
     '15000000-0000-0000-0000-000000000001',
     true
   )$$,
-  'an assigned roommate can check off their own payment'
+  'P0001', 'Record a direct payment through Settle up instead',
+  'bill checkbox API is disabled'
 );
 select is(
   (
@@ -185,8 +186,8 @@ select is(
     from public.household_bill_payments
     where period_id = '15000000-0000-0000-0000-000000000001'
   ),
-  '11000000-0000-0000-0000-000000000002'::uuid,
-  'the payment RPC always records the signed-in member'
+  null::uuid,
+  'disabled checkbox does not record a payment'
 );
 select throws_ok(
   $$select public.rotate_household_share_code(

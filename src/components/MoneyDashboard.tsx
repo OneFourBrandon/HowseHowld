@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Circle,
   Droplets,
   Flame,
   Lightbulb,
@@ -161,8 +160,6 @@ export function MoneyDashboard({
     deleteSettlement,
     proposeFundPayment,
     confirmFundPayment,
-    setBillPaid,
-    setBillMemberPaid,
     openReceipt,
   } = useAppData()
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -360,7 +357,7 @@ export function MoneyDashboard({
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--line) pb-3 max-[520px]:flex-col max-[520px]:items-stretch">
               <div className="flex min-w-44 flex-1 self-stretch flex-col justify-center">
                 <h2 className="text-[1.18rem]! leading-tight!">Utilities &amp; rent</h2>
-                <p className="mt-0.5 text-[.66rem] leading-tight text-(--muted)">Track your individual payment each month.</p>
+                <p className="mt-0.5 text-[.66rem] leading-tight text-(--muted)">Bill shares are settled through direct payments.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <MonthNavigator value={selectedMonth} onChange={onMonthChange} />
@@ -376,33 +373,23 @@ export function MoneyDashboard({
                 const breakdown = billBreakdown(bill, period, data.members, currentMemberId)
                 const payeeId = period?.payeeMemberId ?? bill.payeeMemberId
                 const payee = data.members.find(member => member.id === payeeId)
-                const paid = Boolean(period?.paidMemberIds.includes(currentMemberId))
-                const isPayee = currentMemberId === payeeId
                 return (
                   <div key={bill.id} className="border-b border-(--line)">
-                  <div className="grid min-h-15 cursor-pointer grid-cols-[42px_minmax(0,1fr)_auto_34px] items-center gap-3 rounded-lg py-2.5 transition-colors hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-(--forest) max-[520px]:gap-2" role="button" tabIndex={0} aria-label={`View payment breakdown for ${bill.name}`} aria-expanded={expandedBillId === bill.id} onClick={event => { if ((event.target as HTMLElement).closest('button, label, input')) return; setExpandedBillId(expandedBillId === bill.id ? null : bill.id) }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setExpandedBillId(expandedBillId === bill.id ? null : bill.id) } }}>
+                  <div className="grid min-h-15 cursor-pointer grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg py-2.5 transition-colors hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-(--forest) max-[520px]:gap-2" role="button" tabIndex={0} aria-label={`View payment breakdown for ${bill.name}`} aria-expanded={expandedBillId === bill.id} onClick={event => { if ((event.target as HTMLElement).closest('button, label, input')) return; setExpandedBillId(expandedBillId === bill.id ? null : bill.id) }} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setExpandedBillId(expandedBillId === bill.id ? null : bill.id) } }}>
                     <div className={cn('grid size-10 place-items-center rounded-[9px] bg-(--sage) text-(--forest)', bill.category === 'electricity' && 'bg-(--gold-soft) text-[#8b6413] dark:text-(--gold)', bill.category === 'gas' && 'bg-[#fbe8dd] dark:bg-(--coral-soft) text-[#a34e28] dark:text-(--coral)')}><BillIcon category={bill.category} /></div>
                     <div className="min-w-0"><div className="flex min-w-0 items-center gap-1"><strong className="min-w-0 truncate text-[.83rem]">{bill.name}</strong>{currentMember.role === 'owner' && <button type="button" className="grid size-8 shrink-0 place-items-center rounded-md border-0 bg-transparent text-(--muted) transition-colors hover:bg-(--sage-2) hover:text-(--forest) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--forest)" aria-label={`Edit ${bill.name}`} title={`Edit ${bill.name}`} onClick={() => onEditBill(bill.id)}><Pencil size={14} aria-hidden="true" /></button>}</div><span className="block text-[.71rem] text-(--muted)">Due {period ? dueDate.format(new Date(period.dueAt)) : `day ${bill.dueDay}`} · Owed to {payee?.displayName ?? 'bill payer'}</span></div>
-                    <div className="text-right"><strong className={cn('block font-sans text-[.82rem] tabular-nums', pending && 'text-(--muted)')}>{pending ? bill.requiresMonthlyPrice || period ? 'Pending' : '—' : formatMoney(amount)}</strong><span className="block truncate text-[.7rem] text-(--muted)">{currentMember.displayName}</span></div>
-                    {isPayee ? <span className="grid size-8 place-items-center text-(--green)" title="Bill payer"><CheckCircle2 size={20} /></span> : <label className="grid size-8 cursor-pointer place-items-center" title={paid ? 'Paid' : 'Mark paid'}>
-                      <input className="sr-only" type="checkbox" checked={paid} disabled={!period || pending || busy === `bill:paid:${period.id}`} onChange={(event) => { if (period) void setBillPaid(period.id, event.target.checked) }} />
-                      {paid ? <CheckCircle2 className="text-[#6ca177] dark:text-(--green)" size={20} /> : <Circle className="text-(--muted)" size={20} />}
-                    </label>}
+                    <div className="text-right"><strong className={cn('block font-sans text-[.82rem] tabular-nums', pending && 'text-(--muted)')}>{pending ? bill.requiresMonthlyPrice || period ? 'Pending' : '—' : formatMoney(amount)}</strong><span className="block truncate text-[.7rem] text-(--muted)">Total</span></div>
+
                   </div>
                   {expandedBillId === bill.id && <div className="grid gap-2 rounded-lg bg-(--surface-strong) px-3 py-3" aria-label={`${bill.name} payment breakdown`}>
                     <p className="text-[.72rem] font-bold text-(--muted)">{selectedMonth} · {pending ? 'Price pending' : `${formatMoney(amount)} total`}</p>
-                    <p className="text-[.7rem] text-(--muted)">Mark paid for a direct payment to {payee?.displayName ?? 'the bill payer'}. If you record it through Settle up, leave this unchecked.</p>
+                    <p className="text-[.7rem] text-(--muted)">Use Settle up to record a direct payment to {payee?.displayName ?? 'the bill payer'}. Confirmed payments reduce your overall balance.</p>
                     {breakdown.shares.map(share => {
-                      const payment = period?.payments?.find(item => item.memberId === share.member.id)
-                      const marker = data.members.find(member => member.id === payment?.markedBy)
                       return <div className="flex min-h-10 items-center gap-2 border-t border-(--line) pt-2" key={share.member.id}>
                         <Avatar initials={share.member.initials} color={share.member.color} imageUrl={share.member.avatarUrl} size="sm" />
-                        <div className="min-w-0 flex-1"><strong className="block truncate text-[.78rem]">{share.member.displayName}</strong><span className="block text-[.68rem] text-(--muted)">{share.member.id === payeeId ? 'Bill payer' : share.settled ? `Paid${marker ? ` · marked by ${marker.displayName}` : ''}` : `Owes ${payee?.displayName ?? 'bill payer'}`}</span></div>
-                        <strong className="font-sans text-[.78rem] tabular-nums">{pending ? 'Pending' : formatMoney(share.owedCents)}</strong>
-                        {currentMember.role === 'owner' && share.member.id !== payeeId && <label className="grid size-9 place-items-center" title={`Track payment from ${share.member.displayName}`}>
-                          <input className="sr-only" type="checkbox" aria-label={`${share.member.displayName} paid ${bill.name}`} checked={Boolean(share.settled)} disabled={!period || pending || busy === `bill:member-paid:${period.id}:${share.member.id}`} onChange={event => { if (period) void setBillMemberPaid(period.id, share.member.id, event.target.checked) }} />
-                          {share.settled ? <CheckCircle2 className="text-(--green)" size={20} /> : <Circle className="text-(--muted)" size={20} />}
-                        </label>}
+                        <div className="min-w-0 flex-1"><strong className="block truncate text-[.78rem]">{share.member.displayName}</strong><span className="block text-[.68rem] text-(--muted)">{share.member.id === payeeId ? 'Bill payer - own share covered' : `Share owed to ${payee?.displayName ?? 'bill payer'}`}</span></div>
+                        <strong className="font-sans text-[.78rem] tabular-nums">{pending ? 'Pending' : formatMoney(share.member.id === payeeId ? 0 : share.owedCents)}</strong>
+
                       </div>
                     })}
                   </div>}

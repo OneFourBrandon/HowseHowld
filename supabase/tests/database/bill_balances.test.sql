@@ -39,10 +39,14 @@ select is((select sum(net_cents) from public.member_balances where household_id=
 select set_config('test.period_id',(select id::text from public.household_bill_periods
   where bill_id=current_setting('test.bill_id')::uuid
     and period_month=date_trunc('month',now() at time zone 'America/Toronto')::date),true);
-select lives_ok($$select public.set_household_bill_member_paid(current_setting('test.period_id')::uuid,
-  '32000000-0000-0000-0000-000000000001',true)$$,'admin records another roommate paid');
+select throws_ok($$select public.set_household_bill_member_paid(current_setting('test.period_id')::uuid,
+  '32000000-0000-0000-0000-000000000001',true)$$,'P0001','Record a direct payment through Settle up instead','admin checkbox API is disabled');
+select set_config('test.direct_payment',public.propose_settlement('32000000-0000-0000-0000-000000000002',10000,'Bill share')::text,true);
+select set_config('request.jwt.claim.sub','30000000-0000-0000-0000-000000000002',true);
+select public.confirm_settlement(current_setting('test.direct_payment')::uuid,true);
+select set_config('request.jwt.claim.sub','30000000-0000-0000-0000-000000000001',true);
 select is((select net_cents from public.member_balances where member_id='32000000-0000-0000-0000-000000000001'),
-  0::bigint,'paid share clears from one balance');
+  0::bigint,'confirmed direct payment clears one balance');
 select is((select net_cents from public.member_balances where member_id='32000000-0000-0000-0000-000000000002'),
   10000::bigint,'payer credit decreases by the same amount');
 select set_config('test.future_month',to_char(
