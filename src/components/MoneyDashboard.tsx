@@ -1,4 +1,5 @@
 import { PurchaseDetails } from './PurchaseDetails'
+import { MemberMoneyDetails } from './MemberMoneyDetails'
 import { ShareBar, SharePeek } from './ShareBreakdown'
 import { billBalanceAdjustments, billBreakdown, expenseBreakdown } from '../lib/shares'
 import { useMemo, useState } from 'react'
@@ -163,6 +164,7 @@ export function MoneyDashboard({
     openReceipt,
   } = useAppData()
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [memberDetailId, setMemberDetailId] = useState<string | null>(null)
   const [peekId, setPeekId] = useState<string | null>(null)
   const selectedExpense = data.expenses.find(e => e.id === detailId)
   const [activityFilter, setActivityFilter] = useState<'all' | 'expense' | 'settlement'>('all')
@@ -171,6 +173,7 @@ export function MoneyDashboard({
   const [expandedBillId, setExpandedBillId] = useState<string | null>(null)
   const currentMemberId = data.household.currentMemberId
   const currentMember = data.members.find((member) => member.id === currentMemberId)!
+  const detailMember = data.members.find(member => member.id === memberDetailId)
   const currentBalance = data.balances.find((balance) => balance.memberId === currentMemberId)
   const demoBillBalances = demoMode ? billBalanceAdjustments(data.bills, data.billPeriods, data.household.timezone) : new Map<string, number>()
   const balanceFor = (memberId: string, netCents: number) => netCents + (demoBillBalances.get(memberId) ?? 0)
@@ -201,6 +204,7 @@ export function MoneyDashboard({
   return (
     <div className="grid gap-5.5">
       {selectedExpense && <PurchaseDetails key={selectedExpense.id} expense={selectedExpense} onClose={() => setDetailId(null)} />}
+      {detailMember && <MemberMoneyDetails key={detailMember.id} member={detailMember} netCents={balanceFor(detailMember.id, data.balances.find(balance => balance.memberId === detailMember.id)?.netCents ?? 0)} onClose={() => setMemberDetailId(null)} />}
       <header className="flex items-end justify-between gap-8 max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-4">
         <div className="grid gap-1">
           <h1 className="page-title">Shared money</h1>
@@ -232,7 +236,7 @@ export function MoneyDashboard({
           {data.balances.map((balance) => {
             const member = data.members.find((item) => item.id === balance.memberId)!
             return (
-              <div className="flex min-w-0 items-center gap-3" key={member.id}>
+              <button type="button" aria-label={`View balance for ${member.displayName}`} onClick={() => setMemberDetailId(member.id)} className="flex min-w-0 items-center gap-3 rounded-xl border-0 bg-transparent p-2 text-left hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-(--forest)" key={member.id}>
                 <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="md" />
                 <div className="min-w-0">
                   <strong className="block truncate text-[.9rem]">{member.displayName}</strong>
@@ -241,7 +245,7 @@ export function MoneyDashboard({
                     {formatMoney(balanceFor(member.id, balance.netCents), true)}
                   </strong>
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
