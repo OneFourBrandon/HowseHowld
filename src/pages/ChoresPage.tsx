@@ -15,15 +15,14 @@ import {
   Pencil,
   Plus,
   RotateCw,
-  Scale,
   Trash2,
 } from 'lucide-react'
 import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
 import { ChoreOccurrenceIcon } from '../components/ChoreOccurrenceIcon'
+import { InfractionsPanel } from '../components/InfractionsPanel'
 import {
   formatDateTime,
-  formatMoney,
   nextOpenOccurrencePerTask,
   taskCompletionAvailability,
 } from '../lib/utils'
@@ -52,8 +51,6 @@ export function ChoresPage() {
     deleteTask,
     assignManualTask,
     disputeInfraction,
-    voteInfraction,
-    forgiveInfraction,
   } = useAppData()
   const [taskModal, setTaskModal] = useState(false)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
@@ -388,72 +385,7 @@ export function ChoresPage() {
           </Card>
         </section>
 
-        <section className="min-w-0 rounded-2xl border border-(--line) bg-(--surface-strong) p-4 max-[640px]:p-3 [&_.section-header]:mb-3 [&_.section-header]:min-h-0 [&_.section-header]:border-0">
-          <SectionHeader eyebrow="PEER REVIEW" title="Infractions" />
-          {data.infractions.map((infraction) => {
-            const reviewOpen = isInfractionReviewOpen(infraction, reviewNow)
-            const member = data.members.find((item) => item.id === infraction.memberId)!
-            const hasVoted =
-              infraction.upholdVotes.includes(currentMemberId) ||
-              infraction.excuseVotes.includes(currentMemberId)
-            return (
-              <Card className="infraction-card mb-2 grid gap-2 rounded-xl! bg-(--surface)! px-4 py-3 last:mb-0" key={infraction.id}>
-                <div className="infraction-heading grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
-                  <div className="grid min-w-0 gap-1">
-                    <strong className="break-words">{member.displayName} · {infraction.taskTitle}</strong>
-                    <span className="text-sm text-(--muted) tabular-nums">{formatMoney(infraction.amountCents)} · {reviewOpen ? 'Pending review' : infraction.status === 'excused' ? 'Excused' : infraction.status === 'paid' ? 'Paid' : 'Penalty upheld'}</span>
-                  </div>
-                  <Badge tone={infraction.status === 'excused' ? 'green' : 'red'}>
-                    {reviewOpen ? infraction.status : 'Closed'}
-                  </Badge>
-                </div>
-                {infraction.disputeReason && (
-                  <blockquote>“{infraction.disputeReason}”</blockquote>
-                )}
-                <div className={"vote-meter flex justify-between text-(--muted) text-[.75rem]"}>
-                  <span>{infraction.excuseVotes.length} excuse</span>
-                  <span>{infraction.upholdVotes.length} uphold</span>
-                </div>
-                {infraction.memberId === currentMemberId &&
-                  reviewOpen &&
-                  infraction.status === 'pending' && (
-                    <Button variant="secondary" onClick={() => setDisputeId(infraction.id)}>
-                      Open a dispute
-                    </Button>
-                  )}
-                {reviewOpen &&
-                  (infraction.status === 'pending' || infraction.status === 'disputed') &&
-                  !hasVoted && (
-                    <div className="button-row flex flex-wrap gap-2.25 max-[640px]:grid max-[640px]:grid-cols-2 [&_button]:min-h-11">
-                      <Button
-                        variant="secondary"
-                        onClick={() => voteInfraction(infraction.id, 'excuse')}
-                      >
-                        Excuse
-                      </Button>
-                      <Button
-                        variant="danger"
-                        onClick={() => voteInfraction(infraction.id, 'uphold')}
-                      >
-                        Uphold
-                      </Button>
-                    </div>
-                  )}
-                {isAdmin && infraction.status !== 'excused' && (
-                  <Button size="sm" variant="secondary" disabled={busy === `forgive:${infraction.id}`}
-                    onClick={() => { void forgiveInfraction(infraction.id).catch(() => {}) }}>
-                    Forgive infraction
-                  </Button>
-                )}
-                <div className={"deadline-note flex items-center gap-1.5 text-(--muted) text-[.75rem] font-sans tabular-nums"}>
-                  <Scale size={15} />
-                  {reviewOpen ? `Review closes ${formatDateTime(infraction.disputeDeadline)}` : `Closed${infraction.resolvedAt ? ` ${formatDateTime(infraction.resolvedAt)}` : new Date(infraction.disputeDeadline).getTime() <= reviewNow ? ` ${formatDateTime(infraction.disputeDeadline)}` : ''}`}
-                </div>
-              </Card>
-            )
-          })}
-        </section>
+        <InfractionsPanel now={reviewNow} onDispute={setDisputeId} />
       </div>
 
       <Modal
