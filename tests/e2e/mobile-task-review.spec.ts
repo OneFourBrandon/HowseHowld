@@ -14,6 +14,7 @@ test('mobile roommate can review a missed chore and admin can forgive it', async
 test('admin forgiveness works from the mobile infraction card', async ({ page }) => {
   await page.goto('/chores')
   const card = page.locator('.infraction-card').filter({ hasText: 'Vacuum the kitchen' })
+  page.once('dialog', dialog => void dialog.accept())
   await card.getByRole('button', { name: 'Forgive infraction' }).click()
   await expect(card).toContainText('Excused')
   await expect(card.getByRole('button', { name: 'Forgive infraction' })).toHaveCount(0)
