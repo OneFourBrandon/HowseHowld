@@ -3,12 +3,14 @@ import { useAppData } from '../state/AppDataContext'
 import { allocateBillShares } from '../lib/shares'
 import { dateKeyInTimeZone, formatMoney } from '../lib/utils'
 import { Avatar, Badge, Modal } from './ui'
+import { SpendingSummary } from './SpendingSummary'
 import type { Member } from '../types'
 
-export function MemberMoneyDetails({ member, netCents, onClose }: { member: Member; netCents: number; onClose: () => void }) {
+export function MemberMoneyDetails({ member, netCents, initialMonth, onClose }: { member: Member; netCents: number; initialMonth?: string; onClose: () => void }) {
   const { data } = useAppData()
   const [filter, setFilter] = useState('all')
   const month = dateKeyInTimeZone(new Date(), data.household.timezone).slice(0, 7)
+  const [spendingMonth, setSpendingMonth] = useState(initialMonth ?? month)
   const name = (id: string) => data.members.find(person => person.id === id)?.displayName ?? 'Household member'
   const rows: { id: string; kind: string; title: string; date: string; detail: string; amount: number; status?: string }[] = []
   for (const expense of data.expenses) {
@@ -49,12 +51,14 @@ export function MemberMoneyDetails({ member, netCents, onClose }: { member: Memb
       detail: formatMoney(payment.amountCents), status: payment.status, amount: payment.status === 'confirmed' ? payment.amountCents : 0 })
   }
   const remainder = netCents - rows.reduce((sum, row) => sum + row.amount, 0)
-  const visible = rows.filter(row => filter === 'all' || row.kind === filter).sort((a, b) => b.date.localeCompare(a.date))
+  const visible = rows.filter(row => row.amount !== 0 && (filter === 'all' || row.kind === filter)).sort((a, b) => b.date.localeCompare(a.date))
   return <Modal open onClose={onClose} title={`${member.displayName}'s balance`} description="All months. Positive amounts add credit; negative amounts add owing.">
     <div className="flex items-center gap-4 rounded-xl bg-(--sage-2) p-4">
       <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="md" />
       <div><span className="block text-xs text-(--muted)">{netCents > 0 ? 'Is owed' : netCents < 0 ? 'Owes' : 'Settled'}</span><strong className="text-3xl tabular-nums">{formatMoney(Math.abs(netCents))}</strong></div>
     </div>
+    <h3 className="mt-5 text-base font-semibold">Balance history</h3>
+    <p className="mt-1 text-xs text-(--muted)">All months · Zero-dollar entries are hidden.</p>
     <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filter balance history">
       {['all', 'Purchases', 'Bills', 'Payments', 'Penalties'].map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)} className={`rounded-full border border-(--line) px-3 py-2 text-xs font-semibold ${filter === option ? 'bg-(--forest) text-white' : 'bg-(--surface) text-(--ink)'}`}>{option === 'all' ? 'Everything' : option}</button>)}
     </div>
@@ -63,9 +67,10 @@ export function MemberMoneyDetails({ member, netCents, onClose }: { member: Memb
         <div className="min-w-0"><span className="text-[.68rem] text-(--muted)">{row.kind} · {row.date.slice(0, 10)}</span><strong className="block text-sm">{row.title}</strong><p className="mt-1 break-words text-xs text-(--muted)">{row.detail}</p>{row.status && <div className="mt-2"><Badge>{row.status}</Badge></div>}</div>
         <strong className={`text-sm tabular-nums ${row.amount < 0 ? 'text-(--coral)' : 'text-(--forest)'}`}>{formatMoney(row.amount, true)}</strong>
       </div>)}
-      {!visible.length && <p className="py-8 text-center text-sm text-(--muted)">No {filter === 'all' ? 'activity' : filter.toLowerCase()} yet.</p>}
+      {!visible.length && <p className="py-8 text-center text-sm text-(--muted)">No non-zero {filter === 'all' ? 'activity' : filter.toLowerCase()} yet.</p>}
     </div>
     {remainder !== 0 && <div className="mt-3 flex justify-between gap-4 rounded-xl bg-(--surface) p-3 text-xs"><span>Other ledger adjustments<br /><span className="text-(--muted)">Balance entries outside the activity shown above</span></span><strong className="tabular-nums">{formatMoney(remainder, true)}</strong></div>}
     <p className="mt-4 text-xs text-(--muted)">Pending and rejected payments do not change the balance. Upcoming bills count when their month begins.</p>
+    <SpendingSummary month={spendingMonth} onMonthChange={setSpendingMonth} memberId={member.id} />
   </Modal>
 }
