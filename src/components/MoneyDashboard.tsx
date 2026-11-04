@@ -1,5 +1,6 @@
 import { PurchaseDetails } from './PurchaseDetails'
 import { MemberMoneyDetails } from './MemberMoneyDetails'
+import { SpendingSummary } from './SpendingSummary'
 import { ShareBar, SharePeek } from './ShareBreakdown'
 import { billBalanceAdjustments, billBreakdown, expenseBreakdown } from '../lib/shares'
 import { useMemo, useState } from 'react'
@@ -204,7 +205,7 @@ export function MoneyDashboard({
   return (
     <div className="grid gap-5.5">
       {selectedExpense && <PurchaseDetails key={selectedExpense.id} expense={selectedExpense} onClose={() => setDetailId(null)} />}
-      {detailMember && <MemberMoneyDetails key={detailMember.id} member={detailMember} netCents={balanceFor(detailMember.id, data.balances.find(balance => balance.memberId === detailMember.id)?.netCents ?? 0)} onClose={() => setMemberDetailId(null)} />}
+      {detailMember && <MemberMoneyDetails key={detailMember.id} member={detailMember} initialMonth={selectedMonth} netCents={balanceFor(detailMember.id, data.balances.find(balance => balance.memberId === detailMember.id)?.netCents ?? 0)} onClose={() => setMemberDetailId(null)} />}
       <header className="flex items-end justify-between gap-8 max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-4">
         <div className="grid gap-1">
           <h1 className="page-title">Shared money</h1>
@@ -264,6 +265,8 @@ export function MoneyDashboard({
           </div>
         </div>
       </section>
+
+      <SpendingSummary month={selectedMonth} onMonthChange={onMonthChange} />
 
       <div className="grid grid-cols-[1.2fr_.92fr] items-start gap-5 max-[980px]:grid-cols-1">
         <section className="rounded-2xl border border-(--line) bg-(--surface-strong) p-3">
