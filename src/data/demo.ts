@@ -10,6 +10,13 @@ const at = (dayOffset: number, hours: number, minutes = 0) => {
   return toIso(date)
 }
 
+// Simple illustrated stand-ins for the before and after photos on a claim.
+const fridgeShelf = (stains: string) => `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360"><rect width="480" height="360" fill="#dfe6e1"/><rect x="70" y="40" width="340" height="280" rx="18" fill="#f7f8f5" stroke="#b8c4bc" stroke-width="8"/><path d="M70 180h340" stroke="#b8c4bc" stroke-width="8"/><rect x="110" y="110" width="58" height="66" rx="8" fill="#e6c27a"/><rect x="300" y="222" width="74" height="90" rx="10" fill="#9cc4b2"/>${stains}</svg>`,
+)}`
+const fridgeBefore = fridgeShelf('<ellipse cx="240" cy="160" rx="54" ry="14" fill="#8a5a2b" opacity=".55"/><circle cx="210" cy="276" r="24" fill="#7b4f23" opacity=".5"/><circle cx="160" cy="292" r="12" fill="#a0692f" opacity=".55"/>')
+const fridgeAfter = fridgeShelf('<path d="M232 120l8 18 18 8-18 8-8 18-8-18-18-8 18-8z" fill="#ffffff" stroke="#9cc4b2" stroke-width="3"/>')
+
 export const demoSnapshot: AppSnapshot = {
   household: {
     id: 'house-maple',
@@ -33,6 +40,7 @@ export const demoSnapshot: AppSnapshot = {
       'notifications',
     ],
     defaultTaskReminderTimes: ['09:00', '18:00', '22:00', '23:30'],
+    choreGraceMinutes: 240,
     shareCodeLast4: 'DEMO',
   },
   members: [
@@ -90,7 +98,6 @@ export const demoSnapshot: AppSnapshot = {
       startsOn: now.toISOString().slice(0, 10),
       dueTime: '23:59',
       reminderTimes: ['09:00', '18:00', '22:00', '23:30'],
-      penaltyEnabled: true,
       active: true,
       rotationMemberIds: [
         'member-brandon',
@@ -111,7 +118,6 @@ export const demoSnapshot: AppSnapshot = {
       startsOn: now.toISOString().slice(0, 10),
       dueTime: '23:59',
       reminderTimes: ['09:00', '18:00', '22:00', '23:30'],
-      penaltyEnabled: true,
       active: true,
       rotationMemberIds: [
         'member-brandon',
@@ -133,7 +139,6 @@ export const demoSnapshot: AppSnapshot = {
       startsOn: now.toISOString().slice(0, 10),
       dueTime: '22:00',
       reminderTimes: ['09:00', '18:00', '21:30'],
-      penaltyEnabled: true,
       active: true,
       rotationMemberIds: ['member-noah'],
       nextMemberId: 'member-noah',
@@ -174,6 +179,28 @@ export const demoSnapshot: AppSnapshot = {
       completedAt: at(-1, 20, 14),
       reminderLabel: 'Completed',
     },
+    {
+      id: 'occ-dishes-missed',
+      taskId: 'task-dishes',
+      taskTitle: 'Dishes & drying rack',
+      area: 'Kitchen',
+      assigneeId: 'member-noah',
+      scheduledDate: dateKeyInTimeZone(new Date(at(-1, 21)), 'America/Toronto'),
+      dueAt: at(-1, 21),
+      status: 'missed',
+      reminderLabel: 'Missed',
+    },
+    {
+      id: 'occ-fridge-missed',
+      taskId: 'task-fridge',
+      taskTitle: 'Wipe out the fridge',
+      area: 'Kitchen',
+      assigneeId: 'member-liam',
+      scheduledDate: dateKeyInTimeZone(new Date(at(-1, 19)), 'America/Toronto'),
+      dueAt: at(-1, 19),
+      status: 'missed',
+      reminderLabel: 'Missed',
+    },
   ],
   infractions: [
     {
@@ -187,6 +214,48 @@ export const demoSnapshot: AppSnapshot = {
       disputeReason: 'The vacuum battery would not charge.',
       upholdVotes: ['member-noah'],
       excuseVotes: ['member-maya'],
+    },
+    {
+      id: 'infraction-dishes',
+      occurrenceId: 'occ-dishes-missed',
+      memberId: 'member-noah',
+      taskTitle: 'Dishes & drying rack',
+      amountCents: cents(1_000),
+      status: 'pending',
+      disputeDeadline: at(6, 1),
+      upholdVotes: [],
+      excuseVotes: [],
+    },
+    {
+      id: 'infraction-fridge',
+      occurrenceId: 'occ-fridge-missed',
+      memberId: 'member-liam',
+      taskTitle: 'Wipe out the fridge',
+      amountCents: cents(1_500),
+      status: 'pending',
+      disputeDeadline: at(5, 23),
+      upholdVotes: [],
+      excuseVotes: [],
+    },
+  ],
+  choreClaims: [
+    {
+      id: 'claim-fridge',
+      occurrenceId: 'occ-fridge-missed',
+      infractionId: 'infraction-fridge',
+      claimerId: 'member-maya',
+      assigneeId: 'member-liam',
+      status: 'submitted',
+      rewardCents: cents(1_000),
+      beforePhotoPath: fridgeBefore,
+      afterPhotoPath: fridgeAfter,
+      assigneeNote: 'I wiped the top shelf on Sunday. The rest was already clean.',
+      claimDeadline: at(1, 0),
+      voteDeadline: at(1, 22),
+      createdAt: at(0, 8, 40),
+      submittedAt: at(0, 9, 15),
+      approveVotes: ['member-noah'],
+      rejectVotes: [],
     },
   ],
   expenses: [

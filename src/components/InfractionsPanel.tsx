@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { format } from 'date-fns'
-import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ListFilter, Scale } from 'lucide-react'
+import { Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ListFilter, Scale } from 'lucide-react'
 import { cn } from '../lib/cn'
+import { claimForInfraction, claimVoteOf, claimVoterIds, isLiveClaim, lastMinuteBefore } from '../lib/chores'
 import { isInfractionReviewOpen } from '../lib/infractions'
 import { formatDateTime, formatMoney, timeUntil } from '../lib/utils'
 import { useAppData } from '../state/AppDataContext'
-import type { Infraction, Member } from '../types'
+import type { ChoreClaim, Infraction, Member } from '../types'
+import { ClaimReview } from './ClaimReview'
 import { Avatar, Badge, Button, SectionHeader } from './ui'
 
 const OPEN_PAGE_SIZE = 4
@@ -13,7 +15,7 @@ const HISTORY_PAGE_SIZE = 5
 const VOTES_TO_DECIDE = 2
 
 type Tab = 'open' | 'history'
-type Outcome = 'all' | 'upheld' | 'paid' | 'excused'
+type Outcome = 'all' | 'upheld' | 'paid' | 'excused' | 'covered'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'open', label: 'Open' },
@@ -24,6 +26,7 @@ const OUTCOMES: { id: Outcome; label: string }[] = [
   { id: 'upheld', label: 'Upheld' },
   { id: 'paid', label: 'Paid' },
   { id: 'excused', label: 'Excused' },
+  { id: 'covered', label: 'Covered' },
 ]
 
 const formerMember = {
@@ -46,12 +49,14 @@ function closedAt(infraction: Infraction) {
   return infraction.resolvedAt ?? infraction.disputeDeadline
 }
 
-// Excused without a deciding vote means the admin stepped in.
-function wasForgiven(infraction: Infraction) {
+// Excused without a deciding vote or a rejected claim means the admin stepped in.
+function wasForgiven(infraction: Infraction, claim?: ChoreClaim) {
   return infraction.status === 'excused' && infraction.excuseVotes.length < VOTES_TO_DECIDE
+    && claim?.status !== 'rejected'
 }
 
-function outcomeOf(infraction: Infraction): Exclude<Outcome, 'all'> {
+function outcomeOf(infraction: Infraction, claim?: ChoreClaim): Exclude<Outcome, 'all'> {
+  if (claim?.status === 'approved') return 'covered'
   if (infraction.status === 'excused') return 'excused'
   if (infraction.status === 'paid') return 'paid'
   return 'upheld'
@@ -61,6 +66,14 @@ const outcomeStyles = {
   upheld: { label: 'Upheld', tone: 'red' as const, text: 'text-[#99402f] dark:text-(--coral)' },
   paid: { label: 'Paid', tone: 'neutral' as const, text: 'text-(--muted)' },
   excused: { label: 'Excused', tone: 'green' as const, text: 'text-[#28644f] dark:text-(--green)' },
+  covered: { label: 'Covered', tone: 'blue' as const, text: 'text-[#495b91] dark:text-(--blue)' },
+}
+
+// A claim's deadline is an exclusive midnight, so show the minute before it.
+function claimFooter(claim: ChoreClaim) {
+  return claim.status === 'claimed'
+    ? <>After photo due {closesLabel(lastMinuteBefore(claim.claimDeadline).toISOString())}</>
+    : <>Claim vote closes {closesLabel(claim.voteDeadline ?? claim.claimDeadline)}</>
 }
 
 export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (id: string) => void }) {
@@ -81,15 +94,26 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
   const [openOrder, setOpenOrder] = useState<string[]>([])
 
   const memberById = (id: string) => data.members.find(member => member.id === id) ?? formerMember
+  const claimOf = (infraction: Infraction) => claimForInfraction(data.choreClaims, infraction.id)
   const canVote = (infraction: Infraction) => infraction.memberId !== currentMemberId
   const voteOf = (infraction: Infraction) =>
     infraction.excuseVotes.includes(currentMemberId) ? 'excuse' as const
       : infraction.upholdVotes.includes(currentMemberId) ? 'uphold' as const : null
-  const needsMyVote = (infraction: Infraction) => canVote(infraction) && !voteOf(infraction)
+  const needsMyVote = (infraction: Infraction) => {
+    const claim = claimOf(infraction)
+    if (claim && isLiveClaim(claim)) {
+      return claim.status === 'submitted'
+        && claimVoterIds(data.members, claim).includes(currentMemberId)
+        && !claimVoteOf(claim, currentMemberId)
+    }
+    return canVote(infraction) && !voteOf(infraction)
+  }
 
   const openIds = useMemo(
-    () => data.infractions.filter(item => isInfractionReviewOpen(item, now)).map(item => item.id),
-    [data.infractions, now],
+    () => data.infractions
+      .filter(item => isInfractionReviewOpen(item, now, claimForInfraction(data.choreClaims, item.id)))
+      .map(item => item.id),
+    [data.choreClaims, data.infractions, now],
   )
   const sortOpen = (ids: string[]) => ids
     .map(id => data.infractions.find(item => item.id === id)!)
@@ -119,11 +143,11 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
   const formerMemberIds = [...new Set(closedItems.map(item => item.memberId))]
     .filter(id => !data.members.some(member => member.id === id))
   const memberItems = closedItems.filter(item => memberFilter === 'all' || item.memberId === memberFilter)
-  const historyItems = memberItems.filter(item => outcomeFilter === 'all' || outcomeOf(item) === outcomeFilter)
+  const historyItems = memberItems.filter(item => outcomeFilter === 'all' || outcomeOf(item, claimOf(item)) === outcomeFilter)
   const centsFor = (kind: Exclude<Outcome, 'all'>) => memberItems
-    .filter(item => outcomeOf(item) === kind)
+    .filter(item => outcomeOf(item, claimOf(item)) === kind)
     .reduce((sum, item) => sum + item.amountCents, 0)
-  const countFor = (kind: Outcome) => kind === 'all' ? memberItems.length : memberItems.filter(item => outcomeOf(item) === kind).length
+  const countFor = (kind: Outcome) => kind === 'all' ? memberItems.length : memberItems.filter(item => outcomeOf(item, claimOf(item)) === kind).length
 
   const openPageCount = Math.max(1, Math.ceil(openItems.length / OPEN_PAGE_SIZE))
   const safeOpenPage = Math.min(openPage, openPageCount - 1)
@@ -221,10 +245,12 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
           {visibleOpen.map(infraction => {
             const member = memberById(infraction.memberId)
             const reviewOpen = openIds.includes(infraction.id)
+            const claim = claimOf(infraction)
+            const decidingClaim = claim && claim.status !== 'lapsed' ? claim : undefined
             const myVote = voteOf(infraction)
             const isMine = infraction.memberId === currentMemberId
-            const showVoteButtons = reviewOpen && canVote(infraction) && (!myVote || changingVoteId === infraction.id)
-            const result = outcomeStyles[outcomeOf(infraction)]
+            const showVoteButtons = !decidingClaim && reviewOpen && canVote(infraction) && (!myVote || changingVoteId === infraction.id)
+            const result = outcomeStyles[outcomeOf(infraction, claim)]
             return (
               <article className="infraction-card mb-2 grid gap-3 rounded-xl bg-(--surface) px-4 py-3 last:mb-0" key={infraction.id}>
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
@@ -235,19 +261,24 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                   </div>
                   {!reviewOpen
                     ? <Badge tone={result.tone}>{result.label}</Badge>
-                    : infraction.status === 'disputed' && <Badge tone="amber">Disputed</Badge>}
+                    : decidingClaim
+                      ? <Badge tone="blue">{decidingClaim.status === 'claimed' ? 'Covering' : 'Claim vote'}</Badge>
+                      : infraction.status === 'disputed' && <Badge tone="amber">Disputed</Badge>}
                 </div>
 
                 {infraction.disputeReason && (
                   <blockquote className="border-l-2 border-(--line-strong) pl-3 text-[.84rem] leading-normal">“{infraction.disputeReason}”</blockquote>
                 )}
 
-                <VoteTally infraction={infraction} />
+                {decidingClaim ? <ClaimReview claim={decidingClaim} /> : <VoteTally infraction={infraction} />}
 
-                {reviewOpen && isMine && infraction.status === 'pending' && (
+                {claim?.status === 'lapsed' && !decidingClaim && (
+                  <p className="text-[.75rem] text-(--muted)">{memberById(claim.claimerId).displayName}’s claim lapsed without an after photo, so the house vote is back on.</p>
+                )}
+                {!decidingClaim && reviewOpen && isMine && infraction.status === 'pending' && (
                   <Button className="bg-(--surface-strong)!" variant="secondary" onClick={() => onDispute(infraction.id)}>Open a dispute</Button>
                 )}
-                {reviewOpen && isMine && (
+                {!decidingClaim && reviewOpen && isMine && (
                   <p className="text-[.75rem] text-(--muted)">Your roommates decide this one.</p>
                 )}
                 {showVoteButtons && (
@@ -261,7 +292,7 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                     )}
                   </div>
                 )}
-                {reviewOpen && myVote && !showVoteButtons && (
+                {!decidingClaim && reviewOpen && myVote && !showVoteButtons && (
                   <div className="flex items-center justify-between gap-2 rounded-lg bg-(--surface-strong) px-3 py-1">
                     <span className="text-[.78rem]">You voted to <strong className={myVote === 'excuse' ? outcomeStyles.excused.text : outcomeStyles.upheld.text}>{myVote}</strong></span>
                     <Button className="-mr-2" size="sm" variant="ghost" onClick={() => setChangingVoteId(infraction.id)}>Change vote</Button>
@@ -270,12 +301,14 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
 
                 <div className="flex items-center justify-between gap-2 border-t border-(--line) pt-2.5">
                   <span className="inline-flex min-w-0 items-center gap-1.5 text-[.75rem] text-(--muted) tabular-nums">
-                    <Scale className="shrink-0" size={15} />
-                    {reviewOpen
-                      ? <>Closes {closesLabel(infraction.disputeDeadline)}</>
-                      : 'Decided · moves to History'}
+                    {decidingClaim?.status === 'claimed' ? <Camera className="shrink-0" size={15} /> : <Scale className="shrink-0" size={15} />}
+                    {!reviewOpen
+                      ? 'Decided · moves to History'
+                      : decidingClaim
+                        ? claimFooter(decidingClaim)
+                        : <>Closes {closesLabel(infraction.disputeDeadline)}</>}
                   </span>
-                  {isAdmin && infraction.status !== 'excused' && (
+                  {isAdmin && infraction.status !== 'excused' && !decidingClaim && (
                     <Button className="-mr-2 shrink-0" size="sm" variant="ghost" disabled={busy === `forgive:${infraction.id}`} aria-label={`Forgive infraction: ${infraction.taskTitle}`} onClick={() => forgive(infraction)}>
                       Forgive
                     </Button>
@@ -344,7 +377,9 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
             const previous = visibleHistory[index - 1]
             const monthLabel = format(new Date(closedAt(infraction)), 'MMMM yyyy')
             const showMonth = !previous || format(new Date(closedAt(previous)), 'MMMM yyyy') !== monthLabel
-            const result = outcomeStyles[outcomeOf(infraction)]
+            const claim = claimOf(infraction)
+            const decidingClaim = claim && claim.status !== 'lapsed' ? claim : undefined
+            const result = outcomeStyles[outcomeOf(infraction, claim)]
             const expanded = expandedId === infraction.id
             return (
               <div key={infraction.id} className="infraction-card">
@@ -368,7 +403,7 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                     <span className="flex items-center gap-2">
                       <span className="grid justify-items-end gap-0.5">
                         <strong className={cn('font-sans text-[.82rem] tabular-nums', infraction.status === 'excused' && 'text-(--muted) line-through decoration-1')}>{formatMoney(infraction.amountCents)}</strong>
-                        <span className={cn('text-[.68rem] font-extrabold uppercase tracking-[.035em]', result.text)}>{wasForgiven(infraction) ? 'Forgiven' : result.label}</span>
+                        <span className={cn('text-[.68rem] font-extrabold uppercase tracking-[.035em]', result.text)}>{wasForgiven(infraction, claim) ? 'Forgiven' : result.label}</span>
                       </span>
                       <ChevronDown size={16} className={cn('text-(--muted) transition-transform', expanded && 'rotate-180')} aria-hidden="true" />
                     </span>
@@ -377,14 +412,14 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                     <div id={`infraction-detail-${infraction.id}`} className="grid gap-2.5 px-3 pb-3">
                       {infraction.disputeReason
                         ? <blockquote className="border-l-2 border-(--line-strong) pl-3 text-[.8rem] leading-normal">“{infraction.disputeReason}”</blockquote>
-                        : <p className="text-[.75rem] text-(--muted)">No dispute was filed.</p>}
-                      {wasForgiven(infraction) && <p className="text-[.75rem] text-(--muted)">Forgiven by the house admin.</p>}
-                      <VoteTally infraction={infraction} />
+                        : !decidingClaim && <p className="text-[.75rem] text-(--muted)">No dispute was filed.</p>}
+                      {wasForgiven(infraction, claim) && <p className="text-[.75rem] text-(--muted)">Forgiven by the house admin.</p>}
+                      {decidingClaim ? <ClaimReview claim={decidingClaim} compact /> : <VoteTally infraction={infraction} />}
                       <div className="flex items-center justify-between gap-2 border-t border-(--line) pt-2.5">
                         <span className="inline-flex min-w-0 items-center gap-1.5 text-[.72rem] text-(--muted) tabular-nums">
                           <Scale className="shrink-0" size={14} /> Closed {formatDateTime(closedAt(infraction))}
                         </span>
-                        {isAdmin && infraction.status !== 'excused' && (
+                        {isAdmin && infraction.status !== 'excused' && !decidingClaim && (
                           <Button className="-mr-2 shrink-0" size="sm" variant="ghost" disabled={busy === `forgive:${infraction.id}`} aria-label={`Forgive infraction: ${infraction.taskTitle}`} onClick={() => forgive(infraction)}>
                             Forgive
                           </Button>

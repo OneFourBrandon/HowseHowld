@@ -26,6 +26,7 @@ import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, SectionHeader, Toggle } from '../components/ui'
 import { FeatureChecklist } from '../components/FeatureChecklist'
 import { PenaltySettings } from '../components/PenaltySettings'
+import { GracePeriodSettings } from '../components/GracePeriodSettings'
 import { EmailRecovery } from '../components/EmailRecovery'
 import { formatDateTime } from '../lib/utils'
 
@@ -346,6 +347,7 @@ export function SettingsPage() {
             </Card>
           </section>}
 
+          {currentMember.role === 'owner' && data.household.enabledFeatures.includes('chores') && <GracePeriodSettings />}
           {currentMember.role === 'owner' && data.household.enabledFeatures.includes('chores') && <PenaltySettings />}
 
           <section>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppData } from '../state/AppDataContext'
 import { allocateBillShares } from '../lib/shares'
+import { claimForInfraction } from '../lib/chores'
 import { dateKeyInTimeZone, formatMoney } from '../lib/utils'
 import { Avatar, Badge, Modal } from './ui'
 import { SpendingSummary } from './SpendingSummary'
@@ -41,10 +42,22 @@ export function MemberMoneyDetails({ member, netCents, initialMonth, onClose }: 
       detail: `${formatMoney(payment.amountCents)}${payment.note ? ` · ${payment.note}` : ''}`, amount: payment.status === 'confirmed' ? (sent ? payment.amountCents : -payment.amountCents) : 0, status: payment.status })
   }
   for (const infraction of data.infractions.filter(item => item.memberId === member.id)) {
+    const claim = claimForInfraction(data.choreClaims, infraction.id)
+    const covered = claim?.status === 'approved'
     rows.push({ id: `penalty:${infraction.id}`, kind: 'Penalties', title: infraction.taskTitle,
       date: infraction.resolvedAt ?? infraction.disputeDeadline,
-      detail: `Penalty ${formatMoney(infraction.amountCents)}`, status: infraction.status,
+      detail: covered
+        ? `Penalty ${formatMoney(infraction.amountCents)} · ${formatMoney(claim.rewardCents)} to ${name(claim.claimerId)} for covering it`
+        : `Penalty ${formatMoney(infraction.amountCents)}`,
+      status: covered ? 'covered' : infraction.status,
       amount: infraction.status === 'upheld' || infraction.status === 'paid' ? -infraction.amountCents : 0 })
+  }
+  for (const claim of data.choreClaims.filter(item => item.claimerId === member.id && item.status === 'approved')) {
+    const chore = data.occurrences.find(item => item.id === claim.occurrenceId)?.taskTitle
+      ?? data.infractions.find(item => item.id === claim.infractionId)?.taskTitle ?? 'a chore'
+    rows.push({ id: `cover:${claim.id}`, kind: 'Penalties', title: `Covered: ${chore}`,
+      date: claim.resolvedAt ?? claim.createdAt,
+      detail: `Reward for covering ${name(claim.assigneeId)}’s chore`, amount: claim.rewardCents })
   }
   for (const payment of data.fundPayments.filter(item => item.memberId === member.id)) {
     rows.push({ id: `fund:${payment.id}`, kind: 'Payments', title: 'Paid into penalty account', date: payment.createdAt,

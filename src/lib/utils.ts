@@ -48,10 +48,12 @@ export function taskCompletionAvailability(
   dueAt: ISODateTime | string,
   timeZone: string,
   now = new Date(),
+  graceMinutes = 0,
 ): TaskCompletionAvailability {
   const today = dateKeyInTimeZone(now, timeZone)
   if (today < scheduledDate) return 'early'
-  if (today > scheduledDate || now.getTime() > new Date(dueAt).getTime()) return 'expired'
+  // The grace period can run past midnight, so its end is the only cutoff.
+  if (now.getTime() > new Date(dueAt).getTime() + graceMinutes * 60_000) return 'expired'
   return 'available'
 }
 

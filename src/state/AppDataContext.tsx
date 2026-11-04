@@ -12,6 +12,8 @@ import { renewPushSubscription } from '../lib/push'
 import { randomRotationStart } from '../lib/rotation'
 import { allocateBillShares } from '../lib/shares'
 import { validatePenaltyTiers } from '../lib/penalties'
+import { CLAIM_VOTE_HOURS, MAX_GRACE_MINUTES, claimDeadlineFor, claimOutcome, claimRewardFor, claimVoterIds } from '../lib/chores'
+import { preparePhoto } from '../lib/photos'
 import { demoSnapshot } from '../data/demo'
 import { hasSupabaseConfig, supabase } from '../lib/supabase'
 import * as api from '../lib/api'
@@ -19,6 +21,8 @@ import { assignVehicle, blockingVehicles, slotsFor, validSlot } from '../lib/dri
 import { blockerIds, cents, initials, toIso, uid } from '../lib/utils'
 import type {
   AppSnapshot,
+  ChoreClaim,
+  ChoreClaimVote,
   DrivewaySlot,
   CalendarEvent,
   CreateHouseholdInput,
@@ -68,6 +72,12 @@ interface AppDataContextValue {
   disputeInfraction: (id: UUID, reason: string) => Promise<void>
   voteInfraction: (id: UUID, vote: 'uphold' | 'excuse') => Promise<void>
   forgiveInfraction: (id: UUID) => Promise<void>
+  claimChore: (occurrenceId: UUID, photo: File) => Promise<void>
+  finishChoreClaim: (claimId: UUID, photo: File) => Promise<void>
+  voteChoreClaim: (claimId: UUID, vote: ChoreClaimVote) => Promise<void>
+  noteChoreClaim: (claimId: UUID, note: string) => Promise<void>
+  claimPhotoUrls: (paths: string[]) => Promise<Map<string, string>>
+  updateChoreGracePeriod: (minutes: number) => Promise<void>
   addExpense: (expense: NewExpense) => Promise<void>
   updateExpenseAmount: (id: UUID, amount: number, expected: number) => Promise<void>
   updateExpenseShares: (id: UUID, beneficiaries: Expense['beneficiaries'], expected: number, kind?: 'shares' | 'payers') => Promise<void>
@@ -189,6 +199,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     }
     const tables = [
       'task_definitions', 'task_occurrences', 'infractions', 'infraction_votes',
+      'chore_claims', 'chore_claim_votes',
       'expenses', 'expense_payers', 'expense_shares', 'settlements', 'fund_payments',
       'household_bills', 'household_bill_members', 'household_bill_periods',
       'household_bill_payments',
@@ -443,6 +454,136 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         item.id === id ? { ...item, status: 'excused', resolvedAt: toIso(new Date()) } : item),
       }))
     }, 'Infraction forgiven.'), [data.members, data.household.currentMemberId, demoMode, refresh, run])
+
+  // In demo mode a decided claim updates balances the way the database would.
+  const settleDemoClaim = useCallback((current: AppSnapshot, claim: ChoreClaim): AppSnapshot => {
+    const outcome = claimOutcome(claim.approveVotes.length, claim.rejectVotes.length)
+    const infraction = current.infractions.find(item => item.id === claim.infractionId)
+    const resolvedAt = toIso(new Date())
+    const decided: ChoreClaim = { ...claim, status: outcome, resolvedAt }
+    if (!infraction) return { ...current, choreClaims: current.choreClaims.map(item => item.id === claim.id ? decided : item) }
+    const fundShare = infraction.amountCents - claim.rewardCents
+    return {
+      ...current,
+      choreClaims: current.choreClaims.map(item => item.id === claim.id ? decided : item),
+      infractions: current.infractions.map(item => item.id === infraction.id
+        ? { ...item, status: outcome === 'approved' ? 'upheld' : 'excused', resolvedAt }
+        : item),
+      balances: outcome === 'rejected' ? current.balances : current.balances.map(balance =>
+        balance.memberId === claim.assigneeId
+          ? { ...balance, netCents: cents(balance.netCents - infraction.amountCents), fundOwedCents: cents(balance.fundOwedCents + fundShare) }
+          : balance.memberId === claim.claimerId
+            ? { ...balance, netCents: cents(balance.netCents + claim.rewardCents) }
+            : balance),
+    }
+  }, [])
+
+  const claimChore = useCallback(async (occurrenceId: UUID, photo: File) =>
+    run(`claim:${occurrenceId}`, async () => {
+      const occurrence = data.occurrences.find(item => item.id === occurrenceId)
+      const infraction = data.infractions.find(item => item.occurrenceId === occurrenceId)
+      if (!occurrence || !infraction) throw new Error('Chore not found.')
+      if (occurrence.assigneeId === data.household.currentMemberId) throw new Error('You cannot cover your own chore.')
+      const prepared = await preparePhoto(photo)
+      if (!demoMode) {
+        const path = await api.uploadClaimPhoto(data.household.id, occurrenceId, 'before', prepared)
+        await api.claimMissedChore(occurrenceId, path)
+        await refresh(false)
+        return
+      }
+      const claim: ChoreClaim = {
+        id: uid('claim'),
+        occurrenceId,
+        infractionId: infraction.id,
+        claimerId: data.household.currentMemberId,
+        assigneeId: occurrence.assigneeId,
+        status: 'claimed',
+        rewardCents: claimRewardFor(infraction.amountCents),
+        beforePhotoPath: URL.createObjectURL(prepared),
+        claimDeadline: toIso(claimDeadlineFor(occurrence.scheduledDate, data.household.timezone)),
+        createdAt: toIso(new Date()),
+        approveVotes: [],
+        rejectVotes: [],
+      }
+      setData(current => ({ ...current, choreClaims: [claim, ...current.choreClaims] }))
+    }, 'Chore claimed. Do it, then take the after photo.'),
+  [data.household.currentMemberId, data.household.id, data.household.timezone, data.infractions, data.occurrences, demoMode, refresh, run])
+
+  const finishChoreClaim = useCallback(async (claimId: UUID, photo: File) =>
+    run(`claim:finish:${claimId}`, async () => {
+      const claim = data.choreClaims.find(item => item.id === claimId)
+      if (!claim || claim.status !== 'claimed') throw new Error('This claim is no longer waiting for photos.')
+      const prepared = await preparePhoto(photo)
+      if (!demoMode) {
+        const path = await api.uploadClaimPhoto(data.household.id, claim.occurrenceId, 'after', prepared)
+        await api.submitChoreClaim(claimId, path)
+        await refresh(false)
+        return
+      }
+      setData(current => {
+        const submitted: ChoreClaim = {
+          ...claim,
+          status: 'submitted',
+          afterPhotoPath: URL.createObjectURL(prepared),
+          submittedAt: toIso(new Date()),
+          voteDeadline: toIso(new Date(Date.now() + CLAIM_VOTE_HOURS * 3_600_000)),
+        }
+        const next = { ...current, choreClaims: current.choreClaims.map(item => item.id === claimId ? submitted : item) }
+        return claimVoterIds(current.members, claim).length ? next : settleDemoClaim(next, submitted)
+      })
+    }, 'Photos sent to the house for review.'),
+  [data.choreClaims, data.household.id, demoMode, refresh, run, settleDemoClaim])
+
+  const voteChoreClaim = useCallback(async (claimId: UUID, vote: ChoreClaimVote) =>
+    run(`claim:vote:${claimId}`, async () => {
+      if (!demoMode) {
+        await api.voteChoreClaim(claimId, vote)
+        await refresh(false)
+        return
+      }
+      setData(current => {
+        const claim = current.choreClaims.find(item => item.id === claimId)
+        if (!claim || claim.status !== 'submitted') return current
+        const voterId = current.household.currentMemberId
+        const approveVotes = claim.approveVotes.filter(id => id !== voterId)
+        const rejectVotes = claim.rejectVotes.filter(id => id !== voterId)
+        if (vote === 'approve') approveVotes.push(voterId)
+        else rejectVotes.push(voterId)
+        const voted = { ...claim, approveVotes, rejectVotes }
+        const next = { ...current, choreClaims: current.choreClaims.map(item => item.id === claimId ? voted : item) }
+        const everyoneVoted = claimVoterIds(current.members, claim)
+          .every(id => approveVotes.includes(id) || rejectVotes.includes(id))
+        return everyoneVoted ? settleDemoClaim(next, voted) : next
+      })
+    }, `Vote to ${vote} recorded.`),
+  [demoMode, refresh, run, settleDemoClaim])
+
+  const noteChoreClaim = useCallback(async (claimId: UUID, note: string) =>
+    run(`claim:note:${claimId}`, async () => {
+      const trimmed = note.trim()
+      if (!trimmed || trimmed.length > 500) throw new Error('Notes must be between 1 and 500 characters.')
+      if (!demoMode) {
+        await api.noteChoreClaim(claimId, trimmed)
+        await refresh(false)
+        return
+      }
+      setData(current => ({ ...current, choreClaims: current.choreClaims.map(item =>
+        item.id === claimId ? { ...item, assigneeNote: trimmed } : item) }))
+    }, 'Note added to the claim.'),
+  [demoMode, refresh, run])
+
+  const claimPhotoUrls = useCallback(async (paths: string[]) =>
+    demoMode ? new Map(paths.map(path => [path, path])) : api.getClaimPhotoUrls(paths),
+  [demoMode])
+
+  const updateChoreGracePeriod = useCallback(async (minutes: number) => run(
+    'household:grace', async () => {
+      if (data.members.find(member => member.id === data.household.currentMemberId)?.role !== 'owner') throw new Error('Only the admin can change the grace period.')
+      if (!Number.isInteger(minutes) || minutes < 0 || minutes > MAX_GRACE_MINUTES) throw new Error('Choose a grace period between 0 and 12 hours.')
+      if (!demoMode) await api.updateChoreGracePeriod(data.household.id, minutes)
+      setData(current => ({ ...current, household: { ...current.household, choreGraceMinutes: minutes } }))
+    }, 'Grace period saved.',
+  ), [data.members, data.household.currentMemberId, data.household.id, demoMode, run])
 
   const addExpense = useCallback(
     async (input: NewExpense) =>
@@ -1405,6 +1546,12 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       disputeInfraction,
       voteInfraction,
       forgiveInfraction,
+      claimChore,
+      finishChoreClaim,
+      voteChoreClaim,
+      noteChoreClaim,
+      claimPhotoUrls,
+      updateChoreGracePeriod,
       addExpense,
       reverseExpense,
       updateExpenseAmount,
@@ -1459,6 +1606,12 @@ export function AppDataProvider({ children }: PropsWithChildren) {
       disputeInfraction,
       voteInfraction,
       forgiveInfraction,
+      claimChore,
+      finishChoreClaim,
+      voteChoreClaim,
+      noteChoreClaim,
+      claimPhotoUrls,
+      updateChoreGracePeriod,
       addExpense,
       reverseExpense,
       updateExpenseAmount,

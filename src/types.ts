@@ -68,6 +68,7 @@ export interface Household {
   enabledFeatures: HouseholdFeature[]
   defaultTaskReminderTimes: string[]
   penaltyTiers?: number[]
+  choreGraceMinutes?: number
   shareCodeLast4?: string
 }
 
@@ -96,7 +97,6 @@ export interface TaskDefinition {
   endsOn?: string
   dueTime: string
   reminderTimes: string[]
-  penaltyEnabled: boolean
   active: boolean
   rotationMemberIds: UUID[]
   nextMemberId?: UUID
@@ -127,6 +127,29 @@ export interface Infraction {
   disputeReason?: string
   upholdVotes: UUID[]
   excuseVotes: UUID[]
+}
+
+export type ChoreClaimStatus = 'claimed' | 'submitted' | 'approved' | 'rejected' | 'lapsed'
+export type ChoreClaimVote = 'approve' | 'reject'
+
+export interface ChoreClaim {
+  id: UUID
+  occurrenceId: UUID
+  infractionId: UUID
+  claimerId: UUID
+  assigneeId: UUID
+  status: ChoreClaimStatus
+  rewardCents: MoneyCents
+  beforePhotoPath: string
+  afterPhotoPath?: string
+  assigneeNote?: string
+  claimDeadline: ISODateTime
+  voteDeadline?: ISODateTime
+  createdAt: ISODateTime
+  submittedAt?: ISODateTime
+  resolvedAt?: ISODateTime
+  approveVotes: UUID[]
+  rejectVotes: UUID[]
 }
 
 export interface ExpenseShare {
@@ -349,6 +372,7 @@ export interface AppSnapshot {
   tasks: TaskDefinition[]
   occurrences: TaskOccurrence[]
   infractions: Infraction[]
+  choreClaims: ChoreClaim[]
   expenses: Expense[]
   settlements: Settlement[]
   fundPayments: FundPayment[]
