@@ -9,6 +9,7 @@ import {
   formatGracePeriod,
   graceEndsAt,
   isInGracePeriod,
+  listNames,
   zonedMidnight,
 } from './chores'
 import { isInfractionReviewOpen } from './infractions'
@@ -64,6 +65,11 @@ describe('claim window', () => {
     expect(zonedMidnight('2026-11-02', toronto).toISOString()).toBe('2026-11-02T05:00:00.000Z')
   })
 
+  it('starts the day after the gap where clocks skip midnight, like Postgres', () => {
+    // Santiago skips 00:00-01:00 on Sept 6, 2026, so the day starts at 01:00 local.
+    expect(zonedMidnight('2026-09-06', 'America/Santiago').toISOString()).toBe('2026-09-06T04:00:00.000Z')
+  })
+
   it('closes at the end of the day after the chore was due', () => {
     expect(claimDeadlineFor('2026-08-03', toronto).toISOString()).toBe('2026-08-05T04:00:00.000Z')
   })
@@ -87,6 +93,17 @@ describe('claim rewards and votes', () => {
   it('lets only active roommates outside the claim vote', () => {
     const members = [member('ashton'), member('greg'), member('maya'), member('noah'), member('former', false)]
     expect(claimVoterIds(members, { claimerId: 'greg', assigneeId: 'ashton' })).toEqual(['maya', 'noah'])
+  })
+
+  it('uses the reviewers fixed at submission once the after photo is in', () => {
+    const members = [member('ashton'), member('greg'), member('maya'), member('noah'), member('newcomer')]
+    expect(claimVoterIds(members, { claimerId: 'greg', assigneeId: 'ashton', voterIds: ['maya', 'gone'] })).toEqual(['maya', 'gone'])
+  })
+
+  it('lists names the way a sentence would', () => {
+    expect(listNames(['Noah'])).toBe('Noah')
+    expect(listNames(['Noah', 'Maya'])).toBe('Noah and Maya')
+    expect(listNames(['Noah', 'Maya', 'Liam'])).toBe('Noah, Maya, and Liam')
   })
 
   it('uses the live claim over an earlier lapsed one', () => {
@@ -140,6 +157,14 @@ describe('chores up for grabs', () => {
     expect(choresUpForGrabs(snapshot({ infractions: [{ ...infraction, status: 'excused' }] }), now)).toEqual([])
     const submitted = { id: 'c', infractionId: 'inf', occurrenceId: 'occ', status: 'submitted', claimDeadline: '2026-08-05T04:00:00Z', createdAt: '2026-08-04T10:00:00Z' } as ChoreClaim
     expect(choresUpForGrabs(snapshot({ choreClaims: [submitted] }), now)).toEqual([])
+  })
+
+  it('shows the claimer their own claim while the house reviews it', () => {
+    const submitted = { id: 'c', infractionId: 'inf', occurrenceId: 'occ', claimerId: 'greg', status: 'submitted', rewardCents: 1000, claimDeadline: '2026-08-05T04:00:00Z', voteDeadline: '2026-08-06T12:00:00Z', createdAt: '2026-08-04T10:00:00Z' } as ChoreClaim
+    const [item] = choresUpForGrabs(snapshot({ choreClaims: [submitted] }), now, 'greg')
+    expect(item.claim?.status).toBe('submitted')
+    expect(item.deadline.toISOString()).toBe('2026-08-06T12:00:00.000Z')
+    expect(choresUpForGrabs(snapshot({ choreClaims: [submitted] }), now, 'maya')).toEqual([])
   })
 
   it('keeps a claim that is waiting for its after photo', () => {

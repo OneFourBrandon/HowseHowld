@@ -250,6 +250,31 @@ begin
 end;
 $$;
 
+-- Deleting a chore clears only its future assignments, for the same reason:
+-- otherwise an assignee could delete a chore during its grace period to erase
+-- the miss.
+create or replace function private.delete_task_impl(p_task_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  v_task public.task_definitions%rowtype;
+begin
+  select * into v_task from public.task_definitions where id = p_task_id for update;
+  if not found or private.current_member_id(v_task.household_id) is null then
+    raise exception 'Chore not found';
+  end if;
+  update public.task_definitions set active = false, deleted_at = coalesce(deleted_at, now()) where id = p_task_id;
+  update public.notification_outbox set status = 'cancelled'
+  where entity_type = 'task_occurrence' and status in ('pending', 'processing')
+    and entity_id in (
+      select id from public.task_occurrences
+      where task_id = p_task_id and status = 'assigned' and due_at > now()
+    );
+  delete from public.task_occurrences o
+  where o.task_id = p_task_id and o.status = 'assigned' and o.due_at > now()
+    and not exists (select 1 from public.infractions i where i.occurrence_id = o.id);
+end;
+$$;
+
 -- Chore claims ---------------------------------------------------------------
 
 create type public.chore_claim_status as enum ('claimed', 'submitted', 'approved', 'rejected', 'lapsed');
@@ -269,6 +294,9 @@ create table public.chore_claims (
   assignee_note text check (assignee_note is null or char_length(assignee_note) between 1 and 500),
   claim_deadline timestamptz not null,
   vote_deadline timestamptz,
+  -- The uninvolved roommates when the after photo arrived. Only they vote, so
+  -- members joining or leaving later cannot change who decides.
+  voter_member_ids uuid[],
   ledger_transaction_id uuid references public.ledger_transactions(id),
   created_at timestamptz not null default now(),
   submitted_at timestamptz,
@@ -279,6 +307,7 @@ create table public.chore_claims (
     status in ('claimed', 'lapsed')
     or (after_photo_path is not null and submitted_at is not null and vote_deadline is not null)
   ),
+  constraint chore_claims_voters check (status in ('claimed', 'lapsed') or voter_member_ids is not null),
   constraint chore_claims_resolution check ((status in ('approved', 'rejected', 'lapsed')) = (resolved_at is not null)),
   constraint chore_claims_payout check ((status = 'approved') = (ledger_transaction_id is not null))
 );
@@ -322,7 +351,8 @@ do $$
 declare
   v_table text;
 begin
-  foreach v_table in array array['chore_claims', 'chore_claim_votes'] loop
+  -- Households carry the grace period, so other members see an admin's change.
+  foreach v_table in array array['chore_claims', 'chore_claim_votes', 'households'] loop
     begin
       execute format('alter publication supabase_realtime add table public.%I', v_table);
     exception when duplicate_object or undefined_object then
@@ -374,23 +404,55 @@ returns text language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function private.member_display_name(uuid) from public, anon, authenticated;
 
-create function private.assert_chore_claim_photo(p_household_id uuid, p_occurrence_id uuid, p_path text)
+-- The caller must have uploaded the photo to this chore's folder, no earlier
+-- than p_not_before. A photo whose bytes match another photo in the household
+-- (a re-upload or a storage copy keeps the eTag) cannot be reused as evidence.
+create function private.assert_chore_claim_photo(
+  p_household_id uuid, p_occurrence_id uuid, p_path text, p_not_before timestamptz
+)
 returns void language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_photo storage.objects%rowtype;
 begin
-  if p_path is null
-    or p_path not like p_household_id::text || '/' || p_occurrence_id::text || '/%'
-    or position('..' in p_path) > 0
-    or not exists (
-      select 1 from storage.objects
-      where bucket_id = 'chore-claims' and name = p_path
-        and owner_id = (select auth.uid())::text
+  if p_path is not null
+    and p_path like p_household_id::text || '/' || p_occurrence_id::text || '/%'
+    and position('..' in p_path) = 0
+  then
+    select * into v_photo
+    from storage.objects
+    where bucket_id = 'chore-claims' and name = p_path
+      and owner_id = (select auth.uid())::text;
+  end if;
+  if v_photo.id is null then
+    raise exception 'Upload a photo of the chore first';
+  end if;
+  if v_photo.created_at is null or v_photo.created_at < p_not_before
+    or (
+      v_photo.metadata->>'eTag' is not null
+      and exists (
+        select 1 from storage.objects other
+        where other.bucket_id = 'chore-claims'
+          and other.name like p_household_id::text || '/%'
+          and other.id <> v_photo.id
+          and other.metadata->>'eTag' = v_photo.metadata->>'eTag'
+          -- A retry after a failed request re-uploads the same photo. The caller's own
+          -- unused uploads for this chore are not copies, but claim evidence never repeats.
+          and not (
+            other.owner_id = v_photo.owner_id
+            and other.name like p_household_id::text || '/' || p_occurrence_id::text || '/%'
+            and not exists (
+              select 1 from public.chore_claims claim
+              where other.name in (claim.before_photo_path, claim.after_photo_path)
+            )
+          )
+      )
     )
   then
-    raise exception 'Upload a photo of the chore first';
+    raise exception 'Take a new photo for this claim';
   end if;
 end
 $$;
-revoke all on function private.assert_chore_claim_photo(uuid, uuid, text) from public, anon, authenticated;
+revoke all on function private.assert_chore_claim_photo(uuid, uuid, text, timestamptz) from public, anon, authenticated;
 
 create function private.claim_missed_chore_impl(p_occurrence_id uuid, p_before_photo_path text)
 returns uuid language plpgsql security definer set search_path = '' as $$
@@ -415,6 +477,10 @@ begin
   ) < 3 then
     raise exception 'Covering chores needs at least three roommates';
   end if;
+  -- A chore assigned after its due time was never a fair chance to do it.
+  if v_occurrence.created_at >= v_occurrence.due_at then
+    raise exception 'This chore was added after it was due, so it cannot be covered';
+  end if;
 
   select * into v_house from public.households where id = v_occurrence.household_id;
   v_deadline := private.chore_claim_deadline(v_occurrence.scheduled_date, v_house.timezone);
@@ -434,7 +500,11 @@ begin
   ) then
     raise exception 'Someone is already covering this chore';
   end if;
-  perform private.assert_chore_claim_photo(v_occurrence.household_id, v_occurrence.id, p_before_photo_path);
+  -- The before photo must show the chore after the assignee's chance ended.
+  perform private.assert_chore_claim_photo(
+    v_occurrence.household_id, v_occurrence.id, p_before_photo_path,
+    v_occurrence.due_at + make_interval(mins => v_house.chore_grace_minutes)
+  );
 
   insert into public.chore_claims(
     household_id, occurrence_id, infraction_id, claimer_member_id, assignee_member_id,
@@ -512,13 +582,15 @@ end
 $$;
 revoke all on function private.post_covered_penalty(uuid) from public, anon, authenticated;
 
--- Closes the vote once every uninvolved roommate has voted, or when the vote
--- window ends. More rejections than approvals rejects the claim, which clears
--- the assignee. A tie, or no votes at all, approves it on the photo evidence.
+-- Closes the vote once every reviewer chosen at submission has voted, or when
+-- the vote window ends. More rejections than approvals rejects the claim, which
+-- clears the assignee. A tie, or no votes at all, approves it on the photo
+-- evidence. A claim whose penalty was settled some other way closes as lapsed.
 create function private.resolve_chore_claim(p_claim_id uuid)
 returns public.chore_claim_status language plpgsql security definer set search_path = '' as $$
 declare
   v_claim public.chore_claims%rowtype;
+  v_infraction public.infractions%rowtype;
   v_eligible integer;
   v_approve integer;
   v_reject integer;
@@ -530,16 +602,20 @@ begin
   if not found then raise exception 'Claim not found'; end if;
   if v_claim.status <> 'submitted' then return v_claim.status; end if;
 
-  select count(*) into v_eligible
-  from public.household_members member
-  where member.household_id = v_claim.household_id and member.active
-    and member.id not in (v_claim.claimer_member_id, v_claim.assignee_member_id);
+  select * into v_infraction from public.infractions where id = v_claim.infraction_id for update;
+  if v_infraction.ledger_transaction_id is not null
+    or v_infraction.status not in ('pending', 'disputed', 'upheld')
+  then
+    update public.chore_claims set status = 'lapsed', resolved_at = now() where id = p_claim_id;
+    return 'lapsed'::public.chore_claim_status;
+  end if;
+
+  v_eligible := coalesce(cardinality(v_claim.voter_member_ids), 0);
   select count(*) filter (where vote.choice = 'approve'), count(*) filter (where vote.choice = 'reject')
   into v_approve, v_reject
   from public.chore_claim_votes vote
-  join public.household_members member on member.id = vote.voter_member_id and member.active
   where vote.claim_id = p_claim_id
-    and vote.voter_member_id not in (v_claim.claimer_member_id, v_claim.assignee_member_id);
+    and vote.voter_member_id = any(v_claim.voter_member_ids);
 
   if now() < v_claim.vote_deadline and v_approve + v_reject < v_eligible then
     return 'submitted'::public.chore_claim_status;
@@ -584,6 +660,7 @@ create function private.submit_chore_claim_impl(p_claim_id uuid, p_after_photo_p
 returns public.chore_claim_status language plpgsql security definer set search_path = '' as $$
 declare
   v_claim public.chore_claims%rowtype;
+  v_voters uuid[];
   v_title text;
   v_claimer text;
   v_assignee text;
@@ -598,10 +675,21 @@ begin
   if p_after_photo_path is not distinct from v_claim.before_photo_path then
     raise exception 'Take a new photo after the chore is done';
   end if;
-  perform private.assert_chore_claim_photo(v_claim.household_id, v_claim.occurrence_id, p_after_photo_path);
+  perform private.assert_chore_claim_photo(
+    v_claim.household_id, v_claim.occurrence_id, p_after_photo_path, v_claim.created_at
+  );
+
+  select array_agg(member.id order by member.joined_at, member.id) into v_voters
+  from public.household_members member
+  where member.household_id = v_claim.household_id and member.active
+    and member.id not in (v_claim.claimer_member_id, v_claim.assignee_member_id);
+  -- Without a reviewer the claim would approve itself, so it waits and lapses.
+  if coalesce(cardinality(v_voters), 0) = 0 then
+    raise exception 'Nobody is left to review this claim';
+  end if;
 
   update public.chore_claims
-  set status = 'submitted', after_photo_path = p_after_photo_path,
+  set status = 'submitted', after_photo_path = p_after_photo_path, voter_member_ids = v_voters,
       submitted_at = now(), vote_deadline = now() + interval '48 hours'
   where id = p_claim_id;
 
@@ -619,12 +707,9 @@ begin
     'Review a covered chore',
     v_claimer || ' covered ' || v_assignee || '''s ' || coalesce(v_title, 'chore') || '. Check the photos and vote.',
     '/chores', 'normal'
-  from public.household_members member
-  where member.household_id = v_claim.household_id and member.active
-    and member.id not in (v_claim.claimer_member_id, v_claim.assignee_member_id)
+  from unnest(v_voters) member(id)
   on conflict do nothing;
 
-  -- Resolves immediately if nobody is left to vote.
   return private.resolve_chore_claim(p_claim_id);
 end
 $$;
@@ -651,6 +736,9 @@ begin
   if v_voter is null then raise exception 'Only household members can vote'; end if;
   if v_voter in (v_claim.claimer_member_id, v_claim.assignee_member_id) then
     raise exception 'Only roommates outside this claim can vote';
+  end if;
+  if not v_voter = any(coalesce(v_claim.voter_member_ids, '{}'::uuid[])) then
+    raise exception 'You are not a reviewer for this claim';
   end if;
   if p_choice is null then raise exception 'Choose approve or reject'; end if;
   insert into public.chore_claim_votes(household_id, claim_id, voter_member_id, choice)
@@ -718,7 +806,8 @@ declare
   v_row public.infractions%rowtype;
 begin
   select * into v_row from public.infractions where id = p_infraction_id for update;
-  if not found or private.current_member_id(v_row.household_id) <> v_row.member_id then
+  -- Null-safe, so a caller outside the household is refused too.
+  if not found or private.current_member_id(v_row.household_id) is distinct from v_row.member_id then
     raise exception 'Only the affected member can dispute';
   end if;
   if private.infraction_has_live_claim(p_infraction_id) then
@@ -846,6 +935,72 @@ begin
 end
 $$;
 
+-- Paying off the fund marks only posted penalties as paid. An upheld penalty
+-- that has not posted yet still has to post (or be settled by its claim), and
+-- a covered penalty is owed partly to the roommate who covered it, not only to
+-- the fund.
+create or replace function private.confirm_fund_payment_impl(
+  p_fund_payment_id uuid, p_accept boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_row public.fund_payments%rowtype;
+  v_confirmer uuid;
+  v_transaction uuid;
+begin
+  select * into v_row from public.fund_payments where id = p_fund_payment_id for update;
+  if not found then raise exception 'Fund payment not found'; end if;
+  v_confirmer := private.current_member_id(v_row.household_id);
+  if v_confirmer is null or v_confirmer = v_row.member_id then
+    raise exception 'Another roommate must confirm the payment';
+  end if;
+  if v_row.status <> 'pending' then raise exception 'Payment already resolved'; end if;
+  if not p_accept then
+    update public.fund_payments set status = 'rejected', confirmed_by = v_confirmer,
+      confirmed_at = now() where id = p_fund_payment_id;
+    return;
+  end if;
+  insert into public.ledger_transactions(
+    household_id, type, source_id, description, created_by, posted_at
+  ) values (
+    v_row.household_id, 'fund_payment', v_row.id, 'Household fund payment',
+    v_confirmer, now()
+  ) returning id into v_transaction;
+  insert into public.ledger_entries(
+    household_id, transaction_id, member_id, amount_cents, fund_liability_cents
+  ) values (
+    v_row.household_id, v_transaction, v_row.member_id,
+    v_row.amount_cents, -v_row.amount_cents
+  );
+  insert into public.ledger_entries(
+    household_id, transaction_id, household_fund, amount_cents
+  ) values (
+    v_row.household_id, v_transaction, true, -v_row.amount_cents
+  );
+  perform private.assert_balanced_transaction(v_transaction);
+  update public.fund_payments
+  set status = 'confirmed', confirmed_by = v_confirmer,
+      transaction_id = v_transaction, confirmed_at = now()
+  where id = p_fund_payment_id;
+  update public.infractions i set status = 'paid'
+  where i.member_id = v_row.member_id
+    and i.status = 'upheld'
+    and i.ledger_transaction_id is not null
+    and not exists (
+      select 1 from public.chore_claims c
+      where c.infraction_id = i.id and c.status = 'approved'
+    )
+    and (
+      select coalesce(sum(le.fund_liability_cents), 0)
+      from public.ledger_entries le where le.member_id = v_row.member_id
+    ) <= 0;
+end
+$$;
+
 -- Due work ---------------------------------------------------------------------
 
 create or replace function private.process_due_work()
@@ -918,13 +1073,19 @@ begin
   where status = 'claimed' and claim_deadline <= now();
   get diagnostics v_claims_lapsed = row_count;
 
+  -- Each claim and each penalty settles on its own, so one bad row is logged
+  -- and retried next minute instead of blocking every household's due work.
   for v_claim_id in
     select id from public.chore_claims where status = 'submitted'
     for update skip locked
   loop
-    if private.resolve_chore_claim(v_claim_id) <> 'submitted' then
-      v_claims_resolved := v_claims_resolved + 1;
-    end if;
+    begin
+      if private.resolve_chore_claim(v_claim_id) <> 'submitted' then
+        v_claims_resolved := v_claims_resolved + 1;
+      end if;
+    exception when others then
+      raise warning 'Could not resolve chore claim %: %', v_claim_id, sqlerrm;
+    end;
   end loop;
 
   for v_infraction in
@@ -935,8 +1096,12 @@ begin
       and not private.infraction_has_live_claim(infraction.id)
     for update skip locked
   loop
-    perform private.post_penalty(v_infraction.id);
-    v_finalized := v_finalized + 1;
+    begin
+      perform private.post_penalty(v_infraction.id);
+      v_finalized := v_finalized + 1;
+    exception when others then
+      raise warning 'Could not post penalty for infraction %: %', v_infraction.id, sqlerrm;
+    end;
   end loop;
 
   return jsonb_build_object(

@@ -150,6 +150,8 @@ export interface ChoreClaim {
   resolvedAt?: ISODateTime
   approveVotes: UUID[]
   rejectVotes: UUID[]
+  /** Fixed when the after photo is submitted. */
+  voterIds?: UUID[]
 }
 
 export interface ExpenseShare {

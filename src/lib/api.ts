@@ -727,6 +727,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         createdAt: row.created_at,
         submittedAt: row.submitted_at ?? undefined,
         resolvedAt: row.resolved_at ?? undefined,
+        voterIds: row.voter_member_ids ?? undefined,
         approveVotes: votes.filter(vote => vote.choice === 'approve').map(vote => vote.voter_member_id),
         rejectVotes: votes.filter(vote => vote.choice === 'reject').map(vote => vote.voter_member_id),
       }

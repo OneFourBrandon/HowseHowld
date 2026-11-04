@@ -144,8 +144,8 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
     .filter(id => !data.members.some(member => member.id === id))
   const memberItems = closedItems.filter(item => memberFilter === 'all' || item.memberId === memberFilter)
   const historyItems = memberItems.filter(item => outcomeFilter === 'all' || outcomeOf(item, claimOf(item)) === outcomeFilter)
-  const centsFor = (kind: Exclude<Outcome, 'all'>) => memberItems
-    .filter(item => outcomeOf(item, claimOf(item)) === kind)
+  const centsFor = (status: 'upheld' | 'paid') => memberItems
+    .filter(item => item.status === status)
     .reduce((sum, item) => sum + item.amountCents, 0)
   const countFor = (kind: Outcome) => kind === 'all' ? memberItems.length : memberItems.filter(item => outcomeOf(item, claimOf(item)) === kind).length
 
@@ -200,7 +200,7 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
       <SectionHeader
         eyebrow="PEER REVIEW"
         title="Infractions"
-        description={`Roommates have a week to vote. First side to ${VOTES_TO_DECIDE} votes decides.`}
+        description={`Roommates have a week to vote. First side to ${VOTES_TO_DECIDE} votes decides. A covered chore gets its own claim vote instead.`}
       />
 
       <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl border border-(--line) bg-(--surface) p-1" role="tablist" aria-label="Infraction views">
@@ -270,7 +270,9 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                   <blockquote className="border-l-2 border-(--line-strong) pl-3 text-[.84rem] leading-normal">“{infraction.disputeReason}”</blockquote>
                 )}
 
-                {decidingClaim ? <ClaimReview claim={decidingClaim} /> : <VoteTally infraction={infraction} />}
+                {decidingClaim
+                  ? <ClaimReview claim={decidingClaim} taskTitle={infraction.taskTitle} penaltyCents={infraction.amountCents} now={now} />
+                  : <VoteTally infraction={infraction} />}
 
                 {claim?.status === 'lapsed' && !decidingClaim && (
                   <p className="text-[.75rem] text-(--muted)">{memberById(claim.claimerId).displayName}’s claim lapsed without an after photo, so the house vote is back on.</p>
@@ -353,7 +355,7 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                 {formatMoney(centsFor('upheld'))} unpaid · {formatMoney(centsFor('paid'))} paid
               </span>
             </div>
-            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5" role="group" aria-label="Filter by outcome">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by outcome">
               {OUTCOMES.map(option => (
                 <button
                   key={option.id}
@@ -361,7 +363,7 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                   aria-pressed={outcomeFilter === option.id}
                   onClick={() => { setOutcomeFilter(option.id); setHistoryPage(0); setExpandedId(null) }}
                   className={cn(
-                    'inline-flex min-h-8 flex-1 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-(--line) bg-(--surface-strong) px-2.5 text-xs font-semibold text-(--ink)',
+                    'inline-flex min-h-8 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-(--line) bg-(--surface-strong) px-2.5 text-xs font-semibold text-(--ink)',
                     outcomeFilter === option.id && 'border-(--forest)! bg-(--forest)! text-white!',
                   )}
                 >
@@ -414,7 +416,9 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
                         ? <blockquote className="border-l-2 border-(--line-strong) pl-3 text-[.8rem] leading-normal">“{infraction.disputeReason}”</blockquote>
                         : !decidingClaim && <p className="text-[.75rem] text-(--muted)">No dispute was filed.</p>}
                       {wasForgiven(infraction, claim) && <p className="text-[.75rem] text-(--muted)">Forgiven by the house admin.</p>}
-                      {decidingClaim ? <ClaimReview claim={decidingClaim} compact /> : <VoteTally infraction={infraction} />}
+                      {decidingClaim
+                        ? <ClaimReview claim={decidingClaim} taskTitle={infraction.taskTitle} penaltyCents={infraction.amountCents} now={now} compact />
+                        : <VoteTally infraction={infraction} />}
                       <div className="flex items-center justify-between gap-2 border-t border-(--line) pt-2.5">
                         <span className="inline-flex min-w-0 items-center gap-1.5 text-[.72rem] text-(--muted) tabular-nums">
                           <Scale className="shrink-0" size={14} /> Closed {formatDateTime(closedAt(infraction))}

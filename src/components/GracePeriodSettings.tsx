@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronDown } from 'lucide-react'
 import { GRACE_PERIOD_OPTIONS, formatGracePeriod, graceMinutesOf } from '../lib/chores'
@@ -15,6 +15,7 @@ export function GracePeriodSettings() {
   const [draft, setDraft] = useState<number | null>(null)
   const value = draft ?? saved
   const saving = busy === 'household:grace'
+  const labelId = useId()
   const options = GRACE_PERIOD_OPTIONS.includes(saved) ? GRACE_PERIOD_OPTIONS : [...GRACE_PERIOD_OPTIONS, saved].sort((a, b) => a - b)
 
   return (
@@ -34,10 +35,11 @@ export function GracePeriodSettings() {
         <p className="text-sm text-(--muted)">
           Extra time after a chore’s due time when it can still be finished. Once the grace period ends, the chore counts as missed and roommates can cover it.
         </p>
-        <label className="flex items-center gap-3 rounded-xl border border-(--line) bg-(--surface-strong) p-3 text-sm text-(--ink) max-[420px]:flex-wrap">
-          <span className="min-w-0 flex-1">Grace period</span>
+        <div className="flex items-center gap-3 rounded-xl border border-(--line) bg-(--surface-strong) p-3 max-[420px]:flex-wrap">
+          <span id={labelId} className="min-w-0 flex-1 text-sm text-(--ink)">Grace period</span>
           <span className="relative w-44 shrink-0 max-[420px]:w-full">
             <select
+              aria-labelledby={labelId}
               className="mt-0! appearance-none py-2 pr-9!"
               value={value}
               disabled={saving}
@@ -50,7 +52,7 @@ export function GracePeriodSettings() {
             </select>
             <ChevronDown className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-(--muted)" size={16} />
           </span>
-        </label>
+        </div>
         <p className="text-xs text-(--muted)">
           {value === 0
             ? 'A chore due at 11:59 PM counts as missed right at 11:59 PM.'

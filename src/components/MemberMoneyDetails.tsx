@@ -44,7 +44,7 @@ export function MemberMoneyDetails({ member, netCents, initialMonth, onClose }: 
   for (const infraction of data.infractions.filter(item => item.memberId === member.id)) {
     const claim = claimForInfraction(data.choreClaims, infraction.id)
     const covered = claim?.status === 'approved'
-    rows.push({ id: `penalty:${infraction.id}`, kind: 'Penalties', title: infraction.taskTitle,
+    rows.push({ id: `penalty:${infraction.id}`, kind: 'Chores', title: infraction.taskTitle,
       date: infraction.resolvedAt ?? infraction.disputeDeadline,
       detail: covered
         ? `Penalty ${formatMoney(infraction.amountCents)} · ${formatMoney(claim.rewardCents)} to ${name(claim.claimerId)} for covering it`
@@ -55,7 +55,7 @@ export function MemberMoneyDetails({ member, netCents, initialMonth, onClose }: 
   for (const claim of data.choreClaims.filter(item => item.claimerId === member.id && item.status === 'approved')) {
     const chore = data.occurrences.find(item => item.id === claim.occurrenceId)?.taskTitle
       ?? data.infractions.find(item => item.id === claim.infractionId)?.taskTitle ?? 'a chore'
-    rows.push({ id: `cover:${claim.id}`, kind: 'Penalties', title: `Covered: ${chore}`,
+    rows.push({ id: `cover:${claim.id}`, kind: 'Chores', title: `Covered: ${chore}`,
       date: claim.resolvedAt ?? claim.createdAt,
       detail: `Reward for covering ${name(claim.assigneeId)}’s chore`, amount: claim.rewardCents })
   }
@@ -73,7 +73,7 @@ export function MemberMoneyDetails({ member, netCents, initialMonth, onClose }: 
     <h3 className="mt-5 text-base font-semibold">Balance history</h3>
     <p className="mt-1 text-xs text-(--muted)">All months · Zero-dollar entries are hidden.</p>
     <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filter balance history">
-      {['all', 'Purchases', 'Bills', 'Payments', 'Penalties'].map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)} className={`rounded-full border border-(--line) px-3 py-2 text-xs font-semibold ${filter === option ? 'bg-(--forest) text-white' : 'bg-(--surface) text-(--ink)'}`}>{option === 'all' ? 'Everything' : option}</button>)}
+      {['all', 'Purchases', 'Bills', 'Payments', 'Chores'].map(option => <button key={option} type="button" aria-pressed={filter === option} onClick={() => setFilter(option)} className={`rounded-full border border-(--line) px-3 py-2 text-xs font-semibold ${filter === option ? 'bg-(--forest) text-white' : 'bg-(--surface) text-(--ink)'}`}>{option === 'all' ? 'Everything' : option}</button>)}
     </div>
     <div className="mt-3 divide-y divide-(--line)">
       {visible.map(row => <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-4">

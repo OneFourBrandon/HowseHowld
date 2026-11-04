@@ -12,9 +12,13 @@ export function ChoreOccurrenceIcon({
   return (
     <span
       className={cn(
-        'grid size-9 shrink-0 place-items-center rounded-lg bg-(--gold-soft) text-[#8a7444]',
-        status === 'completed' && 'bg-(--green) text-white',
-        status === 'missed' && 'bg-(--coral-soft) text-(--coral)',
+        'grid size-9 shrink-0 place-items-center rounded-lg',
+        // One colour pair per status: cn() does not merge conflicting utilities.
+        status === 'completed'
+          ? 'bg-(--green) text-white'
+          : status === 'missed'
+            ? 'bg-(--coral-soft) text-(--coral)'
+            : 'bg-(--gold-soft) text-[#8a7444]',
         className,
       )}
       aria-hidden="true"

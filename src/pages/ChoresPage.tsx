@@ -25,6 +25,7 @@ import { UpForGrabs } from '../components/UpForGrabs'
 import { claimForInfraction, formatGracePeriod, graceEndsAt, graceMinutesOf, isInGracePeriod } from '../lib/chores'
 import {
   formatDateTime,
+  formatInlineDateTime,
   formatShortTime,
   nextOpenOccurrencePerTask,
   taskCompletionAvailability,
@@ -233,8 +234,6 @@ export function ChoresPage() {
         </Card>
       </div>
 
-      <UpForGrabs now={reviewNow} />
-
       <section className="min-w-0 rounded-2xl border border-(--line) bg-(--surface-strong) p-4 max-[640px]:p-3 [&_.section-header]:mb-3 [&_.section-header]:min-h-0 [&_.section-header]:border-0">
         <SectionHeader
           eyebrow="ASSIGNMENTS"
@@ -257,9 +256,9 @@ export function ChoresPage() {
               <Card key={occurrence.id} className="occurrence-card grid min-h-20 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl! bg-(--surface)! px-4 py-3 max-[640px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[640px]:gap-2 max-[640px]:p-3">
                 <ChoreOccurrenceIcon status={occurrence.status} />
                 <div className="occurrence-detail grid min-w-0 gap-1.25">
-                  <div className="flex gap-1.25">
+                  <div className="flex flex-wrap gap-1.25">
                     <Badge>{occurrence.area}</Badge>
-                    {inGrace && <Badge tone="amber">Grace period</Badge>}
+                    {inGrace && <span className="whitespace-nowrap"><Badge tone="amber">Grace period</Badge></span>}
                     {isMine && occurrence.status === 'assigned' && !inGrace && (
                       <span className="max-[640px]:hidden"><Badge tone="amber">Your turn</Badge></span>
                     )}
@@ -267,14 +266,14 @@ export function ChoresPage() {
                   <h3 className="text-[.94rem]">{occurrence.taskTitle}</h3>
                   <span className="text-[.78rem] text-(--muted)">
                     {inGrace
-                      ? <>Was due {formatShortTime(occurrence.dueAt)} · finish by {formatDateTime(graceEndsAt(occurrence.dueAt, graceMinutes).toISOString()).replace(' · ', ' at ')}</>
+                      ? <>Was due {formatShortTime(occurrence.dueAt)} · finish by <span className="whitespace-nowrap">{formatInlineDateTime(graceEndsAt(occurrence.dueAt, graceMinutes).toISOString())}</span></>
                       : <>{formatDateTime(occurrence.dueAt)} · {occurrence.reminderLabel}</>}
                   </span>
                 </div>
                 <div className={"occurrence-person flex items-center gap-1.75 text-(--muted) max-[640px]:col-[2] text-[.76rem]"}>
                   <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   <span>{member.displayName}</span>
-                  {isMine && occurrence.status === 'assigned' && (
+                  {isMine && occurrence.status === 'assigned' && !inGrace && (
                     <span className="hidden whitespace-nowrap rounded-full bg-(--gold-soft) px-2 py-1 text-[.62rem] font-extrabold uppercase tracking-[.035em] text-[#8b6522] dark:text-(--gold) max-[640px]:inline-flex">
                       Your turn
                     </span>
@@ -347,6 +346,8 @@ export function ChoresPage() {
           </nav>
         )}
       </section>
+
+      <UpForGrabs now={reviewNow} />
 
       <div className={"content-grid-two grid grid-cols-[minmax(0,1.12fr)_minmax(300px,.88fr)] gap-6.25 items-start max-[980px]:grid-cols-1 max-[980px]:gap-12.5"}>
         <section className="min-w-0 rounded-2xl border border-(--line) bg-(--surface-strong) p-4 max-[640px]:p-3 [&_.section-header]:mb-3 [&_.section-header]:min-h-0 [&_.section-header]:border-0">

@@ -27,6 +27,14 @@ export function formatDateTime(value: ISODateTime | string) {
   return `${day} · ${format(date, 'h:mm a')}`
 }
 
+/** "today at 3:59 AM", for use mid-sentence. */
+export function formatInlineDateTime(value: ISODateTime | string) {
+  return formatDateTime(value)
+    .replace(' · ', ' at ')
+    .replace(/^Today/, 'today')
+    .replace(/^Tomorrow/, 'tomorrow')
+}
+
 export function formatShortTime(value: ISODateTime | string) {
   return format(new Date(value), 'h:mm a')
 }

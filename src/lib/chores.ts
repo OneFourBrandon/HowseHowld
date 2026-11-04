@@ -1,5 +1,5 @@
 import type { AppSnapshot, ChoreClaim, Household, Infraction, Member, MoneyCents, TaskOccurrence, UUID } from '../types'
-import { cents } from './utils'
+import { cents, dateKeyInTimeZone } from './utils'
 
 export const DEFAULT_GRACE_MINUTES = 240
 export const MAX_GRACE_MINUTES = 720
@@ -61,14 +61,19 @@ function zoneOffsetMs(instant: number, timeZone: string) {
   return wallClock - Math.floor(instant / 1000) * 1000
 }
 
-/** The instant a calendar day starts in a time zone. */
+/**
+ * The instant a calendar day starts in a time zone. On a daylight saving day the
+ * offsets before and after the change can differ; the day starts at the earliest
+ * candidate that falls on the requested date. Where clocks skip midnight, that is
+ * the first minute after the gap, matching Postgres.
+ */
 export function zonedMidnight(dateKey: string, timeZone: string) {
   const [year, month, day] = dateKey.split('-').map(Number)
   const wallClock = Date.UTC(year, month - 1, day)
-  let instant = wallClock
-  // Two passes settle the offset on days when daylight saving time changes.
-  for (let pass = 0; pass < 2; pass++) instant = wallClock - zoneOffsetMs(instant, timeZone)
-  return new Date(instant)
+  const candidates = [-12, 12]
+    .map(hours => wallClock - zoneOffsetMs(wallClock + hours * 3_600_000, timeZone))
+    .filter(instant => dateKeyInTimeZone(new Date(instant), timeZone) === dateKey)
+  return new Date(candidates.length ? Math.min(...candidates) : wallClock - zoneOffsetMs(wallClock, timeZone))
 }
 
 /** Claims close at the end of the day after the chore's scheduled day. */
@@ -101,10 +106,21 @@ export function claimForInfraction(claims: ChoreClaim[], infractionId: UUID) {
   return forInfraction.find(claim => claim.status !== 'lapsed') ?? forInfraction[0]
 }
 
-export function claimVoterIds(members: Member[], claim: Pick<ChoreClaim, 'claimerId' | 'assigneeId'>) {
+/** The server fixes the reviewers when the after photo is submitted; before that, preview them. */
+export function claimVoterIds(
+  members: Member[],
+  claim: Pick<ChoreClaim, 'claimerId' | 'assigneeId'> & { voterIds?: UUID[] },
+) {
+  if (claim.voterIds) return claim.voterIds
   return members
     .filter(member => member.active && member.id !== claim.claimerId && member.id !== claim.assigneeId)
     .map(member => member.id)
+}
+
+/** "Noah", "Noah and Maya", "Noah, Maya, and Liam". */
+export function listNames(names: string[]) {
+  if (names.length <= 2) return names.join(' and ')
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`
 }
 
 /** More rejections than approvals rejects the claim. A tie, or no votes, approves it. */
@@ -120,10 +136,14 @@ export interface ChoreUpForGrabs {
   deadline: Date
 }
 
-/** Missed chores that can still be claimed, plus claims waiting for their after photo. */
+/**
+ * Missed chores that can still be claimed, claims waiting for their after photo,
+ * and the viewer's own claims while the house reviews them.
+ */
 export function choresUpForGrabs(
   data: Pick<AppSnapshot, 'household' | 'members' | 'occurrences' | 'infractions' | 'choreClaims'>,
   now = Date.now(),
+  viewerId?: UUID,
 ): ChoreUpForGrabs[] {
   if (!canHouseholdClaim(data.members)) return []
   const items: ChoreUpForGrabs[] = []
@@ -133,9 +153,12 @@ export function choresUpForGrabs(
     if (!infraction || infraction.amountCents <= 0) continue
     const claim = claimForInfraction(data.choreClaims, infraction.id)
     const live = claim && claim.status !== 'lapsed' ? claim : undefined
-    if (live && live.status !== 'claimed') continue
+    const myReview = Boolean(viewerId) && live?.status === 'submitted' && live.claimerId === viewerId
+    if (live && live.status !== 'claimed' && !myReview) continue
     if (!live && !['pending', 'disputed', 'upheld'].includes(infraction.status)) continue
-    const deadline = live ? new Date(live.claimDeadline) : claimDeadlineFor(occurrence.scheduledDate, data.household.timezone)
+    const deadline = myReview && live?.voteDeadline
+      ? new Date(live.voteDeadline)
+      : live ? new Date(live.claimDeadline) : claimDeadlineFor(occurrence.scheduledDate, data.household.timezone)
     if (deadline.getTime() <= now) continue
     items.push({
       occurrence,

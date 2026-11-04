@@ -101,9 +101,22 @@ function AgendaIcon({
 export function TodayPage() {
   const { data, demoMode, busy, completeOccurrence } = useAppData()
   const currentMember = data.members.find((member) => member.id === data.household.currentMemberId)!
-  const householdToday = dateKeyInTimeZone(new Date(), data.household.timezone)
+  // A minute clock keeps grace periods and "today" current while the page stays open.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const householdToday = dateKeyInTimeZone(new Date(nowMs), data.household.timezone)
   const [selectedDate, setSelectedDate] = useState(householdToday)
   const [rangeStart, setRangeStart] = useState(householdToday)
+  const [trackedToday, setTrackedToday] = useState(householdToday)
+  // At midnight, follow the new day if the old today was showing.
+  if (trackedToday !== householdToday) {
+    setTrackedToday(householdToday)
+    if (selectedDate === trackedToday) setSelectedDate(householdToday)
+    if (rangeStart === trackedToday) setRangeStart(householdToday)
+  }
   const [compactDateRange, setCompactDateRange] = useState(
     () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(max-width: 640px)').matches),
   )
@@ -130,11 +143,10 @@ export function TodayPage() {
     const items: AgendaItem[] = []
 
     if (data.household.enabledFeatures.includes('chores')) {
-      const builtAt = Date.now()
       for (const occurrence of data.occurrences) {
         // A chore in its grace period stays on today's list until the grace period ends,
         // even when it was due yesterday.
-        const inGrace = isInGracePeriod(occurrence, graceMinutes, builtAt)
+        const inGrace = isInGracePeriod(occurrence, graceMinutes, nowMs)
         const graceEnd = graceEndsAt(occurrence.dueAt, graceMinutes).toISOString()
         items.push({
           id: `chore-${occurrence.id}`,
@@ -143,7 +155,7 @@ export function TodayPage() {
           sortAt: new Date(occurrence.dueAt).getTime(),
           timeLabel: formatShortTime(inGrace ? graceEnd : occurrence.dueAt),
           title: occurrence.taskTitle,
-          subtitle: inGrace ? `${occurrence.area} · Grace period, was due ${formatShortTime(occurrence.dueAt)}` : occurrence.area,
+          subtitle: inGrace ? `Grace period · was due ${formatShortTime(occurrence.dueAt)}` : occurrence.area,
           assigneeId: occurrence.assigneeId,
           occurrenceId: occurrence.id,
           occurrenceStatus: occurrence.status,
@@ -210,7 +222,7 @@ export function TodayPage() {
     }
 
     return items.sort((left, right) => left.sortAt - right.sortAt)
-  }, [currentMember.id, data, graceMinutes, householdToday])
+  }, [currentMember.id, data, graceMinutes, householdToday, nowMs])
 
   const selectedAgenda = agenda.filter((item) => item.dateKey === selectedDate)
   const laterAgenda = agenda.filter((item) => item.dateKey > selectedDate && item.dateKey <= addDateKeyDays(selectedDate, 7)).slice(0, 4)
@@ -312,7 +324,7 @@ export function TodayPage() {
             {selectedAgenda.map((item) => {
               const assignee = item.assigneeId ? data.members.find((member) => member.id === item.assigneeId) : undefined
               const isMyChore = item.kind === 'chore' && item.assigneeId === currentMember.id
-              const availability = item.occurrenceId && item.dueAt ? taskCompletionAvailability(item.scheduledDate ?? item.dateKey, item.dueAt, data.household.timezone, new Date(), graceMinutes) : null
+              const availability = item.occurrenceId && item.dueAt ? taskCompletionAvailability(item.scheduledDate ?? item.dateKey, item.dueAt, data.household.timezone, new Date(nowMs), graceMinutes) : null
               const completed = item.occurrenceStatus === 'completed'
               const canComplete = isMyChore && item.occurrenceStatus === 'assigned' && availability === 'available'
               return (
