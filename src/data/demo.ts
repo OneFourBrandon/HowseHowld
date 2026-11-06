@@ -246,7 +246,7 @@ export const demoSnapshot: AppSnapshot = {
       claimerId: 'member-maya',
       assigneeId: 'member-liam',
       status: 'submitted',
-      rewardCents: cents(1_000),
+      rewardCents: cents(1_500),
       beforePhotoPath: fridgeBefore,
       afterPhotoPath: fridgeAfter,
       assigneeNote: 'I wiped the top shelf on Sunday. The rest was already clean.',

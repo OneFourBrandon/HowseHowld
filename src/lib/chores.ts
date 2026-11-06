@@ -3,7 +3,6 @@ import { cents, dateKeyInTimeZone } from './utils'
 
 export const DEFAULT_GRACE_MINUTES = 240
 export const MAX_GRACE_MINUTES = 720
-export const CLAIM_REWARD_CENTS = 1000
 export const MIN_CLAIM_HOUSEHOLD_SIZE = 3
 export const CLAIM_VOTE_HOURS = 48
 export const GRACE_PERIOD_OPTIONS = [0, 15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 600, 720]
@@ -86,8 +85,9 @@ export function lastMinuteBefore(deadline: Date | string) {
   return new Date(new Date(deadline).getTime() - MINUTE)
 }
 
+/** The roommate who covers a chore earns the whole penalty. */
 export function claimRewardFor(penaltyCents: number): MoneyCents {
-  return cents(Math.max(0, Math.min(CLAIM_REWARD_CENTS, penaltyCents)))
+  return cents(Math.max(0, penaltyCents))
 }
 
 export function canHouseholdClaim(members: Member[]) {

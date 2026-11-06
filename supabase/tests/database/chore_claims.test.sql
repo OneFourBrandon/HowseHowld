@@ -1,7 +1,7 @@
 -- Grace period and chore claim coverage; run only against a disposable test backend.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(122);
+select plan(127);
 
 -- Four roommates in one house (Ashton is the admin) and two in another. Priya
 -- (user 7) joins the first house partway through.
@@ -115,7 +115,7 @@ select throws_ok($$select public.claim_missed_chore(pg_temp.occ(1), current_sett
 select throws_ok($$select public.claim_missed_chore(pg_temp.occ(2), 'c1000000-0000-4000-8000-000000000000/' || pg_temp.occ(2) || '/missing.jpg')$$, 'P0001', 'Upload a photo of the chore first', 'a claim needs an uploaded before photo');
 select throws_ok($$select public.claim_missed_chore(pg_temp.occ(2), current_setting('test.other_upload'))$$, 'P0001', 'Upload a photo of the chore first', 'the before photo must be uploaded by the claimer');
 select lives_ok($$select public.claim_missed_chore(pg_temp.occ(2), current_setting('test.before2'))$$, 'a roommate can claim a missed chore with a before photo');
-select is((select reward_cents from public.chore_claims where id = pg_temp.claim_for(2)), 1000, 'the reward is $10');
+select is((select reward_cents from public.chore_claims where id = pg_temp.claim_for(2)), 1000, 'the reward is the whole $10 penalty');
 select is((select status::text from public.chore_claims where id = pg_temp.claim_for(2)), 'claimed', 'the claim waits for the after photo');
 select ok(exists (select 1 from public.notification_outbox where entity_id = pg_temp.claim_for(2) and kind = 'chore_claim_started' and member_id = 'c1100000-0000-4000-8000-000000000001'), 'the assignee is told about the claim');
 select pg_temp.as_user(3);
@@ -173,7 +173,7 @@ select throws_ok($$select public.forgive_infraction((select id from public.infra
 select pg_temp.as_user(3);
 select throws_ok($$select public.vote_chore_claim(pg_temp.claim_for(2), 'reject')$$, 'P0001', 'This vote is closed', 'a decided claim takes no more votes');
 
--- $15 penalty: Ashton -15, Greg +10, fund +5.
+-- $15 penalty: Ashton -15, Greg +15, fund 0.
 reset role;
 select pg_temp.occurrence(0, 'c1100000-0000-4000-8000-000000000001', now() - interval '2 days');
 update public.task_occurrences set status = 'missed' where id = pg_temp.occ(0);
@@ -187,16 +187,19 @@ select set_config('test.after3', pg_temp.photo(3, 'after.jpg', 2), true);
 set local role authenticated;
 select pg_temp.as_user(2);
 select lives_ok($$select public.claim_missed_chore(pg_temp.occ(3), current_setting('test.before3'))$$, 'a roommate can claim a $15 miss');
-select is((select reward_cents from public.chore_claims where id = pg_temp.claim_for(3)), 1000, 'the reward stays $10 on a larger penalty');
+select is((select reward_cents from public.chore_claims where id = pg_temp.claim_for(3)), 1500, 'the reward is the whole $15 penalty');
 select lives_ok($$select public.submit_chore_claim(pg_temp.claim_for(3), current_setting('test.after3'))$$, 'the claimer submits the after photo');
 select pg_temp.as_user(3);
 select lives_ok($$select public.vote_chore_claim(pg_temp.claim_for(3), 'approve')$$, 'first approval recorded');
 select pg_temp.as_user(4);
 select is(public.vote_chore_claim(pg_temp.claim_for(3), 'approve')::text, 'approved', 'two approvals approve the claim');
 select is((select e.amount_cents from public.ledger_entries e join public.infractions i on i.ledger_transaction_id = e.transaction_id where i.occurrence_id = pg_temp.occ(3) and e.member_id = 'c1100000-0000-4000-8000-000000000001'), -1500::bigint, 'the assignee pays the full $15');
-select is((select e.amount_cents from public.ledger_entries e join public.infractions i on i.ledger_transaction_id = e.transaction_id where i.occurrence_id = pg_temp.occ(3) and e.member_id = 'c1100000-0000-4000-8000-000000000002'), 1000::bigint, 'the roommate who covered it earns $10');
-select is((select e.amount_cents from public.ledger_entries e join public.infractions i on i.ledger_transaction_id = e.transaction_id where i.occurrence_id = pg_temp.occ(3) and e.household_fund), 500::bigint, 'the fund receives the remaining $5');
-select is((select e.fund_liability_cents from public.ledger_entries e join public.infractions i on i.ledger_transaction_id = e.transaction_id where i.occurrence_id = pg_temp.occ(3) and e.member_id = 'c1100000-0000-4000-8000-000000000001'), 500::bigint, 'only the fund share is owed to the fund');
+select is((select e.amount_cents from public.ledger_entries e join public.infractions i on i.ledger_transaction_id = e.transaction_id where i.occurrence_id = pg_temp.occ(3) and e.member_id = 'c1100000-0000-4000-8000-000000000002'), 1500::bigint, 'the roommate who covered it earns the whole $15');
+select is((select count(*)::integer from public.ledger_entries e join public.infractions i on i.ledger_transaction_id = e.transaction_id where i.occurrence_id = pg_temp.occ(3) and e.household_fund), 0, 'the fund gets no entry on a $15 penalty');
+select is((select e.fund_liability_cents from public.ledger_entries e join public.infractions i on i.ledger_transaction_id = e.transaction_id where i.occurrence_id = pg_temp.occ(3) and e.member_id = 'c1100000-0000-4000-8000-000000000001'), 0::bigint, 'nothing is owed to the fund on a covered $15 penalty');
+reset role;
+select is((select (net_cents, fund_owed_cents)::text from public.member_balances where member_id = 'c1100000-0000-4000-8000-000000000001'), '(-2500,0)', 'Ashton''s balance carries both covered penalties and owes the fund nothing');
+select is((select (net_cents, fund_owed_cents)::text from public.member_balances where member_id = 'c1100000-0000-4000-8000-000000000002'), '(2500,0)', 'Greg''s balance carries both full rewards');
 
 -- Rejection: Maya claims Greg's chore, Ashton and Noah reject it.
 reset role;
@@ -295,13 +298,21 @@ select pg_temp.as_user(4);
 select is(public.vote_chore_claim(pg_temp.claim_for(13), 'approve')::text, 'approved', 'the claim still approves after the fund payment');
 select isnt((select ledger_transaction_id from public.infractions where occurrence_id = pg_temp.occ(13)), null, 'the covered penalty posts');
 
--- Ashton owes the fund $5 from his covered $15 penalty (3). Paying it marks
--- nothing paid: 3 was covered, and his upheld miss 0 has not posted.
+-- Ashton's covered penalties (2 and 3) leave him owing the fund nothing. Once
+-- his uncovered miss 7 posts, paying the fund marks only 7 paid: 3 was covered,
+-- and his upheld miss 0 has not posted.
+reset role;
+select is((select coalesce(sum(fund_liability_cents), 0)::bigint from public.ledger_entries where member_id = 'c1100000-0000-4000-8000-000000000001'), 0::bigint, 'covered penalties leave nothing owed to the fund');
+update public.infractions set dispute_deadline = now() - interval '1 minute' where occurrence_id = pg_temp.occ(7);
+select private.process_due_work();
+select set_config('test.fund_ashton_amount', (select amount_cents::text from public.infractions where occurrence_id = pg_temp.occ(7)), true);
+set local role authenticated;
 select pg_temp.as_user(1);
-select set_config('test.fund_ashton', public.propose_fund_payment(500)::text, true);
+select set_config('test.fund_ashton', public.propose_fund_payment(current_setting('test.fund_ashton_amount')::integer)::text, true);
 select pg_temp.as_user(2);
 select lives_ok($$select public.confirm_fund_payment(current_setting('test.fund_ashton')::uuid, true)$$, 'Greg confirms Ashton''s fund payment');
-select is((select status::text from public.infractions where occurrence_id = pg_temp.occ(3)), 'upheld', 'paying the fund share leaves a covered penalty as it was');
+select is((select status::text from public.infractions where occurrence_id = pg_temp.occ(7)), 'paid', 'paying the fund marks the posted, uncovered penalty as paid');
+select is((select status::text from public.infractions where occurrence_id = pg_temp.occ(3)), 'upheld', 'paying the fund leaves a covered penalty as it was');
 select is((select status::text from public.infractions where occurrence_id = pg_temp.occ(0)), 'upheld', 'paying the fund never marks a penalty that has not posted as paid');
 
 -- One claim or penalty that cannot settle never blocks the cron.
@@ -322,10 +333,10 @@ select pg_temp.as_user(2);
 select public.claim_missed_chore(pg_temp.occ(15), current_setting('test.before15'));
 select public.submit_chore_claim(pg_temp.claim_for(15), current_setting('test.after15'));
 reset role;
--- States the RPCs never produce: 14's penalty is already settled, 15's payout
--- cannot balance, and 16's penalty cannot post. Chore 17 is due in the same run.
+-- States the RPCs never produce: 14's penalty is already settled, 15's reward
+-- does not match its penalty, and 16's penalty cannot post. Chore 17 is due in the same run.
 update public.infractions set status = 'paid' where occurrence_id = pg_temp.occ(14);
-update public.chore_claims set reward_cents = 5000, vote_deadline = now() - interval '1 minute' where id = pg_temp.claim_for(15);
+update public.chore_claims set reward_cents = (select amount_cents - 100 from public.infractions where occurrence_id = pg_temp.occ(15)), vote_deadline = now() - interval '1 minute' where id = pg_temp.claim_for(15);
 update public.infractions set amount_cents = 0, dispute_deadline = now() - interval '1 minute' where occurrence_id = pg_temp.occ(16);
 select pg_temp.occurrence(17, 'c1100000-0000-4000-8000-000000000002', now() - interval '5 hours');
 set local client_min_messages to error;
@@ -333,9 +344,10 @@ select lives_ok($$select private.process_due_work()$$, 'the cron keeps running w
 reset client_min_messages;
 select ok(exists (select 1 from public.chore_claims where occurrence_id = pg_temp.occ(14) and status = 'lapsed' and resolved_at is not null), 'a claim whose penalty was already settled closes as lapsed');
 select is((select status::text from public.chore_claims where occurrence_id = pg_temp.occ(15)), 'submitted', 'a claim that failed to settle waits for the next run');
+select throws_ok($$select private.post_covered_penalty(pg_temp.claim_for(15))$$, 'P0001', 'The reward must match the penalty', 'a reward smaller than the penalty never posts');
 select is((select ledger_transaction_id from public.infractions where occurrence_id = pg_temp.occ(16)), null, 'a penalty that failed to post stays unposted');
 select is((select status::text from public.task_occurrences where id = pg_temp.occ(17)), 'missed', 'the rest of the run still happens');
-update public.chore_claims set reward_cents = 1000 where id = pg_temp.claim_for(15);
+update public.chore_claims set reward_cents = (select amount_cents from public.infractions where occurrence_id = pg_temp.occ(15)) where id = pg_temp.claim_for(15);
 update public.infractions set status = 'excused', resolved_at = now() where occurrence_id = pg_temp.occ(16);
 
 -- A chore assigned after it was due cannot be covered.

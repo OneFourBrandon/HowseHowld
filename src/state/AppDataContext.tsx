@@ -468,7 +468,6 @@ export function AppDataProvider({ children }: PropsWithChildren) {
     const resolvedAt = toIso(new Date())
     const decided: ChoreClaim = { ...claim, status: outcome, resolvedAt }
     if (!infraction) return { ...current, choreClaims: current.choreClaims.map(item => item.id === claim.id ? decided : item) }
-    const fundShare = infraction.amountCents - claim.rewardCents
     return {
       ...current,
       choreClaims: current.choreClaims.map(item => item.id === claim.id ? decided : item),
@@ -477,7 +476,7 @@ export function AppDataProvider({ children }: PropsWithChildren) {
         : item),
       balances: outcome === 'rejected' ? current.balances : current.balances.map(balance =>
         balance.memberId === claim.assigneeId
-          ? { ...balance, netCents: cents(balance.netCents - infraction.amountCents), fundOwedCents: cents(balance.fundOwedCents + fundShare) }
+          ? { ...balance, netCents: cents(balance.netCents - infraction.amountCents) }
           : balance.memberId === claim.claimerId
             ? { ...balance, netCents: cents(balance.netCents + claim.rewardCents) }
             : balance),

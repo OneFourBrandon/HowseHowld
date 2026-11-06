@@ -144,8 +144,10 @@ export function InfractionsPanel({ now, onDispute }: { now: number; onDispute: (
     .filter(id => !data.members.some(member => member.id === id))
   const memberItems = closedItems.filter(item => memberFilter === 'all' || item.memberId === memberFilter)
   const historyItems = memberItems.filter(item => outcomeFilter === 'all' || outcomeOf(item, claimOf(item)) === outcomeFilter)
+  // Unpaid and paid count what is owed to the fund. A covered penalty goes to
+  // the roommate who covered it instead, so it counts toward neither.
   const centsFor = (status: 'upheld' | 'paid') => memberItems
-    .filter(item => item.status === status)
+    .filter(item => outcomeOf(item, claimOf(item)) === status)
     .reduce((sum, item) => sum + item.amountCents, 0)
   const countFor = (kind: Outcome) => kind === 'all' ? memberItems.length : memberItems.filter(item => outcomeOf(item, claimOf(item)) === kind).length
 

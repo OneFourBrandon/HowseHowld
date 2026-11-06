@@ -35,7 +35,7 @@ test('an uninvolved roommate decides a submitted claim', async ({ page }) => {
   await expect(card.getByText('Liam’s note')).toBeVisible()
   await expect(card.getByRole('button', { name: 'Forgive infraction' })).toHaveCount(0)
   await card.getByRole('button', { name: 'Approve' }).click()
-  await expect(card.getByText('Maya covered this and earned $10.00')).toBeVisible()
+  await expect(card.getByText('Maya covered this and earned $15.00')).toBeVisible()
   await expect(card).toContainText('Covered')
 })
 

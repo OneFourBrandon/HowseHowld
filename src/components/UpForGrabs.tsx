@@ -38,7 +38,7 @@ export function UpForGrabs({ now }: { now: number }) {
       <SectionHeader
         eyebrow="COVER A CHORE"
         title="Up for grabs"
-        description="Do a missed chore for a roommate. Take a before photo, do it, then an after photo. If the rest of the house approves, you earn the reward and they pay the penalty."
+        description="Do a missed chore for a roommate. Take a before photo, do it, then an after photo. If the rest of the house approves, their penalty goes to you."
       />
       <div className="grid gap-2">
         {items.map(item => {

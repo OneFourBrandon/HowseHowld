@@ -135,7 +135,7 @@ export function ClaimReview({ claim, taskTitle, penaltyCents, now, compact = fal
       )}
       {voteOpen && isVoter && (
         <p className="text-[.72rem] leading-normal text-(--muted)">
-          Approve: {claimer.displayName} earns {formatMoney(claim.rewardCents)} and {assigneeName} {formatMoney(penaltyCents)} penalty stands. Reject: no reward, and the miss is excused. A tie approves.
+          Approve: {assigneeName} {formatMoney(penaltyCents)} penalty goes to {claimer.displayName}. Reject: no reward, and the miss is excused. A tie approves.
         </p>
       )}
       {claim.status === 'submitted' && !voteOpen && (

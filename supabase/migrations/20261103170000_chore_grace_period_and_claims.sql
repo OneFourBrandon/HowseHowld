@@ -511,7 +511,7 @@ begin
     reward_cents, before_photo_path, claim_deadline
   ) values (
     v_occurrence.household_id, v_occurrence.id, v_infraction.id, v_member,
-    v_occurrence.assignee_member_id, least(1000, v_infraction.amount_cents),
+    v_occurrence.assignee_member_id, v_infraction.amount_cents,
     p_before_photo_path, v_deadline
   ) returning id into v_claim;
 
@@ -538,15 +538,14 @@ $$;
 revoke all on function public.claim_missed_chore(uuid, text) from public, anon;
 grant execute on function public.claim_missed_chore(uuid, text) to authenticated;
 
--- Books an approved claim: the assignee pays the full penalty, the roommate who
--- covered it receives up to $10, and the household fund receives the rest.
+-- Books an approved claim: the assignee pays the full penalty to the roommate
+-- who covered it. The household fund gets nothing and nobody owes it anything.
 create function private.post_covered_penalty(p_claim_id uuid)
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   v_claim public.chore_claims%rowtype;
   v_infraction public.infractions%rowtype;
   v_transaction uuid;
-  v_fund_share integer;
 begin
   select * into v_claim from public.chore_claims where id = p_claim_id for update;
   select * into v_infraction from public.infractions where id = v_claim.infraction_id for update;
@@ -555,20 +554,17 @@ begin
   then
     raise exception 'This penalty was already settled';
   end if;
-  v_fund_share := v_infraction.amount_cents - v_claim.reward_cents;
-  if v_fund_share < 0 then raise exception 'The reward cannot exceed the penalty'; end if;
+  if v_claim.reward_cents is distinct from v_infraction.amount_cents then
+    raise exception 'The reward must match the penalty';
+  end if;
 
   insert into public.ledger_transactions(household_id, type, source_id, description, posted_at)
   values (v_claim.household_id, 'penalty', v_infraction.id, 'Missed chore penalty, covered by a roommate', now())
   returning id into v_transaction;
-  insert into public.ledger_entries(household_id, transaction_id, member_id, amount_cents, fund_liability_cents)
-  values (v_claim.household_id, v_transaction, v_infraction.member_id, -v_infraction.amount_cents, v_fund_share);
+  insert into public.ledger_entries(household_id, transaction_id, member_id, amount_cents)
+  values (v_claim.household_id, v_transaction, v_infraction.member_id, -v_infraction.amount_cents);
   insert into public.ledger_entries(household_id, transaction_id, member_id, amount_cents)
   values (v_claim.household_id, v_transaction, v_claim.claimer_member_id, v_claim.reward_cents);
-  if v_fund_share > 0 then
-    insert into public.ledger_entries(household_id, transaction_id, household_fund, amount_cents)
-    values (v_claim.household_id, v_transaction, true, v_fund_share);
-  end if;
   perform private.assert_balanced_transaction(v_transaction);
 
   update public.infractions
@@ -937,8 +933,7 @@ $$;
 
 -- Paying off the fund marks only posted penalties as paid. An upheld penalty
 -- that has not posted yet still has to post (or be settled by its claim), and
--- a covered penalty is owed partly to the roommate who covered it, not only to
--- the fund.
+-- a covered penalty is owed to the roommate who covered it, not to the fund.
 create or replace function private.confirm_fund_payment_impl(
   p_fund_payment_id uuid, p_accept boolean
 )

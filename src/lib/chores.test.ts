@@ -76,10 +76,11 @@ describe('claim window', () => {
 })
 
 describe('claim rewards and votes', () => {
-  it('pays $10, or the whole penalty when it is smaller', () => {
-    expect(claimRewardFor(1000)).toBe(1000)
-    expect(claimRewardFor(1500)).toBe(1000)
+  it('pays the whole penalty to the roommate who covers it', () => {
     expect(claimRewardFor(500)).toBe(500)
+    expect(claimRewardFor(1000)).toBe(1000)
+    expect(claimRewardFor(1500)).toBe(1500)
+    expect(claimRewardFor(2500)).toBe(2500)
   })
 
   it('approves ties and empty votes and rejects only on more rejections', () => {
@@ -142,9 +143,9 @@ describe('chores up for grabs', () => {
     ...overrides,
   })
 
-  it('lists a missed chore with a capped reward until the window closes', () => {
+  it('lists a missed chore with its full penalty as the reward until the window closes', () => {
     const [item] = choresUpForGrabs(snapshot(), now)
-    expect(item.rewardCents).toBe(1000)
+    expect(item.rewardCents).toBe(1500)
     expect(item.deadline.toISOString()).toBe('2026-08-05T04:00:00.000Z')
     expect(choresUpForGrabs(snapshot(), Date.parse('2026-08-05T04:00:00Z'))).toEqual([])
   })
@@ -160,7 +161,7 @@ describe('chores up for grabs', () => {
   })
 
   it('shows the claimer their own claim while the house reviews it', () => {
-    const submitted = { id: 'c', infractionId: 'inf', occurrenceId: 'occ', claimerId: 'greg', status: 'submitted', rewardCents: 1000, claimDeadline: '2026-08-05T04:00:00Z', voteDeadline: '2026-08-06T12:00:00Z', createdAt: '2026-08-04T10:00:00Z' } as ChoreClaim
+    const submitted = { id: 'c', infractionId: 'inf', occurrenceId: 'occ', claimerId: 'greg', status: 'submitted', rewardCents: 1500, claimDeadline: '2026-08-05T04:00:00Z', voteDeadline: '2026-08-06T12:00:00Z', createdAt: '2026-08-04T10:00:00Z' } as ChoreClaim
     const [item] = choresUpForGrabs(snapshot({ choreClaims: [submitted] }), now, 'greg')
     expect(item.claim?.status).toBe('submitted')
     expect(item.deadline.toISOString()).toBe('2026-08-06T12:00:00.000Z')
@@ -168,7 +169,7 @@ describe('chores up for grabs', () => {
   })
 
   it('keeps a claim that is waiting for its after photo', () => {
-    const claimed = { id: 'c', infractionId: 'inf', occurrenceId: 'occ', status: 'claimed', rewardCents: 1000, claimDeadline: '2026-08-05T04:00:00Z', createdAt: '2026-08-04T10:00:00Z' } as ChoreClaim
+    const claimed = { id: 'c', infractionId: 'inf', occurrenceId: 'occ', status: 'claimed', rewardCents: 1500, claimDeadline: '2026-08-05T04:00:00Z', createdAt: '2026-08-04T10:00:00Z' } as ChoreClaim
     expect(choresUpForGrabs(snapshot({ choreClaims: [claimed] }), now)[0].claim?.id).toBe('c')
   })
 })
