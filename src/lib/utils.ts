@@ -27,6 +27,14 @@ export function formatDateTime(value: ISODateTime | string) {
   return `${day} · ${format(date, 'h:mm a')}`
 }
 
+/** "today at 3:59 AM", for use mid-sentence. */
+export function formatInlineDateTime(value: ISODateTime | string) {
+  return formatDateTime(value)
+    .replace(' · ', ' at ')
+    .replace(/^Today/, 'today')
+    .replace(/^Tomorrow/, 'tomorrow')
+}
+
 export function formatShortTime(value: ISODateTime | string) {
   return format(new Date(value), 'h:mm a')
 }
@@ -48,10 +56,12 @@ export function taskCompletionAvailability(
   dueAt: ISODateTime | string,
   timeZone: string,
   now = new Date(),
+  graceMinutes = 0,
 ): TaskCompletionAvailability {
   const today = dateKeyInTimeZone(now, timeZone)
   if (today < scheduledDate) return 'early'
-  if (today > scheduledDate || now.getTime() > new Date(dueAt).getTime()) return 'expired'
+  // The grace period can run past midnight, so its end is the only cutoff.
+  if (now.getTime() > new Date(dueAt).getTime() + graceMinutes * 60_000) return 'expired'
   return 'available'
 }
 

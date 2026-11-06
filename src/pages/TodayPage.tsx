@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '../lib/cn'
+import { graceEndsAt, graceMinutesOf, isInGracePeriod } from '../lib/chores'
 import {
   dateKeyInTimeZone,
   formatMoney,
@@ -44,6 +45,8 @@ interface AgendaItem {
   occurrenceId?: UUID
   occurrenceStatus?: 'assigned' | 'completed' | 'missed'
   dueAt?: string
+  scheduledDate?: string
+  inGrace?: boolean
   amountCents?: MoneyCents
   paid?: boolean
   href: string
@@ -98,9 +101,22 @@ function AgendaIcon({
 export function TodayPage() {
   const { data, demoMode, busy, completeOccurrence } = useAppData()
   const currentMember = data.members.find((member) => member.id === data.household.currentMemberId)!
-  const householdToday = dateKeyInTimeZone(new Date(), data.household.timezone)
+  // A minute clock keeps grace periods and "today" current while the page stays open.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const householdToday = dateKeyInTimeZone(new Date(nowMs), data.household.timezone)
   const [selectedDate, setSelectedDate] = useState(householdToday)
   const [rangeStart, setRangeStart] = useState(householdToday)
+  const [trackedToday, setTrackedToday] = useState(householdToday)
+  // At midnight, follow the new day if the old today was showing.
+  if (trackedToday !== householdToday) {
+    setTrackedToday(householdToday)
+    if (selectedDate === trackedToday) setSelectedDate(householdToday)
+    if (rangeStart === trackedToday) setRangeStart(householdToday)
+  }
   const [compactDateRange, setCompactDateRange] = useState(
     () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(max-width: 640px)').matches),
   )
@@ -112,6 +128,7 @@ export function TodayPage() {
   const myTotalBalance = (myBalance?.netCents ?? 0) + demoBillBalance
   const now = new Date()
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening'
+  const graceMinutes = graceMinutesOf(data.household)
 
   useEffect(() => {
     if (!window.matchMedia) return
@@ -127,18 +144,24 @@ export function TodayPage() {
 
     if (data.household.enabledFeatures.includes('chores')) {
       for (const occurrence of data.occurrences) {
+        // A chore in its grace period stays on today's list until the grace period ends,
+        // even when it was due yesterday.
+        const inGrace = isInGracePeriod(occurrence, graceMinutes, nowMs)
+        const graceEnd = graceEndsAt(occurrence.dueAt, graceMinutes).toISOString()
         items.push({
           id: `chore-${occurrence.id}`,
           kind: 'chore',
-          dateKey: occurrence.scheduledDate,
+          dateKey: inGrace ? householdToday : occurrence.scheduledDate,
           sortAt: new Date(occurrence.dueAt).getTime(),
-          timeLabel: formatShortTime(occurrence.dueAt),
+          timeLabel: formatShortTime(inGrace ? graceEnd : occurrence.dueAt),
           title: occurrence.taskTitle,
-          subtitle: occurrence.area,
+          subtitle: inGrace ? `Grace period · was due ${formatShortTime(occurrence.dueAt)}` : occurrence.area,
           assigneeId: occurrence.assigneeId,
           occurrenceId: occurrence.id,
           occurrenceStatus: occurrence.status,
           dueAt: occurrence.dueAt,
+          scheduledDate: occurrence.scheduledDate,
+          inGrace,
           href: '/chores',
         })
       }
@@ -199,7 +222,7 @@ export function TodayPage() {
     }
 
     return items.sort((left, right) => left.sortAt - right.sortAt)
-  }, [currentMember.id, data])
+  }, [currentMember.id, data, graceMinutes, householdToday, nowMs])
 
   const selectedAgenda = agenda.filter((item) => item.dateKey === selectedDate)
   const laterAgenda = agenda.filter((item) => item.dateKey > selectedDate && item.dateKey <= addDateKeyDays(selectedDate, 7)).slice(0, 4)
@@ -301,12 +324,12 @@ export function TodayPage() {
             {selectedAgenda.map((item) => {
               const assignee = item.assigneeId ? data.members.find((member) => member.id === item.assigneeId) : undefined
               const isMyChore = item.kind === 'chore' && item.assigneeId === currentMember.id
-              const availability = item.occurrenceId && item.dueAt ? taskCompletionAvailability(item.dateKey, item.dueAt, data.household.timezone) : null
+              const availability = item.occurrenceId && item.dueAt ? taskCompletionAvailability(item.scheduledDate ?? item.dateKey, item.dueAt, data.household.timezone, new Date(nowMs), graceMinutes) : null
               const completed = item.occurrenceStatus === 'completed'
               const canComplete = isMyChore && item.occurrenceStatus === 'assigned' && availability === 'available'
               return (
                 <div className="relative grid min-h-15 grid-cols-[92px_48px_minmax(0,1fr)_auto] items-center gap-3 border-b border-(--line) py-2.5 max-[620px]:grid-cols-[62px_42px_minmax(0,1fr)] max-[620px]:gap-2" key={item.id} data-agenda-item>
-                  <span className="font-sans text-[.78rem] tabular-nums">{item.timeLabel}</span>
+                  <span className={cn('font-sans text-[.78rem] tabular-nums', item.inGrace && 'font-semibold text-[#8b6522] dark:text-(--gold)')}>{item.timeLabel}</span>
                   <AgendaIcon kind={item.kind} occurrenceStatus={item.occurrenceStatus} />
                   <div className="min-w-0"><h3 className="truncate text-[.84rem] font-bold">{item.title}</h3><span className="block truncate text-[.72rem] text-(--muted)">{item.subtitle}</span></div>
                   <div className="flex items-center gap-3 max-[620px]:col-[3] max-[620px]:justify-self-end">
@@ -318,7 +341,7 @@ export function TodayPage() {
                         role="checkbox"
                         aria-checked={completed}
                         aria-label={`${completed ? 'Completed' : 'Mark complete'}: ${item.title}`}
-                        title={completed ? 'Completed' : canComplete ? 'Mark complete' : 'This chore can only be completed on its scheduled day before it expires.'}
+                        title={completed ? 'Completed' : canComplete ? item.inGrace ? 'Mark complete before the grace period ends' : 'Mark complete' : 'This chore can only be completed from its scheduled day until its grace period ends.'}
                         disabled={!canComplete || busy === `complete:${item.occurrenceId}`}
                         onClick={() => void completeOccurrence(item.occurrenceId!).catch(() => { /* Shared handler displays the error. */ })}
                         className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--green) disabled:cursor-default"

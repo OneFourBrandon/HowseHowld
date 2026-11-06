@@ -385,6 +385,65 @@ export async function getReceiptUrl(receiptPath: string) {
   return data.signedUrl
 }
 
+const claimPhotoTypes = new Map([
+  ['image/jpeg', 'jpg'],
+  ['image/png', 'png'],
+  ['image/webp', 'webp'],
+  ['image/heic', 'heic'],
+  ['image/heif', 'heif'],
+])
+
+/** Uploads chore evidence to household_id/occurrence_id/<stage>-<uuid>.<ext>. */
+export async function uploadClaimPhoto(
+  householdId: UUID,
+  occurrenceId: UUID,
+  stage: 'before' | 'after',
+  file: File,
+) {
+  const extension = claimPhotoTypes.get(file.type)
+  if (!extension) throw new Error('Choose a JPEG, PNG, WebP, or HEIC photo.')
+  const path = `${householdId}/${occurrenceId}/${stage}-${crypto.randomUUID()}.${extension}`
+  const { data, error } = await requireClient()
+    .storage.from('chore-claims')
+    .upload(path, file, { upsert: false, contentType: file.type })
+  if (error) throw error
+  return data.path
+}
+
+export async function getClaimPhotoUrls(paths: string[]) {
+  const urls = new Map<string, string>()
+  if (!paths.length) return urls
+  const { data, error } = await requireClient()
+    .storage.from('chore-claims')
+    .createSignedUrls(paths, 3600)
+  if (error) throw error
+  for (const item of data ?? []) {
+    if (item.path && item.signedUrl) urls.set(item.path, item.signedUrl)
+  }
+  return urls
+}
+
+export const claimMissedChore = (occurrenceId: UUID, beforePhotoPath: string) =>
+  invokeRpc<UUID>('claim_missed_chore', {
+    p_occurrence_id: occurrenceId,
+    p_before_photo_path: beforePhotoPath,
+  })
+
+export const submitChoreClaim = (claimId: UUID, afterPhotoPath: string) =>
+  invokeRpc<string>('submit_chore_claim', {
+    p_claim_id: claimId,
+    p_after_photo_path: afterPhotoPath,
+  })
+
+export const voteChoreClaim = (claimId: UUID, choice: 'approve' | 'reject') =>
+  invokeRpc<string>('vote_chore_claim', { p_claim_id: claimId, p_choice: choice })
+
+export const noteChoreClaim = (claimId: UUID, note: string) =>
+  invokeRpc('note_chore_claim', { p_claim_id: claimId, p_note: note })
+
+export const updateChoreGracePeriod = (householdId: UUID, minutes: number) =>
+  invokeRpc('update_chore_grace_period', { p_household_id: householdId, p_minutes: minutes })
+
 export const createDepartureRule = (input: Record<string, unknown>) =>
   invokeRpc<UUID>('create_departure_rule', { p_input: input })
 
@@ -490,6 +549,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     client.from('audit_events').select('*').eq('household_id', householdId).order('created_at', { ascending: false }).limit(100),
     client.from('push_subscriptions').select('id,endpoint,last_success_at').eq('household_id', householdId).eq('active', true),
     client.from('driveway_slots').select('*').eq('household_id', householdId).order('y').order('x'),
+    client.from('chore_claims').select('*, chore_claim_votes(voter_member_id,choice)').eq('household_id', householdId).order('created_at', { ascending: false }),
   ])
   const firstError = results.map((result) => result.error).find(Boolean)
   if (firstError) throw firstError
@@ -499,7 +559,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
     expenseResult, settlementResult, fundPaymentResult, billResult, billPeriodResult, balanceResult, eventResult,
     courseResult, scheduleResult, sharedCourseResult, sharedEnrollmentResult,
     sharedMeetingResult, sharedAssessmentResult, vehicleResult, drivewayResult,
-    departureResult, auditResult, pushResult, slotResult,
+    departureResult, auditResult, pushResult, slotResult, claimResult,
   ] = results
   const rowData = <T,>(result: { data: T | null }) => result.data
   const household = rowData(householdResult)!
@@ -572,6 +632,7 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         .map((reminder: { value: string }) => reminder.value.slice(0, 5)),
       shareCodeLast4: household.join_code_last4 ?? undefined,
       penaltyTiers: household.penalty_tiers ?? undefined,
+      choreGraceMinutes: household.chore_grace_minutes ?? undefined,
     },
     members: memberRows.map((row) => {
       const profile = profileOf(row)
@@ -610,7 +671,6 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         reminderTimes: (task.reminder_override ?? household.default_task_reminders ?? [])
           .filter((reminder: { type?: string }) => reminder.type === 'local_time')
           .map((reminder: { value: string }) => reminder.value.slice(0, 5)),
-        penaltyEnabled: task.penalty_enabled,
         active: task.active,
         rotationMemberIds: taskRotations.map((rotation) => rotation.member_id),
         nextMemberId: taskRotations[0]?.member_id,
@@ -647,6 +707,29 @@ export async function loadSnapshot(): Promise<AppSnapshot | null> {
         excuseVotes: votes
           .filter((vote: { choice: string }) => vote.choice === 'excuse')
           .map((vote: { voter_member_id: string }) => vote.voter_member_id),
+      }
+    }),
+    choreClaims: (claimResult.data ?? []).map((row) => {
+      const votes: { voter_member_id: string; choice: string }[] = row.chore_claim_votes ?? []
+      return {
+        id: row.id,
+        occurrenceId: row.occurrence_id,
+        infractionId: row.infraction_id,
+        claimerId: row.claimer_member_id,
+        assigneeId: row.assignee_member_id,
+        status: row.status,
+        rewardCents: cents(row.reward_cents),
+        beforePhotoPath: row.before_photo_path,
+        afterPhotoPath: row.after_photo_path ?? undefined,
+        assigneeNote: row.assignee_note ?? undefined,
+        claimDeadline: row.claim_deadline,
+        voteDeadline: row.vote_deadline ?? undefined,
+        createdAt: row.created_at,
+        submittedAt: row.submitted_at ?? undefined,
+        resolvedAt: row.resolved_at ?? undefined,
+        voterIds: row.voter_member_ids ?? undefined,
+        approveVotes: votes.filter(vote => vote.choice === 'approve').map(vote => vote.voter_member_id),
+        rejectVotes: votes.filter(vote => vote.choice === 'reject').map(vote => vote.voter_member_id),
       }
     }),
     expenses: (expenseResult.data ?? []).map((row) => ({

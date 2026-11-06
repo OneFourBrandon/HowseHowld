@@ -21,8 +21,12 @@ import { useAppData } from '../state/AppDataContext'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
 import { ChoreOccurrenceIcon } from '../components/ChoreOccurrenceIcon'
 import { InfractionsPanel } from '../components/InfractionsPanel'
+import { UpForGrabs } from '../components/UpForGrabs'
+import { claimForInfraction, formatGracePeriod, graceEndsAt, graceMinutesOf, isInGracePeriod } from '../lib/chores'
 import {
   formatDateTime,
+  formatInlineDateTime,
+  formatShortTime,
   nextOpenOccurrencePerTask,
   taskCompletionAvailability,
 } from '../lib/utils'
@@ -36,7 +40,6 @@ const taskSchema = z.object({
   startsOn: z.string().min(1),
   dueTime: z.string().regex(/^\d{2}:\d{2}$/),
   assignmentMode: z.enum(['rotation', 'fixed', 'manual', 'one_off']),
-  penaltyEnabled: z.boolean(),
 })
 type TaskForm = z.infer<typeof taskSchema>
 const UPCOMING_PAGE_SIZE = 5
@@ -73,6 +76,10 @@ export function ChoresPage() {
   const [upcomingPageIndex, setUpcomingPageIndex] = useState(0)
   const currentMemberId = data.household.currentMemberId
   const isAdmin = data.members.some(member => member.id === currentMemberId && member.role === 'owner')
+  const graceMinutes = graceMinutesOf(data.household)
+  const graceSummary = graceMinutes > 0
+    ? `Chores get ${formatGracePeriod(graceMinutes)} of grace before they count as missed.`
+    : 'Chores count as missed as soon as they are due.'
   const {
     register,
     handleSubmit,
@@ -92,7 +99,6 @@ export function ChoresPage() {
       startsOn: new Date().toISOString().slice(0, 10),
       dueTime: '23:59',
       assignmentMode: 'rotation',
-      penaltyEnabled: true,
     },
   })
   const assignmentMode = watch('assignmentMode')
@@ -147,7 +153,6 @@ export function ChoresPage() {
       startsOn: values.startsOn,
       dueTime: values.dueTime,
       reminderTimes,
-      penaltyEnabled: values.penaltyEnabled,
       rotationMemberIds:
         values.assignmentMode === 'rotation'
           ? rotationIds
@@ -175,7 +180,6 @@ export function ChoresPage() {
       startsOn: task.startsOn,
       dueTime: task.dueTime,
       assignmentMode: task.assignmentMode,
-      penaltyEnabled: task.penaltyEnabled,
     })
     setWeekdays(task.recurrence.weekdays ?? [1])
     setRotationIds(task.rotationMemberIds)
@@ -188,7 +192,7 @@ export function ChoresPage() {
   const openNewTask = () => {
     reset({ title: '', description: '', area: '', frequency: 'weekly', interval: 1,
       startsOn: new Date().toISOString().slice(0, 10), dueTime: '23:59',
-      assignmentMode: 'rotation', penaltyEnabled: true })
+      assignmentMode: 'rotation' })
     setWeekdays([1])
     setRotationIds(data.members.filter((member) => member.active).map((member) => member.id))
     setFixedMemberId(data.members[0]?.id ?? '')
@@ -226,7 +230,7 @@ export function ChoresPage() {
         </Card>
         <Card className="stat-card flex min-h-22 items-center gap-3 border-l border-(--line) px-5 py-3 first:border-l-0 max-[640px]:min-h-18 max-[640px]:gap-1.5 max-[640px]:px-2 max-[640px]:py-2">
           <AlertTriangle className="h-10 w-10 shrink-0 rounded-[7px] bg-(--green-soft) p-2 text-(--green) max-[640px]:h-8 max-[640px]:w-8 max-[640px]:p-1.5" />
-          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{data.infractions.filter((item) => isInfractionReviewOpen(item, reviewNow)).length}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Open infractions</span></div>
+          <div className="min-w-0"><strong className="block font-display text-[1.65rem] max-[640px]:text-[1.3rem]">{data.infractions.filter((item) => isInfractionReviewOpen(item, reviewNow, claimForInfraction(data.choreClaims, item.id))).length}</strong><span className="block text-[.76rem] text-(--muted) max-[640px]:text-[.65rem] max-[640px]:leading-tight">Open infractions</span></div>
         </Card>
       </div>
 
@@ -234,7 +238,7 @@ export function ChoresPage() {
         <SectionHeader
           eyebrow="ASSIGNMENTS"
           title="Coming up"
-          description="Server-confirmed deadlines in Toronto time."
+          description={`Server-confirmed deadlines in Toronto time. ${graceSummary}`}
         />
         <div className="occurrence-list grid gap-3">
           {visibleUpcoming.map((occurrence) => {
@@ -244,24 +248,32 @@ export function ChoresPage() {
               occurrence.scheduledDate,
               occurrence.dueAt,
               data.household.timezone,
+              new Date(reviewNow),
+              graceMinutes,
             )
+            const inGrace = isInGracePeriod(occurrence, graceMinutes, reviewNow)
             return (
               <Card key={occurrence.id} className="occurrence-card grid min-h-20 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl! bg-(--surface)! px-4 py-3 max-[640px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[640px]:gap-2 max-[640px]:p-3">
                 <ChoreOccurrenceIcon status={occurrence.status} />
                 <div className="occurrence-detail grid min-w-0 gap-1.25">
-                  <div className="flex gap-1.25">
+                  <div className="flex flex-wrap gap-1.25">
                     <Badge>{occurrence.area}</Badge>
-                    {isMine && occurrence.status === 'assigned' && (
+                    {inGrace && <span className="whitespace-nowrap"><Badge tone="amber">Grace period</Badge></span>}
+                    {isMine && occurrence.status === 'assigned' && !inGrace && (
                       <span className="max-[640px]:hidden"><Badge tone="amber">Your turn</Badge></span>
                     )}
                   </div>
                   <h3 className="text-[.94rem]">{occurrence.taskTitle}</h3>
-                  <span className="text-[.78rem] text-(--muted)">{formatDateTime(occurrence.dueAt)} · {occurrence.reminderLabel}</span>
+                  <span className="text-[.78rem] text-(--muted)">
+                    {inGrace
+                      ? <>Was due {formatShortTime(occurrence.dueAt)} · finish by <span className="whitespace-nowrap">{formatInlineDateTime(graceEndsAt(occurrence.dueAt, graceMinutes).toISOString())}</span></>
+                      : <>{formatDateTime(occurrence.dueAt)} · {occurrence.reminderLabel}</>}
+                  </span>
                 </div>
                 <div className={"occurrence-person flex items-center gap-1.75 text-(--muted) max-[640px]:col-[2] text-[.76rem]"}>
                   <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
                   <span>{member.displayName}</span>
-                  {isMine && occurrence.status === 'assigned' && (
+                  {isMine && occurrence.status === 'assigned' && !inGrace && (
                     <span className="hidden whitespace-nowrap rounded-full bg-(--gold-soft) px-2 py-1 text-[.62rem] font-extrabold uppercase tracking-[.035em] text-[#8b6522] dark:text-(--gold) max-[640px]:inline-flex">
                       Your turn
                     </span>
@@ -280,7 +292,9 @@ export function ChoresPage() {
                         ? `Available on ${occurrence.scheduledDate}`
                         : completionAvailability === 'expired'
                           ? 'This task has expired'
-                          : 'Mark this task complete'
+                          : inGrace
+                            ? 'Still counts if you finish before the grace period ends'
+                            : 'Mark this task complete'
                     }
                     onClick={() => completeOccurrence(occurrence.id)}
                   >
@@ -332,6 +346,8 @@ export function ChoresPage() {
           </nav>
         )}
       </section>
+
+      <UpForGrabs now={reviewNow} />
 
       <div className={"content-grid-two grid grid-cols-[minmax(0,1.12fr)_minmax(300px,.88fr)] gap-6.25 items-start max-[980px]:grid-cols-1 max-[980px]:gap-12.5"}>
         <section className="min-w-0 rounded-2xl border border-(--line) bg-(--surface-strong) p-4 max-[640px]:p-3 [&_.section-header]:mb-3 [&_.section-header]:min-h-0 [&_.section-header]:border-0">
@@ -533,10 +549,10 @@ export function ChoresPage() {
               ))}
             </div>
           </fieldset>
-          <label className={"checkbox-field flex items-center gap-2 p-[10px_0] field-span-2 col-span-full max-[640px]:col-[1]"}>
-            <input type="checkbox" {...register('penaltyEnabled')} />
-            Apply the household penalty when missed
-          </label>
+          <p className="field-span-2 col-span-full flex items-start gap-1.5 text-[.75rem] leading-normal text-(--muted) max-[640px]:col-[1]">
+            <Clock3 className="mt-px shrink-0" size={15} />
+            Every chore carries the house penalty. {graceSummary}
+          </p>
           <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
             <Button type="button" variant="ghost" onClick={() => setTaskModal(false)}>Cancel</Button>
             <Button type="submit" disabled={busy === (editingTaskId ? `task:update:${editingTaskId}` : 'task:new')}>
