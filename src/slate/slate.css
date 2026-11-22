@@ -843,6 +843,11 @@
     transition: opacity .15s ease;
   }
 
+  /* The categories not picked fade their fill. Their text stays readable. */
+  .sl-meter-btn[data-dim] .sl-meter-fill {
+    opacity: .35;
+  }
+
   .sl-meter-btn:hover .sl-meter,
   .sl-meter-btn[aria-pressed="true"] .sl-meter {
     box-shadow: inset 0 0 0 1px var(--sl-line-strong);

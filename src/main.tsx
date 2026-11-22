@@ -21,14 +21,13 @@ const queryClient = new QueryClient({
 })
 
 async function start() {
-  // The slate design brings its own stylesheet, loaded only for people who switched it on.
-  // If it cannot be loaded, show classic for this visit rather than an unstyled page.
+  // The slate design brings its own stylesheet and shell, loaded only for people who switched
+  // it on. If either cannot be loaded, show classic for this visit rather than a broken page.
   if (getAppearance().design === 'slate') {
-    // Start on the shell and first page now instead of after the stylesheet arrives.
-    void SlateShell.preload().catch(() => {})
+    // The first page can start loading now; the shell shows a placeholder until it is ready.
     void SlateOverviewPage.preload().catch(() => {})
     try {
-      await loadSlateStyles()
+      await Promise.all([loadSlateStyles(), SlateShell.preload()])
     } catch {
       fallBackToClassic()
     }

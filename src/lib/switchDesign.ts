@@ -52,7 +52,18 @@ export const ClassicSettingsPage = preloadable(() => import('../pages/SettingsPa
  * request was still in flight, and fail this check for a stylesheet that was
  * about to arrive.
  */
-export async function loadSlateStyles() {
+export function loadSlateStyles() {
+  // Callers that arrive while it is loading share that load. Asking the bundler a second
+  // time would resolve at once, and this check would fail for a file still on its way.
+  stylesLoading ??= fetchSlateStyles().finally(() => {
+    stylesLoading = undefined
+  })
+  return stylesLoading
+}
+
+let stylesLoading: Promise<void> | undefined
+
+async function fetchSlateStyles() {
   await import('../slate/styles')
   const marker = getComputedStyle(document.documentElement).getPropertyValue('--sl-loaded').trim()
   if (marker !== '1') throw new Error('The slate stylesheet did not load.')

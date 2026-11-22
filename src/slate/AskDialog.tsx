@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { Button, Modal } from '../components/ui'
 
 /**
@@ -25,20 +25,24 @@ export function AskDialog({
 }) {
   const [value, setValue] = useState('')
   const [working, setWorking] = useState(false)
-  // While the request is running the dialog stays, so its result cannot land on a different dialog.
+  // While the request is running the dialog stays, however it is dismissed, so its result
+  // cannot land on a different dialog opened in the meantime.
+  const close = useCallback(() => {
+    if (!working) onClose()
+  }, [onClose, working])
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !working) onClose()
+      if (event.key === 'Escape') close()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose, working])
+  }, [close])
   const amount = Number(value)
   const valid = !field
     || (field.kind === 'money' ? Number.isFinite(amount) && amount > 0 : value.trim().length > 0)
 
   return (
-    <Modal open onClose={onClose} title={title} className="w-[min(440px,100%)]">
+    <Modal open onClose={close} title={title} className="w-[min(440px,100%)]">
       <form
         className="grid gap-4"
         onSubmit={async event => {
@@ -84,7 +88,7 @@ export function AskDialog({
         )}
         <div className="flex justify-end gap-2">
           {/* With nothing to type, focus lands on the safe choice. */}
-          <Button type="button" variant="ghost" autoFocus={!field} disabled={working} onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="ghost" autoFocus={!field} disabled={working} onClick={close}>Cancel</Button>
           <Button type="submit" variant={danger ? 'danger' : 'primary'} disabled={!valid || working}>{confirmLabel}</Button>
         </div>
       </form>

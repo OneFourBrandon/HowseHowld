@@ -285,7 +285,8 @@ export function MoneyView({
               <button
                 type="button"
                 key={item.category}
-                className={cn('sl-meter-btn', category && category !== item.category && 'opacity-45')}
+                className="sl-meter-btn"
+                data-dim={(category && category !== item.category) || undefined}
                 aria-pressed={category === item.category}
                 onClick={() => setCategory(category === item.category ? null : item.category)}
               >
