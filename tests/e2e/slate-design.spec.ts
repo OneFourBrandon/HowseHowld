@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 
+// The demo house keeps Toronto time, but its sample data is dated from the device's clock.
+// On a device in another zone, such as CI in UTC, "today's" sample chore can fall on the
+// household's tomorrow. These tests are about what today shows, so run them in the house's zone.
+test.use({ timezoneId: 'America/Toronto' })
+
 const useSlate = (page: Page) => page.addInitScript(() => {
   localStorage.setItem('howsehowld:design', 'slate')
 })
