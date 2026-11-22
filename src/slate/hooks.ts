@@ -32,3 +32,48 @@ export function useNow(intervalMs = 30_000) {
   }, [intervalMs])
   return now
 }
+
+const OPEN_DIALOG = '[role="dialog"][aria-modal="true"]'
+
+/**
+ * The dialogs shared with the classic design do not manage focus. While slate
+ * is showing, this moves focus into a dialog as it opens, unless something
+ * inside it already took focus, and back to where it was when the dialog closes.
+ */
+export function useDialogFocus() {
+  useEffect(() => {
+    let lastOutside: HTMLElement | null = null
+    let returnTo: HTMLElement | null = null
+    let current: HTMLElement | null = null
+
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target
+      if (target instanceof HTMLElement && !target.closest(OPEN_DIALOG)) lastOutside = target
+    }
+    const sync = () => {
+      const dialog = document.querySelector<HTMLElement>(OPEN_DIALOG)
+      if (dialog === current) return
+      if (dialog) {
+        if (!current) returnTo = lastOutside
+        current = dialog
+        if (!dialog.contains(document.activeElement)) {
+          dialog.tabIndex = -1
+          dialog.focus({ preventScroll: true })
+        }
+        return
+      }
+      current = null
+      if (returnTo?.isConnected) returnTo.focus({ preventScroll: true })
+      returnTo = null
+    }
+
+    document.addEventListener('focusin', onFocusIn)
+    const observer = new MutationObserver(sync)
+    observer.observe(document.body, { childList: true, subtree: true })
+    sync()
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      observer.disconnect()
+    }
+  }, [])
+}

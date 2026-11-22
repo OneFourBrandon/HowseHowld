@@ -212,6 +212,8 @@ export function buildAgenda(data: AppSnapshot, nowMs: number): AgendaEntry[] {
       const involved = bill.memberIds.includes(me) || payeeId === me
       const dueMs = new Date(period.dueAt).getTime()
       const dueKey = dateKeyInTimeZone(new Date(period.dueAt), timeZone)
+      // Bills are settled with direct payments now, but older periods can still carry a paid mark.
+      const paid = period.paidMemberIds.includes(me)
       entries.push({
         id: `bill-${period.id}`,
         kind: 'bill',
@@ -221,13 +223,14 @@ export function buildAgenda(data: AppSnapshot, nowMs: number): AgendaEntry[] {
         timeLabel: 'All day',
         title: `${bill.name} due`,
         detail: period.amountCents == null ? 'Price not entered yet'
+          : paid ? 'Marked as paid'
           : payeeId === me ? 'Roommates owe you their shares'
             : myShare ? `Your share, owed to ${name(payeeId)}`
               : `Owed to ${name(payeeId)}`,
         memberId: payeeId,
         mine: involved,
         // A bill is due all day, so it stays ahead until its due day is over.
-        state: dueKey < today ? 'done' : 'ahead',
+        state: paid || dueKey < today ? 'done' : 'ahead',
         href: '/money',
         amountCents: period.amountCents == null ? undefined
           : payeeId === me ? period.amountCents : myShare ?? period.amountCents,

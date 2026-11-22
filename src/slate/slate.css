@@ -1,10 +1,11 @@
 /*
  * Slate — the optional redesign, switched on from Settings.
  *
- * This file is only fetched once someone turns the design on (see
- * src/slate/styles.ts), and every rule that could reach classic markup is
- * scoped to :root[data-design="slate"] as well. The .sl-* classes are left
- * unscoped because only slate markup uses them.
+ * A page only loads this file once someone turns the design on (see
+ * src/slate/styles.ts). The service worker still fetches it in the background
+ * with the rest of the build, but nothing applies it. Every rule that could
+ * reach classic markup is scoped to :root[data-design="slate"] as well. The
+ * .sl-* classes are left unscoped because only slate markup uses them.
  *
  * Cascade notes, because this file sits beside Tailwind and index.css:
  *   - index.css styles bare elements (h1, p, a, button, input, label) outside
@@ -25,10 +26,15 @@
  *     reskinned by unlayered rules, which is what lets them override the
  *     utilities those components are written with.
  *   - A few classic utilities are !important. Only an !important rule in an
- *     earlier layer outranks those, which is what the first @layer base block
+ *     earlier layer outranks those, which is what the second @layer base block
  *     is for.
  */
 @import '@fontsource-variable/instrument-sans/standard.css';
+
+/* Lets the app confirm this file really arrived. See loadSlateStyles in src/lib/switchDesign.ts. */
+:root {
+  --sl-loaded: 1;
+}
 
 /* ── Tokens ──────────────────────────────────────────────────────────── */
 
@@ -304,8 +310,6 @@
   background: color-mix(in srgb, var(--sl-brass) 34%, transparent);
 }
 
-/* ── Classic utilities that are !important ───────────────────────────── */
-
 /* Defaults index.css has no opinion on. Layered, so any class or utility can adjust them. */
 @layer base {
   :where(:root[data-design="slate"]) :is(strong, b) {
@@ -317,6 +321,8 @@
     outline-offset: 2px;
   }
 }
+
+/* ── Classic utilities that are !important ───────────────────────────── */
 
 @layer base {
   /* Classic "selected" states are a forest fill with white text. In slate the
@@ -663,25 +669,12 @@
   .sl-tone-iris { --tone: var(--sl-iris); --tone-fill: var(--sl-iris-fill); --tone-soft: var(--sl-iris-soft); }
   .sl-tone-ink { --tone: var(--sl-ink-2); --tone-fill: var(--sl-hover-strong); --tone-soft: var(--sl-hover); }
 
-  .sl-tone-text {
-    color: var(--tone);
-  }
-
   .sl-dot {
     flex: none;
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: var(--tone, var(--sl-faint));
-  }
-
-  /* Outstanding work is always drawn hatched: undone, unpaid, not yet here. */
-  .sl-hatch {
-    background-image: repeating-linear-gradient(
-      135deg,
-      var(--sl-hatch) 0 1px,
-      transparent 1px 6px
-    );
   }
 
   /* Stats: a reading under a small label, divided by hairlines. */
@@ -808,6 +801,11 @@
     padding: 0 12px;
     font-size: .78125rem;
     white-space: nowrap;
+  }
+
+  /* The hint can sit on the coloured fill, where the muted grey is too faint. */
+  .sl-meter-text .sl-micro {
+    color: var(--sl-ink-2);
   }
 
   .sl-meter[data-short] > .sl-meter-text {
@@ -957,7 +955,7 @@
 
   .sl-btn-danger:hover {
     color: var(--sl-brick);
-    background: color-mix(in srgb, var(--sl-brick) 20%, transparent);
+    background: color-mix(in srgb, var(--sl-brick) 16%, transparent);
   }
 
   .sl-btn-sm {
@@ -993,6 +991,9 @@
   }
 
   .sl-plain-btn {
+    /* Full width and able to shrink, so a long name inside can still be cut short. */
+    width: 100%;
+    min-width: 0;
     border: 0;
     border-radius: 6px;
     padding: 0;
@@ -1333,15 +1334,6 @@
     object-fit: cover;
   }
 
-  .sl-faces {
-    display: inline-flex;
-  }
-
-  .sl-faces > .sl-face + .sl-face {
-    margin-left: -6px;
-    box-shadow: 0 0 0 2px var(--sl-panel);
-  }
-
   .sl-empty {
     display: grid;
     justify-items: center;
@@ -1650,6 +1642,11 @@
   border-radius: 12px;
   background: var(--sl-panel);
   box-shadow: var(--sl-shadow-pop);
+}
+
+/* Focus is moved onto the dialog as it opens. The dialog is the context, so it gets no ring. */
+:root[data-design="slate"] .modal:focus {
+  outline: none;
 }
 
 :root[data-design="slate"] .modal-header {

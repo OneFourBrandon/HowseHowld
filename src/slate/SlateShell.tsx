@@ -1,4 +1,3 @@
-import './styles'
 import { Suspense, useEffect } from 'react'
 import {
   Bell,
@@ -23,6 +22,7 @@ import { type Intent, intentState } from '../lib/intent'
 import { useAppData } from '../state/AppDataContext'
 import type { HouseholdFeature } from '../types'
 import { AttentionRow } from './Attention'
+import { useDialogFocus } from './hooks'
 import { Face, Popover } from './ui'
 import { HouseContext, useHouseValue } from './useHouse'
 
@@ -59,6 +59,7 @@ export function SlateShell() {
   const navigate = useNavigate()
   const { theme } = useAppearance()
   const house = useHouseValue()
+  useDialogFocus()
   const { me, today, attention, counts, actionCount } = house
   const enabled = (feature?: HouseholdFeature | HouseholdFeature[]) =>
     !feature || [feature].flat().some(item => data.household.enabledFeatures.includes(item))

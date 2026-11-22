@@ -8,6 +8,7 @@ import { ProfileGate } from './components/ProfileGate'
 import { AppDataProvider } from './state/AppDataContext'
 import { useAppData } from './state/AppDataContext'
 import { useDesign } from './lib/appearance'
+import { ClassicSettingsPage, SlateOverviewPage, SlateSettingsPage, SlateShell } from './lib/switchDesign'
 import type { HouseholdFeature } from './types'
 
 const TodayPage = lazy(() =>
@@ -25,21 +26,6 @@ const CalendarPage = lazy(() =>
 const DrivewayPage = lazy(() =>
   import('./pages/DrivewayPage').then((module) => ({ default: module.DrivewayPage })),
 )
-const SettingsPage = lazy(() =>
-  import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })),
-)
-// The slate design has its own shell, overview and settings. The other pages
-// keep their logic and swap only their layout.
-const SlateShell = lazy(() =>
-  import('./slate/SlateShell').then((module) => ({ default: module.SlateShell })),
-)
-const SlateOverviewPage = lazy(() =>
-  import('./slate/OverviewPage').then((module) => ({ default: module.OverviewPage })),
-)
-const SlateSettingsPage = lazy(() =>
-  import('./slate/SettingsPage').then((module) => ({ default: module.SettingsPage })),
-)
-
 function FeatureRoute({
   feature,
   children,
@@ -69,7 +55,7 @@ export default function App() {
                 <Route path="money" element={<FeatureRoute feature="money"><MoneyPage /></FeatureRoute>} />
                 <Route path="calendar" element={<FeatureRoute feature={['calendar', 'courses']}><CalendarPage /></FeatureRoute>} />
                 <Route path="driveway" element={<FeatureRoute feature="driveway"><DrivewayPage /></FeatureRoute>} />
-                <Route path="settings" element={slate ? <SlateSettingsPage /> : <SettingsPage />} />
+                <Route path="settings" element={slate ? <SlateSettingsPage /> : <ClassicSettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

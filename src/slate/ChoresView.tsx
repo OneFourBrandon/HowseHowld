@@ -13,7 +13,7 @@ import {
 } from '../lib/chores'
 import { cn } from '../lib/cn'
 import { isInfractionReviewOpen } from '../lib/infractions'
-import { choreCounts, completionGrid, onTimeRate, weekRange } from '../lib/insights'
+import { choreCounts, completionGrid, onTimeRate, todayKey, weekRange } from '../lib/insights'
 import { formatDateTime, formatInlineDateTime, formatShortTime, taskCompletionAvailability } from '../lib/utils'
 import { useAppData } from '../state/AppDataContext'
 import type { TaskOccurrence } from '../types'
@@ -47,7 +47,9 @@ export function ChoresView({
   onDispute: (infractionId: string) => void
 }) {
   const { data, busy, completeOccurrence, updateTask, deleteTask } = useAppData()
-  const { today, me, isOwner } = useHouse()
+  const { me, isOwner } = useHouse()
+  // The page's own clock drives everything here, so the day and the countdowns turn over together.
+  const today = todayKey(data, now)
   const [scope, setScope] = useState<'house' | 'mine'>('house')
   const [page, setPage] = useState(0)
   const [deleting, setDeleting] = useState<string | null>(null)

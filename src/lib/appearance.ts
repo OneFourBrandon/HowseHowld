@@ -53,6 +53,8 @@ export function storedTheme(design: Design): Theme {
   const value = stored(design === 'slate' ? SLATE_THEME_KEY : CLASSIC_THEME_KEY)
   if (isTheme(value)) return value
   if (design === 'slate') return 'dark'
+  // index.html writes any stored classic value to the document as it is, and only "dark" turns dark on.
+  if (value) return 'light'
   return prefersDark() ? 'dark' : 'light'
 }
 

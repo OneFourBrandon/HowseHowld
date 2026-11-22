@@ -146,4 +146,11 @@ describe('appearance', () => {
     expect(storedDesign()).toBe('classic')
     expect(storedTheme('slate')).toBe('dark')
   })
+
+  it('reads an unexpected classic theme the way a page load shows it', () => {
+    // index.html writes the stored value to the document as it is, and only "dark" turns dark on.
+    localStorage.setItem(CLASSIC_THEME_KEY, 'blue')
+    systemPrefersDark(true)
+    expect(storedTheme('classic')).toBe('light')
+  })
 })

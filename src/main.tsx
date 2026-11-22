@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App.tsx'
 import { fallBackToClassic, getAppearance, syncAppearance } from './lib/appearance'
+import { loadSlateStyles, SlateOverviewPage, SlateShell } from './lib/switchDesign'
 
 syncAppearance()
 
@@ -20,11 +21,14 @@ const queryClient = new QueryClient({
 })
 
 async function start() {
-  // The slate design brings its own stylesheet, fetched only for people who switched it on.
-  // If it cannot be fetched, show classic for this visit rather than an unstyled page.
+  // The slate design brings its own stylesheet, loaded only for people who switched it on.
+  // If it cannot be loaded, show classic for this visit rather than an unstyled page.
   if (getAppearance().design === 'slate') {
+    // Start on the shell and first page now instead of after the stylesheet arrives.
+    void SlateShell.preload().catch(() => {})
+    void SlateOverviewPage.preload().catch(() => {})
     try {
-      await import('./slate/styles')
+      await loadSlateStyles()
     } catch {
       fallBackToClassic()
     }

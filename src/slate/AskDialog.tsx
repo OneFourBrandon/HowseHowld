@@ -25,13 +25,14 @@ export function AskDialog({
 }) {
   const [value, setValue] = useState('')
   const [working, setWorking] = useState(false)
+  // While the request is running the dialog stays, so its result cannot land on a different dialog.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape' && !working) onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, working])
   const amount = Number(value)
   const valid = !field
     || (field.kind === 'money' ? Number.isFinite(amount) && amount > 0 : value.trim().length > 0)
@@ -83,7 +84,7 @@ export function AskDialog({
         )}
         <div className="flex justify-end gap-2">
           {/* With nothing to type, focus lands on the safe choice. */}
-          <Button type="button" variant="ghost" autoFocus={!field} onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="ghost" autoFocus={!field} disabled={working} onClick={onClose}>Cancel</Button>
           <Button type="submit" variant={danger ? 'danger' : 'primary'} disabled={!valid || working}>{confirmLabel}</Button>
         </div>
       </form>

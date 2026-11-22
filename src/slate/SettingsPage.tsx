@@ -183,7 +183,7 @@ export function SettingsPage() {
             </SettingRow>
             {switchFailed && (
               <p className="py-3 text-(--sl-brick)" role="alert">
-                The classic design could not be loaded. Check your connection and try again.
+                The classic design could not be loaded. Check your connection, then reload the page and try again.
               </p>
             )}
             <SettingRow title="Theme" hint="The new design was drawn dark first. Light is there for bright rooms.">

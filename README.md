@@ -27,9 +27,10 @@ off in the same place.
 - Slate lives in `src/slate`. It has its own shell, overview and settings.
   Chores, Money, Calendar and Driveway keep their page logic and dialogs and
   swap only their layout.
-- Slate's stylesheet, shell and layouts are fetched only once the design is
+- A page loads Slate's stylesheet, shell and layouts only once the design is
   switched on, and its styles are scoped to `:root[data-design="slate"]` in
-  `src/slate/slate.css`. Classic is unaffected while it is off.
+  `src/slate/slate.css`. Classic is unaffected while it is off. (The service
+  worker still precaches Slate's files along with the rest of the build.)
 - Slate keeps its own theme, dark by default, separate from the Classic theme.
 
 ## Local development

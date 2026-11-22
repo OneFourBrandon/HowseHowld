@@ -248,6 +248,8 @@ export function Empty({
   )
 }
 
+const MENU_ITEMS = '[role="menuitem"]:not(:disabled)'
+
 /**
  * A button that opens a small popover anchored beneath it. Escape, or choosing
  * something, hands focus back to the button. When the popover holds a menu,
@@ -272,25 +274,28 @@ export function Popover({
   const popover = useRef<HTMLDivElement>(null)
   const dismiss = useCallback((reason: 'escape' | 'outside' | 'chosen') => {
     setOpen(false)
-    // A press elsewhere takes focus with it; otherwise return it to the trigger.
+    // A press elsewhere takes focus with it; otherwise return it to the trigger. If the
+    // choice opens a dialog, the shell moves focus into it and back here when it closes.
     if (reason !== 'outside') anchor.current?.querySelector<HTMLElement>('button, a')?.focus()
   }, [])
   const close = useCallback(() => dismiss('chosen'), [dismiss])
   useDismiss(anchor, open, dismiss)
 
   useEffect(() => {
-    if (open) popover.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+    if (open) popover.current?.querySelector<HTMLElement>(MENU_ITEMS)?.focus()
   }, [open])
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-    const items = [...(popover.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])]
+    const items = [...(popover.current?.querySelectorAll<HTMLElement>(MENU_ITEMS) ?? [])]
     if (!items.length) return
     event.preventDefault()
     const index = items.indexOf(document.activeElement as HTMLElement)
     const next = event.key === 'Home' ? 0
       : event.key === 'End' ? items.length - 1
-        : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+        // With nothing focused yet, down goes to the first item and up to the last.
+        : index < 0 ? (event.key === 'ArrowDown' ? 0 : items.length - 1)
+          : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
     items[next].focus()
   }
 

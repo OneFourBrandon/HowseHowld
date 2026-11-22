@@ -86,7 +86,7 @@ export function OverviewPage() {
 
   const stats = useMemo(() => memberStats(data, now, balances), [balances, data, now])
   const myBalance = balances.get(me.id) ?? 0
-  const nextBill = agenda.find(entry => entry.kind === 'bill' && entry.mine && entry.dateKey >= today)
+  const nextBill = agenda.find(entry => entry.kind === 'bill' && entry.mine && entry.state === 'ahead')
 
   const slots = slotsFor(data)
   const nextExit = [...data.departures]

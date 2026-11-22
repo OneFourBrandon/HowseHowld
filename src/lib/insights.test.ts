@@ -252,6 +252,14 @@ describe('agenda', () => {
     expect(dayAfter.state).toBe('done')
   })
 
+  it('treats a bill the member marked paid as done', () => {
+    const paid = { ...data, billPeriods: [{ ...rent.billPeriods[0], paidMemberIds: [ME] }] }
+    expect(buildAgenda(paid, NOW).find(entry => entry.id === 'bill-period-rent')).toMatchObject({
+      state: 'done',
+      detail: 'Marked as paid',
+    })
+  })
+
   it('skips a bill period whose bill no longer exists', () => {
     const orphan = { ...data, bills: [] }
     expect(buildAgenda(orphan, NOW).some(entry => entry.kind === 'bill')).toBe(false)

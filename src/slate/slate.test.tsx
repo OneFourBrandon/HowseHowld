@@ -1,9 +1,11 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Suspense } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppearanceSettings } from '../components/AppearanceSettings'
-import { getAppearance, resetAppearanceCache } from '../lib/appearance'
+import { getAppearance, resetAppearanceCache, useDesign } from '../lib/appearance'
+import { SlateSettingsPage } from '../lib/switchDesign'
 import { ChoresPage } from '../pages/ChoresPage'
 import { MoneyPage } from '../pages/MoneyPage'
 import { AppDataProvider } from '../state/AppDataContext'
@@ -12,8 +14,21 @@ import { SlateShell } from './SlateShell'
 
 // Both settings pages register the service worker through a module that only
 // exists in a real build. The design switch preloads them, so stand them in.
-vi.mock('./SettingsPage', () => ({ SettingsPage: () => null }))
+vi.mock('./SettingsPage', async () => {
+  const { createElement } = await import('react')
+  return { SettingsPage: () => createElement('p', null, 'Slate settings page') }
+})
 vi.mock('../pages/SettingsPage', () => ({ SettingsPage: () => null }))
+
+/**
+ * slate.css marks the root element with `--sl-loaded` so the app can tell the
+ * stylesheet arrived. To act out a stylesheet that failed to load, override
+ * the mark inline with a value the check rejects.
+ */
+const stylesheetArrived = (arrived: boolean) => {
+  if (arrived) document.documentElement.style.removeProperty('--sl-loaded')
+  else document.documentElement.style.setProperty('--sl-loaded', '0')
+}
 
 function renderInHouse(path: string, page: React.ReactNode) {
   return render(
@@ -34,6 +49,7 @@ describe('the design switch', () => {
     localStorage.clear()
     delete document.documentElement.dataset.design
     delete document.documentElement.dataset.theme
+    stylesheetArrived(true)
     resetAppearanceCache()
   })
 
@@ -52,6 +68,36 @@ describe('the design switch', () => {
     await waitFor(() => expect(document.documentElement.dataset.design).toBe('classic'))
     expect(toggle).toHaveAttribute('aria-checked', 'false')
   })
+
+  it('lands on the new design without ever showing a loading screen', async () => {
+    const user = userEvent.setup()
+    const fallbackShown = vi.fn()
+    function Fallback() {
+      fallbackShown()
+      return <p>Loading</p>
+    }
+    // The same shape as App: one Suspense boundary around whichever design is on.
+    function Switcher() {
+      const slate = useDesign() === 'slate'
+      return <Suspense fallback={<Fallback />}>{slate ? <SlateSettingsPage /> : <AppearanceSettings />}</Suspense>
+    }
+    render(<Switcher />)
+
+    await user.click(screen.getByRole('switch', { name: 'New design' }))
+    expect(await screen.findByText('Slate settings page')).toBeInTheDocument()
+    expect(fallbackShown).not.toHaveBeenCalled()
+  })
+
+  it('stays on classic and says so when the new design’s stylesheet did not arrive', async () => {
+    stylesheetArrived(false)
+    const user = userEvent.setup()
+    render(<AppearanceSettings />)
+
+    await user.click(screen.getByRole('switch', { name: 'New design' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be loaded')
+    expect(document.documentElement.dataset.design).not.toBe('slate')
+    expect(screen.getByRole('switch', { name: 'New design' })).toHaveAttribute('aria-checked', 'false')
+  })
 })
 
 describe('the slate design', () => {
@@ -59,6 +105,7 @@ describe('the slate design', () => {
     localStorage.clear()
     document.documentElement.dataset.design = 'slate'
     document.documentElement.dataset.theme = 'dark'
+    stylesheetArrived(true)
     resetAppearanceCache()
   })
 
@@ -121,7 +168,23 @@ describe('the slate design', () => {
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Actions for Stove & counters' })).toBeInTheDocument()
+    // Closing the dialog puts focus back on the menu button it came from.
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('moves focus into a classic dialog opened from a menu, and back out when it closes', async () => {
+    const user = userEvent.setup()
+    renderInHouse('/chores', <ChoresPage />)
+
+    const trigger = await screen.findByRole('button', { name: 'Actions for Stove & counters' })
+    await user.click(trigger)
+    await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
+    const dialog = screen.getByRole('dialog', { name: 'Edit chore' })
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(trigger).toHaveFocus())
   })
 
   it('shows money with the shared purchase and bill dialogs still attached', async () => {

@@ -28,7 +28,7 @@ export function AppearanceSettings() {
         </p>
         {state === 'failed' && (
           <p className="mt-2 text-[.75rem] text-(--coral)" role="alert">
-            The new design could not be loaded. Check your connection and try again.
+            The new design could not be loaded. Check your connection, then reload the page and try again.
           </p>
         )}
       </Card>

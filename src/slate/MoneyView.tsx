@@ -101,6 +101,9 @@ export function MoneyView({
   const [ask, setAsk] = useState<Ask | null>(null)
 
   const currentMonth = todayKey(data, now).slice(0, 7)
+  // MoneyPage opens on the device's month, so that is the month this button goes back to.
+  const device = new Date(now)
+  const deviceMonth = `${device.getFullYear()}-${String(device.getMonth() + 1).padStart(2, '0')}`
   const memberById = (id?: string) => data.members.find(member => member.id === id)
   const selectedExpense = data.expenses.find(expense => expense.id === detailId)
   const detailMember = memberById(memberDetailId ?? undefined)
@@ -201,8 +204,8 @@ export function MoneyView({
               <ChevronRight size={16} />
             </button>
           </div>
-          {selectedMonth !== currentMonth && (
-            <button type="button" className="sl-btn sl-btn-sm" onClick={() => onMonthChange(currentMonth)}>Back to this month</button>
+          {selectedMonth !== deviceMonth && (
+            <button type="button" className="sl-btn sl-btn-sm" onClick={() => onMonthChange(deviceMonth)}>Back to this month</button>
           )}
         </div>
         <div className="sl-toolbar-group">
