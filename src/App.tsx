@@ -7,6 +7,7 @@ import { HouseholdGate } from './components/HouseholdGate'
 import { ProfileGate } from './components/ProfileGate'
 import { AppDataProvider } from './state/AppDataContext'
 import { useAppData } from './state/AppDataContext'
+import { useAppearance } from './lib/appearance'
 import type { HouseholdFeature } from './types'
 
 const TodayPage = lazy(() =>
@@ -27,6 +28,17 @@ const DrivewayPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })),
 )
+// The slate design has its own shell, overview and settings. The other pages
+// keep their logic and swap only their layout.
+const SlateShell = lazy(() =>
+  import('./slate/SlateShell').then((module) => ({ default: module.SlateShell })),
+)
+const SlateOverviewPage = lazy(() =>
+  import('./slate/OverviewPage').then((module) => ({ default: module.OverviewPage })),
+)
+const SlateSettingsPage = lazy(() =>
+  import('./slate/SettingsPage').then((module) => ({ default: module.SettingsPage })),
+)
 
 function FeatureRoute({
   feature,
@@ -43,6 +55,7 @@ function FeatureRoute({
 }
 
 export default function App() {
+  const slate = useAppearance().design === 'slate'
   return (
     <AuthProvider><AuthGate>
       <ProfileGate>
@@ -50,13 +63,13 @@ export default function App() {
           <HouseholdGate>
           <Suspense fallback={<div className={"route-loading min-h-dvh grid place-items-center text-(--muted)"}>Opening your house…</div>}>
             <Routes>
-              <Route element={<AppShell />}>
-                <Route index element={<TodayPage />} />
+              <Route element={slate ? <SlateShell /> : <AppShell />}>
+                <Route index element={slate ? <SlateOverviewPage /> : <TodayPage />} />
                 <Route path="chores" element={<FeatureRoute feature="chores"><ChoresPage /></FeatureRoute>} />
                 <Route path="money" element={<FeatureRoute feature="money"><MoneyPage /></FeatureRoute>} />
                 <Route path="calendar" element={<FeatureRoute feature={['calendar', 'courses']}><CalendarPage /></FeatureRoute>} />
                 <Route path="driveway" element={<FeatureRoute feature="driveway"><DrivewayPage /></FeatureRoute>} />
-                <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings" element={slate ? <SlateSettingsPage /> : <SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

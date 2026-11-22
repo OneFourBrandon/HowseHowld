@@ -8,6 +8,7 @@ import {
 import { X } from 'lucide-react'
 import * as React from "react";
 
+// The ui-* classes are styling hooks for the slate design; classic styles never target them.
 const cardClasses = 'card bg-transparent border-0 rounded-none shadow-none'
 const buttonClasses = 'border-0 inline-flex items-center justify-center gap-2 font-[750] transition-[.18s_ease] disabled:cursor-wait disabled:opacity-56 rounded-lg shadow-none'
 const buttonVariants = {
@@ -46,7 +47,7 @@ export function Button({
 }) {
   return (
     <button
-      className={cn(buttonClasses, buttonVariants[variant], buttonSizes[size], className)}
+      className={cn('ui-btn', `ui-btn-${variant}`, `ui-btn-${size}`, buttonClasses, buttonVariants[variant], buttonSizes[size], className)}
       {...props}
     >
       {children}
@@ -61,6 +62,7 @@ export function Badge({
   tone?: 'neutral' | 'green' | 'amber' | 'red' | 'blue'
 }>) {
   return <span className={cn(
+    'ui-badge', `ui-badge-${tone}`,
     'w-fit inline-flex items-center gap-1 p-[5px_8px] rounded-full text-[#5c6661] bg-[#eeeee8] dark:bg-(--sage-2) font-extrabold uppercase text-[.75rem] tracking-[.035em]',
     tone === 'green' && 'bg-(--green-soft)! text-[#28644f] dark:text-(--green)',
     tone === 'amber' && 'bg-(--gold-soft)! text-[#8b6522] dark:text-(--gold)',
@@ -209,7 +211,7 @@ export function Toggle({
         role="switch"
         aria-checked={checked}
         className={cn(
-          'w-9.75 h-5.5 p-0.75 border-0 rounded-full transition-[.18s]',
+          'ui-switch w-9.75 h-5.5 p-0.75 border-0 rounded-full transition-[.18s]',
           checked ? 'bg-(--green)' : 'bg-[#cacdc7] dark:bg-(--line-strong)'
         )}
         onClick={() => onChange(!checked)}

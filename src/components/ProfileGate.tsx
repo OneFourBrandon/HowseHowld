@@ -87,8 +87,8 @@ export function ProfileGate({ children }: PropsWithChildren) {
   }
 
   return (
-    <main className="min-h-screen grid grid-cols-[minmax(320px,.8fr)_minmax(520px,1.2fr)] bg-(--paper) max-[900px]:grid-cols-1">
-      <section className="flex flex-col justify-between gap-12 p-[clamp(32px,6vw,88px)] bg-(--forest) text-white max-[900px]:hidden">
+    <main className="gate-page profile-gate min-h-screen grid grid-cols-[minmax(320px,.8fr)_minmax(520px,1.2fr)] bg-(--paper) max-[900px]:grid-cols-1">
+      <section className="profile-hero flex flex-col justify-between gap-12 p-[clamp(32px,6vw,88px)] bg-(--forest) text-white max-[900px]:hidden">
         <div className="flex items-center gap-3 font-display text-[1.18rem] font-bold">
           <span className="size-9.5 grid place-items-center rounded-xl bg-[#f1d799] text-(--forest) text-[1.3rem]">H</span>
           HowseHowld

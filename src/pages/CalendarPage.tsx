@@ -1,4 +1,6 @@
 import { cn } from '../lib/cn'
+import { useAppearance } from '../lib/appearance'
+import { useIntent } from '../lib/intent'
 import './two-tone.css'
 import { useMemo, useState } from 'react'
 import {
@@ -30,6 +32,7 @@ import { useAppData } from '../state/AppDataContext'
 import { importIcs } from '../lib/api'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
 import { SharedCourseSchedule } from '../components/SharedCourseSchedule'
+import { CalendarView } from '../slate/CalendarView'
 import { formatShortTime, toIso } from '../lib/utils'
 
 export function CalendarPage() {
@@ -93,6 +96,171 @@ export function CalendarPage() {
   const chooseDate = (date: Date) => {
     setSelectedDate(date)
     setVisibleMonth(startOfMonth(date))
+  }
+
+  const slate = useAppearance().design === 'slate'
+  useIntent('new-event', () => setEventModal(true))
+
+  const dialogs = (
+    <>
+    <Modal
+      open={eventModal}
+      onClose={() => setEventModal(false)}
+      title="Add a household event"
+      description="Everyone will see it unless you choose a smaller audience."
+    >
+      <form
+        className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
+        onSubmit={async (event) => {
+          event.preventDefault()
+          if (!title.trim() || !start || !end) return
+          await addEvent({
+            title: title.trim(),
+            startAt: toIso(new Date(start)),
+            endAt: toIso(new Date(end)),
+            allDay,
+            location: location.trim() || undefined,
+            audience,
+            audienceMemberIds: audience === 'selected' ? audienceIds : [],
+            kind: 'household',
+            recurrence: repeat === 'once' ? undefined : { frequency: repeat, interval: 1 },
+            reminderOffsets,
+          })
+          setEventModal(false)
+          setTitle('')
+          setStart('')
+          setEnd('')
+          setLocation('')
+        }}
+      >
+        <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Event name
+          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Parents visiting" required />
+        </label>
+        <label className={"checkbox-field flex items-center gap-2 p-[10px_0] field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <input type="checkbox" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} />
+          All-day event
+        </label>
+        <label>Starts
+          <input type={allDay ? 'date' : 'datetime-local'} value={start} onChange={(event) => setStart(event.target.value)} required />
+        </label>
+        <label>Ends
+          <input type={allDay ? 'date' : 'datetime-local'} value={end} onChange={(event) => setEnd(event.target.value)} required />
+        </label>
+        <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Location
+          <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Home" />
+        </label>
+        <label>Audience
+          <select value={audience} onChange={(event) => setAudience(event.target.value as typeof audience)}>
+            <option value="everyone">Everyone</option>
+            <option value="selected">Selected roommates</option>
+            <option value="self">Only me</option>
+          </select>
+        </label>
+        <label>Repeat
+          <select value={repeat} onChange={(event) => setRepeat(event.target.value as typeof repeat)}>
+            <option value="once">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        {audience === 'selected' && (
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+            <legend>Visible to</legend>
+            <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
+              {data.members.map((member) => (
+                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={member.id}>
+                  <input
+                    type="checkbox"
+                    checked={audienceIds.includes(member.id)}
+                    onChange={(event) => setAudienceIds((current) =>
+                      event.target.checked
+                        ? [...current, member.id]
+                        : current.filter((id) => id !== member.id),
+                    )}
+                  />
+                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
+                  {member.displayName}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+          <legend>Reminders</legend>
+          <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
+            {[
+              [10080, '1 week'],
+              [1440, '1 day'],
+              [60, '1 hour'],
+              [15, '15 minutes'],
+            ].map(([offset, label]) => (
+              <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={offset}>
+                <input
+                  type="checkbox"
+                  checked={reminderOffsets.includes(offset as number)}
+                  onChange={(event) => setReminderOffsets((current) =>
+                    event.target.checked
+                      ? [...current, offset as number]
+                      : current.filter((item) => item !== offset),
+                  )}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <Button type="button" variant="ghost" onClick={() => setEventModal(false)}>Cancel</Button>
+          <Button type="submit" disabled={busy === 'event:new'}><CalendarPlus size={17} /> Add event</Button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal
+      open={importModal}
+      onClose={() => setImportModal(false)}
+      title="Import a class schedule"
+      description="Use an .ics file or paste a calendar URL. URLs are fetched once and never stored."
+    >
+      <form
+        className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
+        onSubmit={async (event) => {
+          event.preventDefault()
+          setImportStatus('Importing and checking recurring events…')
+          try {
+            const result = await importIcs(icsFile, icsUrl || undefined)
+            setImportStatus(`Imported ${result?.imported ?? 0} schedule items.`)
+            await refresh()
+          } catch (error) {
+            setImportStatus(error instanceof Error ? error.message : 'Import failed.')
+          }
+        }}
+      >
+        <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Calendar file
+          <input type="file" accept=".ics,text/calendar" onChange={(event) => setIcsFile(event.target.files?.[0])} />
+        </label>
+        <div className="form-divider relative col-span-full text-center text-[.75rem] text-(--muted) before:absolute before:top-1/2 before:right-0 before:left-0 before:h-0.25 before:bg-(--line) before:content-[''] max-[640px]:col-[1]"><span className="relative bg-(--surface) px-2.25">or</span></div>
+        <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Calendar URL
+          <input type="url" value={icsUrl} onChange={(event) => setIcsUrl(event.target.value)} placeholder="https://university.example/schedule.ics" />
+        </label>
+        {importStatus && <div className={"import-status p-[11px_13px] flex items-center rounded-[10px] text-[#5d6b64] bg-(--sage-2) justify-start gap-2 text-[.78rem] field-span-2 col-span-full max-[640px]:col-[1]"}><BookOpen size={17} /> {importStatus}</div>}
+        <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <Button type="button" variant="ghost" onClick={() => setImportModal(false)}>Close</Button>
+          <Button type="submit" disabled={!icsFile && !icsUrl}>Import schedule</Button>
+        </div>
+      </form>
+    </Modal>
+    </>
+  )
+
+  if (slate) {
+    return (
+      <>
+        <CalendarView onAddEvent={() => setEventModal(true)} onImport={() => setImportModal(true)} />
+        {dialogs}
+      </>
+    )
   }
 
   return (
@@ -377,154 +545,7 @@ export function CalendarPage() {
         </section>
       )}
 
-      <Modal
-        open={eventModal}
-        onClose={() => setEventModal(false)}
-        title="Add a household event"
-        description="Everyone will see it unless you choose a smaller audience."
-      >
-        <form
-          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
-          onSubmit={async (event) => {
-            event.preventDefault()
-            if (!title.trim() || !start || !end) return
-            await addEvent({
-              title: title.trim(),
-              startAt: toIso(new Date(start)),
-              endAt: toIso(new Date(end)),
-              allDay,
-              location: location.trim() || undefined,
-              audience,
-              audienceMemberIds: audience === 'selected' ? audienceIds : [],
-              kind: 'household',
-              recurrence: repeat === 'once' ? undefined : { frequency: repeat, interval: 1 },
-              reminderOffsets,
-            })
-            setEventModal(false)
-            setTitle('')
-            setStart('')
-            setEnd('')
-            setLocation('')
-          }}
-        >
-          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Event name
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Parents visiting" required />
-          </label>
-          <label className={"checkbox-field flex items-center gap-2 p-[10px_0] field-span-2 col-span-full max-[640px]:col-[1]"}>
-            <input type="checkbox" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} />
-            All-day event
-          </label>
-          <label>Starts
-            <input type={allDay ? 'date' : 'datetime-local'} value={start} onChange={(event) => setStart(event.target.value)} required />
-          </label>
-          <label>Ends
-            <input type={allDay ? 'date' : 'datetime-local'} value={end} onChange={(event) => setEnd(event.target.value)} required />
-          </label>
-          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Location
-            <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Home" />
-          </label>
-          <label>Audience
-            <select value={audience} onChange={(event) => setAudience(event.target.value as typeof audience)}>
-              <option value="everyone">Everyone</option>
-              <option value="selected">Selected roommates</option>
-              <option value="self">Only me</option>
-            </select>
-          </label>
-          <label>Repeat
-            <select value={repeat} onChange={(event) => setRepeat(event.target.value as typeof repeat)}>
-              <option value="once">Does not repeat</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-          </label>
-          {audience === 'selected' && (
-            <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
-              <legend>Visible to</legend>
-              <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
-                {data.members.map((member) => (
-                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={member.id}>
-                    <input
-                      type="checkbox"
-                      checked={audienceIds.includes(member.id)}
-                      onChange={(event) => setAudienceIds((current) =>
-                        event.target.checked
-                          ? [...current, member.id]
-                          : current.filter((id) => id !== member.id),
-                      )}
-                    />
-                    <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
-                    {member.displayName}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
-            <legend>Reminders</legend>
-            <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
-              {[
-                [10080, '1 week'],
-                [1440, '1 day'],
-                [60, '1 hour'],
-                [15, '15 minutes'],
-              ].map(([offset, label]) => (
-                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={offset}>
-                  <input
-                    type="checkbox"
-                    checked={reminderOffsets.includes(offset as number)}
-                    onChange={(event) => setReminderOffsets((current) =>
-                      event.target.checked
-                        ? [...current, offset as number]
-                        : current.filter((item) => item !== offset),
-                    )}
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
-            <Button type="button" variant="ghost" onClick={() => setEventModal(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy === 'event:new'}><CalendarPlus size={17} /> Add event</Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={importModal}
-        onClose={() => setImportModal(false)}
-        title="Import a class schedule"
-        description="Use an .ics file or paste a calendar URL. URLs are fetched once and never stored."
-      >
-        <form
-          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
-          onSubmit={async (event) => {
-            event.preventDefault()
-            setImportStatus('Importing and checking recurring events…')
-            try {
-              const result = await importIcs(icsFile, icsUrl || undefined)
-              setImportStatus(`Imported ${result?.imported ?? 0} schedule items.`)
-              await refresh()
-            } catch (error) {
-              setImportStatus(error instanceof Error ? error.message : 'Import failed.')
-            }
-          }}
-        >
-          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Calendar file
-            <input type="file" accept=".ics,text/calendar" onChange={(event) => setIcsFile(event.target.files?.[0])} />
-          </label>
-          <div className="form-divider relative col-span-full text-center text-[.75rem] text-(--muted) before:absolute before:top-1/2 before:right-0 before:left-0 before:h-0.25 before:bg-(--line) before:content-[''] max-[640px]:col-[1]"><span className="relative bg-(--surface) px-2.25">or</span></div>
-          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Calendar URL
-            <input type="url" value={icsUrl} onChange={(event) => setIcsUrl(event.target.value)} placeholder="https://university.example/schedule.ics" />
-          </label>
-          {importStatus && <div className={"import-status p-[11px_13px] flex items-center rounded-[10px] text-[#5d6b64] bg-(--sage-2) justify-start gap-2 text-[.78rem] field-span-2 col-span-full max-[640px]:col-[1]"}><BookOpen size={17} /> {importStatus}</div>}
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
-            <Button type="button" variant="ghost" onClick={() => setImportModal(false)}>Close</Button>
-            <Button type="submit" disabled={!icsFile && !icsUrl}>Import schedule</Button>
-          </div>
-        </form>
-      </Modal>
+      {dialogs}
     </div>
   )
 }

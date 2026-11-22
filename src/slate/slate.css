@@ -1,0 +1,1761 @@
+/*
+ * Slate — the optional redesign, switched on from Settings.
+ *
+ * Everything here is scoped to :root[data-design="slate"], so the classic
+ * design is untouched while it is off.
+ *
+ * Cascade notes, because this file sits beside Tailwind and index.css:
+ *   - index.css styles bare elements (h1, input, label) outside any layer, and
+ *     unlayered rules beat every Tailwind utility. Slate's element defaults are
+ *     therefore unlayered too, behind :where() so any class can still win.
+ *   - Slate's own primitives (.sl-*) live in @layer components, so utilities on
+ *     the same element can adjust them.
+ *   - Shared components from the classic design (buttons, badges, modals) are
+ *     reskinned by unlayered rules, which is what lets them override the
+ *     utilities those components are written with.
+ *   - A few classic utilities are !important. Only an !important rule in an
+ *     earlier layer outranks those, which is what the @layer base block is for.
+ */
+@import '@fontsource-variable/instrument-sans/standard.css';
+
+/* ── Tokens ──────────────────────────────────────────────────────────── */
+
+:root[data-design="slate"] {
+  color-scheme: dark;
+
+  --sl-font: 'Instrument Sans Variable', 'Segoe UI Variable Text', 'Segoe UI',
+    system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --sl-canvas: #101113;
+  --sl-panel: #151619;
+  --sl-well: #1a1c20;
+  --sl-raise: #23252b;
+  --sl-field: #121316;
+  --sl-line: #23252a;
+  --sl-line-strong: #33363d;
+  --sl-hover: rgba(255, 255, 255, .045);
+  --sl-hover-strong: rgba(255, 255, 255, .08);
+  --sl-hatch: rgba(255, 255, 255, .06);
+
+  --sl-ink: #edeef0;
+  --sl-ink-2: #babdc4;
+  --sl-muted: #8b8e97;
+  --sl-faint: #5f626b;
+  --sl-on-ink: #101113;
+  --sl-on-tone: #101113;
+
+  /* Four meanings, one hue each. Moss: done or in credit. Brass: waiting on
+     someone. Brick: missed or owed. Steel: scheduled. Iris marks classes. */
+  --sl-moss: #7dba8d;
+  --sl-moss-fill: rgba(125, 186, 141, .24);
+  --sl-moss-soft: rgba(125, 186, 141, .13);
+  --sl-brass: #dcae62;
+  --sl-brass-fill: rgba(220, 174, 98, .24);
+  --sl-brass-soft: rgba(220, 174, 98, .13);
+  --sl-brick: #e2776d;
+  --sl-brick-fill: rgba(226, 119, 109, .26);
+  --sl-brick-soft: rgba(226, 119, 109, .14);
+  --sl-steel: #83aadb;
+  --sl-steel-fill: rgba(131, 170, 219, .24);
+  --sl-steel-soft: rgba(131, 170, 219, .13);
+  --sl-iris: #aa9fe3;
+  --sl-iris-fill: rgba(170, 159, 227, .24);
+  --sl-iris-soft: rgba(170, 159, 227, .14);
+
+  --sl-focus: #dcae62;
+  --sl-shadow-pop: 0 18px 50px rgba(0, 0, 0, .5), 0 2px 8px rgba(0, 0, 0, .3);
+
+  --sl-rail-w: 76px;
+  --sl-topbar-h: 56px;
+  --sl-tabbar-h: 62px;
+  --sl-pad: 20px;
+
+  --sl-fs-body: .8125rem;
+  --sl-fs-meta: .75rem;
+  --sl-fs-micro: .6875rem;
+
+  /* Classic tokens, re-pointed so shared components pick up the palette. */
+  --ink: var(--sl-ink);
+  --muted: var(--sl-muted);
+  --paper: var(--sl-canvas);
+  --surface: var(--sl-well);
+  --surface-strong: var(--sl-panel);
+  --forest: var(--sl-ink);
+  --forest-2: var(--sl-ink-2);
+  --sage: var(--sl-hover-strong);
+  --sage-2: var(--sl-hover);
+  --line: var(--sl-line);
+  --line-strong: var(--sl-line-strong);
+  --gold: var(--sl-brass);
+  --gold-soft: var(--sl-brass-soft);
+  --coral: var(--sl-brick);
+  --coral-soft: var(--sl-brick-soft);
+  --blue: var(--sl-steel);
+  --blue-soft: var(--sl-steel-soft);
+  --green: var(--sl-moss);
+  --green-soft: var(--sl-moss-soft);
+  --shadow: var(--sl-shadow-pop);
+
+  /* Tailwind theme values the shared components are written against. */
+  --font-sans: var(--sl-font);
+  --font-display: var(--sl-font);
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
+  /* Instrument Sans tops out at 700, and heavy weights crowd small sizes. */
+  --font-weight-medium: 500;
+  --font-weight-semibold: 560;
+  --font-weight-bold: 600;
+  --font-weight-extrabold: 640;
+
+  font-family: var(--sl-font);
+}
+
+:root[data-design="slate"][data-theme="light"] {
+  color-scheme: light;
+
+  --sl-canvas: #f1f2f3;
+  --sl-panel: #fbfbfc;
+  --sl-well: #f2f3f5;
+  --sl-raise: #e6e8eb;
+  --sl-field: #ffffff;
+  --sl-line: #e0e2e6;
+  --sl-line-strong: #c6c9cf;
+  --sl-hover: rgba(20, 22, 26, .045);
+  --sl-hover-strong: rgba(20, 22, 26, .08);
+  --sl-hatch: rgba(20, 22, 26, .085);
+
+  --sl-ink: #16171a;
+  --sl-ink-2: #3f424a;
+  --sl-muted: #646872;
+  --sl-faint: #9a9da6;
+  --sl-on-ink: #fbfbfc;
+  --sl-on-tone: #ffffff;
+
+  --sl-moss: #2c7847;
+  --sl-moss-fill: rgba(44, 120, 71, .2);
+  --sl-moss-soft: rgba(44, 120, 71, .1);
+  --sl-brass: #93640d;
+  --sl-brass-fill: rgba(170, 118, 18, .22);
+  --sl-brass-soft: rgba(170, 118, 18, .11);
+  --sl-brick: #b8423a;
+  --sl-brick-fill: rgba(184, 66, 58, .2);
+  --sl-brick-soft: rgba(184, 66, 58, .1);
+  --sl-steel: #2c63a4;
+  --sl-steel-fill: rgba(44, 99, 164, .2);
+  --sl-steel-soft: rgba(44, 99, 164, .1);
+  --sl-iris: #5f4fb3;
+  --sl-iris-fill: rgba(95, 79, 179, .2);
+  --sl-iris-soft: rgba(95, 79, 179, .1);
+
+  --sl-focus: #93640d;
+  --sl-shadow-pop: 0 18px 50px rgba(20, 22, 26, .16), 0 2px 8px rgba(20, 22, 26, .08);
+}
+
+@media (max-width: 640px) {
+  :root[data-design="slate"] {
+    --sl-pad: 16px;
+    --sl-topbar-h: 52px;
+    --sl-fs-body: .875rem;
+    --sl-fs-meta: .78125rem;
+    --sl-fs-micro: .71875rem;
+  }
+}
+
+/* ── Element defaults (unlayered, zero specificity) ──────────────────── */
+
+:where(:root[data-design="slate"]) body {
+  font-size: var(--sl-fs-body);
+  line-height: 1.45;
+  font-synthesis: none;
+}
+
+:where(:root[data-design="slate"]) :is(h1, h2, h3) {
+  font-family: var(--sl-font);
+}
+
+:where(:root[data-design="slate"]) h1 {
+  font-size: 1.25rem;
+  font-weight: 560;
+  line-height: 1.15;
+  letter-spacing: -.022em;
+}
+
+:where(:root[data-design="slate"]) h2 {
+  font-size: 1rem;
+  font-weight: 560;
+  line-height: 1.25;
+  letter-spacing: -.012em;
+}
+
+:where(:root[data-design="slate"]) h3 {
+  font-size: .875rem;
+  font-weight: 560;
+  letter-spacing: -.005em;
+}
+
+:where(:root[data-design="slate"]) :is(strong, b) {
+  font-weight: 600;
+}
+
+:root[data-design="slate"] :is([class*="font-[7"], [class*="font-[8"]) {
+  font-weight: 620;
+}
+
+:root[data-design="slate"] [class*="font-[65"] {
+  font-weight: 560;
+}
+
+/* index.css zeroes these margins and inherits link colour outside any layer,
+   which silently defeats utilities and .sl-* classes. Hand both back to the layers. */
+:where(:root[data-design="slate"]) :is(h1, h2, h3, p) {
+  margin: revert-layer;
+}
+
+:where(:root[data-design="slate"]) a:is([class^="sl-"], [class*=" sl-"]) {
+  color: revert-layer;
+  text-decoration: revert-layer;
+}
+
+:where(:root[data-design="slate"]) :is(h1, h2, h3):is([class^="sl-"], [class*=" sl-"]) {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  line-height: revert-layer;
+  letter-spacing: revert-layer;
+}
+
+:where(:root[data-design="slate"]) .page-title {
+  font-size: 1.625rem;
+  font-weight: 560;
+  line-height: 1.12;
+  letter-spacing: -.028em;
+}
+
+:where(:root[data-design="slate"]) form label,
+:where(:root[data-design="slate"]) fieldset {
+  color: var(--sl-ink-2);
+  font-size: var(--sl-fs-meta);
+  font-weight: 500;
+}
+
+:where(:root[data-design="slate"]) legend {
+  margin-bottom: 6px;
+}
+
+:where(:root[data-design="slate"]) :is(input, select, textarea) {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--sl-line-strong);
+  border-radius: 7px;
+  font-size: var(--sl-fs-body);
+  font-weight: 450;
+}
+
+:root[data-design="slate"][data-theme] :is(input, select, textarea) {
+  color: var(--sl-ink);
+  background-color: var(--sl-field);
+}
+
+/* A visually hidden field stays a single clipped pixel. */
+:root[data-design="slate"] :is(input, select, textarea).sr-only {
+  width: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+}
+
+:where(:root[data-design="slate"]) :is(input, select, textarea)::placeholder {
+  color: var(--sl-faint);
+}
+
+:where(:root[data-design="slate"]) :is(input, select, textarea):focus {
+  border-color: var(--sl-ink-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sl-focus) 28%, transparent);
+}
+
+:where(:root[data-design="slate"]) input[type="checkbox"] {
+  accent-color: var(--sl-ink);
+}
+
+/* iOS zooms the page when a focused field is under 16px. */
+@media (pointer: coarse) {
+  :where(:root[data-design="slate"]) :is(input, select, textarea) {
+    font-size: 1rem;
+  }
+}
+
+:where(:root[data-design="slate"]) :focus-visible:not(input, select, textarea) {
+  outline: 2px solid var(--sl-focus);
+  outline-offset: 2px;
+}
+
+:where(:root[data-design="slate"]) ::selection {
+  background: color-mix(in srgb, var(--sl-brass) 34%, transparent);
+}
+
+/* ── Classic utilities that are !important ───────────────────────────── */
+
+@layer base {
+  /* Classic "selected" states are a forest fill with white text. In slate the
+     fill is ink, so the text has to flip with it. */
+  :root[data-design="slate"] [class*="bg-(--forest)"] {
+    color: var(--sl-on-ink) !important;
+  }
+
+  :root[data-design="slate"] [class*="bg-(--forest)"] [class*="text-white"] {
+    color: inherit !important;
+    opacity: .7;
+  }
+
+  :root[data-design="slate"] :is([class*="bg-(--green)"], [class*="bg-(--coral)"]):is([class*="text-white"]) {
+    color: var(--sl-on-tone) !important;
+  }
+
+  /* The onboarding side panel is a forest block with white text in classic. */
+  :root[data-design="slate"] .profile-hero[class] {
+    color: var(--sl-ink) !important;
+  }
+
+  /* Headings inside embedded classic panels carry their own !important sizes. */
+  :root[data-design="slate"] .sl-embed :is(h2, h3) {
+    font-size: .875rem !important;
+    font-weight: 560 !important;
+    line-height: 1.3 !important;
+    letter-spacing: -.005em !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-design="slate"] *,
+    :root[data-design="slate"] *::before,
+    :root[data-design="slate"] *::after {
+      animation-duration: .01ms !important;
+      animation-delay: 0s !important;
+      transition-duration: .01ms !important;
+    }
+  }
+}
+
+/* ── Slate primitives ────────────────────────────────────────────────── */
+
+@layer components {
+  /* Frame */
+
+  .sl-app {
+    display: grid;
+    grid-template-columns: var(--sl-rail-w) minmax(0, 1fr);
+    min-height: 100dvh;
+    color: var(--sl-ink);
+    background: var(--sl-canvas);
+    font-size: var(--sl-fs-body);
+  }
+
+  .sl-rail {
+    position: sticky;
+    top: 0;
+    z-index: 31;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    height: 100dvh;
+    padding: 11px 0 14px;
+    border-right: 1px solid var(--sl-line);
+    background: var(--sl-canvas);
+  }
+
+  .sl-mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    margin-bottom: 14px;
+    border-radius: 9px;
+    color: var(--sl-on-ink);
+    background: var(--sl-ink);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: -.04em;
+  }
+
+  .sl-rail-link {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 5px;
+    width: 60px;
+    min-height: 54px;
+    border-radius: 9px;
+    color: var(--sl-muted);
+    font-size: .6875rem;
+    font-weight: 500;
+    line-height: 1;
+    transition: color .15s ease, background-color .15s ease;
+  }
+
+  .sl-rail-link:hover {
+    color: var(--sl-ink);
+    background: var(--sl-hover);
+  }
+
+  .sl-rail-link[aria-current="page"] {
+    color: var(--sl-ink);
+    background: var(--sl-raise);
+  }
+
+  .sl-rail-link[aria-current="page"]::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    bottom: 15px;
+    left: -8px;
+    width: 2px;
+    border-radius: 0 2px 2px 0;
+    background: var(--sl-ink);
+  }
+
+  .sl-rail-icon {
+    position: relative;
+    display: grid;
+  }
+
+  .sl-count {
+    display: grid;
+    place-items: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    color: var(--sl-on-tone);
+    background: var(--sl-brass);
+    font-size: .625rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .sl-rail-icon > .sl-count,
+  .sl-tab-icon > .sl-count,
+  .sl-icon-btn > .sl-count {
+    position: absolute;
+    top: -6px;
+    right: -9px;
+    box-shadow: 0 0 0 2px var(--sl-canvas);
+  }
+
+  .sl-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 100dvh;
+  }
+
+  .sl-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: var(--sl-topbar-h);
+    padding: 0 var(--sl-pad);
+    border-bottom: 1px solid var(--sl-line);
+    background: color-mix(in srgb, var(--sl-canvas) 84%, transparent);
+    backdrop-filter: blur(14px) saturate(1.3);
+  }
+
+  .sl-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 28px;
+    padding: 4px var(--sl-pad);
+    border-bottom: 1px solid var(--sl-line);
+    color: var(--tone, var(--sl-muted));
+    background: var(--tone-soft, transparent);
+    font-size: var(--sl-fs-micro);
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .sl-content {
+    flex: 1;
+    width: 100%;
+  }
+
+  .sl-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 12px;
+    min-height: 54px;
+    padding: 10px var(--sl-pad);
+  }
+
+  .sl-toolbar-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* A page is a grid of cells that share hairlines, not floating cards. */
+  .sl-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1px;
+    margin-top: 1px;
+  }
+
+  .sl-panel {
+    position: relative;
+    min-width: 0;
+    padding: 16px var(--sl-pad) 20px;
+    background: var(--sl-panel);
+    box-shadow: 0 0 0 1px var(--sl-line);
+  }
+
+  .sl-panel-flush {
+    padding: 0;
+  }
+
+  .sl-panel-flush > .sl-panel-head {
+    padding: 16px var(--sl-pad) 0;
+  }
+
+  .sl-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 28px;
+    margin-bottom: 14px;
+  }
+
+  .sl-panel-title {
+    color: var(--sl-ink);
+    font-size: .875rem;
+    font-weight: 560;
+    line-height: 1.25;
+    letter-spacing: -.005em;
+  }
+
+  .sl-panel-note {
+    margin-top: 2px;
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-meta);
+    font-weight: 450;
+    line-height: 1.4;
+  }
+
+  .sl-panel-tools {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* A band across the page grid that names the group of panels under it. */
+  .sl-band {
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 var(--sl-pad);
+    color: var(--sl-muted);
+    background: var(--sl-canvas);
+    box-shadow: 0 0 0 1px var(--sl-line);
+    font-size: var(--sl-fs-meta);
+    font-weight: 520;
+    letter-spacing: 0;
+  }
+
+  /* A labelled band inside a flush panel, the same weight as a table header. */
+  .sl-subhead {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 var(--sl-pad);
+    border-top: 1px solid var(--sl-line);
+    border-bottom: 1px solid var(--sl-line);
+    color: var(--sl-muted);
+    background: var(--sl-well);
+    font-size: var(--sl-fs-micro);
+    font-weight: 450;
+    letter-spacing: 0;
+  }
+
+  /* Type helpers */
+
+  .sl-title {
+    font-size: 1.25rem;
+    font-weight: 560;
+    line-height: 1.15;
+    letter-spacing: -.022em;
+  }
+
+  .sl-reading {
+    font-size: 1.625rem;
+    font-stretch: 94%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 480;
+    line-height: 1.05;
+    letter-spacing: -.03em;
+  }
+
+  .sl-reading-lg {
+    font-size: clamp(2rem, 1.4rem + 1.6vw, 2.75rem);
+    font-weight: 460;
+    letter-spacing: -.04em;
+  }
+
+  .sl-num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sl-meta {
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-meta);
+    font-weight: 450;
+  }
+
+  .sl-micro {
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-micro);
+    font-weight: 450;
+  }
+
+  .sl-strong {
+    color: var(--sl-ink);
+    font-weight: 560;
+  }
+
+  /* Tones */
+
+  .sl-tone-moss { --tone: var(--sl-moss); --tone-fill: var(--sl-moss-fill); --tone-soft: var(--sl-moss-soft); }
+  .sl-tone-brass { --tone: var(--sl-brass); --tone-fill: var(--sl-brass-fill); --tone-soft: var(--sl-brass-soft); }
+  .sl-tone-brick { --tone: var(--sl-brick); --tone-fill: var(--sl-brick-fill); --tone-soft: var(--sl-brick-soft); }
+  .sl-tone-steel { --tone: var(--sl-steel); --tone-fill: var(--sl-steel-fill); --tone-soft: var(--sl-steel-soft); }
+  .sl-tone-iris { --tone: var(--sl-iris); --tone-fill: var(--sl-iris-fill); --tone-soft: var(--sl-iris-soft); }
+  .sl-tone-ink { --tone: var(--sl-ink-2); --tone-fill: var(--sl-hover-strong); --tone-soft: var(--sl-hover); }
+
+  .sl-tone-text {
+    color: var(--tone);
+  }
+
+  .sl-dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--tone, var(--sl-faint));
+  }
+
+  /* Outstanding work is always drawn hatched: undone, unpaid, not yet here. */
+  .sl-hatch {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--sl-hatch) 0 1px,
+      transparent 1px 6px
+    );
+  }
+
+  /* Stats: a reading under a small label, divided by hairlines. */
+
+  .sl-stats {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  }
+
+  .sl-stat {
+    min-width: 0;
+    padding: 2px 16px;
+    border-left: 1px solid var(--sl-line);
+  }
+
+  .sl-stat:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .sl-stat-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-micro);
+    font-weight: 450;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sl-stat-value {
+    margin-top: 7px;
+    color: var(--sl-ink);
+    font-size: 1.5rem;
+    font-stretch: 94%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 480;
+    line-height: 1.05;
+    letter-spacing: -.03em;
+  }
+
+  .sl-stat-note {
+    margin-top: 5px;
+    overflow: hidden;
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-micro);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 720px) {
+    .sl-stats {
+      grid-template-columns: repeat(var(--cols-sm, 2), minmax(0, 1fr));
+      row-gap: 16px;
+    }
+
+    .sl-stats[style*="--cols-sm: 2"] > .sl-stat:nth-child(2n + 1),
+    .sl-stats:not([style*="--cols-sm"]) > .sl-stat:nth-child(2n + 1),
+    .sl-stats[style*="--cols-sm: 3"] > .sl-stat:nth-child(3n + 1) {
+      padding-left: 0;
+      border-left: 0;
+    }
+
+    .sl-stat {
+      padding: 2px 12px;
+    }
+  }
+
+  /* Chips */
+
+  .sl-chip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 5px;
+    color: var(--tone, var(--sl-ink-2));
+    background: var(--tone-soft, var(--sl-hover-strong));
+    font-size: var(--sl-fs-micro);
+    font-weight: 560;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* Meters: the fill is the reading, the hatched track is what remains. */
+
+  .sl-meter {
+    position: relative;
+    height: 42px;
+    overflow: hidden;
+    border-radius: 4px;
+    background-color: var(--sl-well);
+    background-image: repeating-linear-gradient(135deg, var(--sl-hatch) 0 1px, transparent 1px 6px);
+  }
+
+  .sl-meter-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--value, 0%);
+    border-right: 1.5px solid var(--tone, var(--sl-ink-2));
+    border-radius: 4px 1px 1px 4px;
+    background: var(--tone-fill, var(--sl-hover-strong));
+    animation: sl-grow .6s cubic-bezier(.2, .7, .2, 1) both;
+    transform-origin: left center;
+  }
+
+  .sl-meter-fill[data-empty="true"] {
+    border-right-color: transparent;
+  }
+
+  .sl-meter-text {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: var(--value, 0%);
+    min-width: max-content;
+    max-width: 100%;
+    height: 100%;
+    padding: 0 12px;
+    font-size: .78125rem;
+    white-space: nowrap;
+  }
+
+  .sl-meter[data-short] > .sl-meter-text {
+    justify-content: flex-start;
+    width: auto;
+    margin-left: var(--value, 0%);
+  }
+
+  .sl-bar {
+    display: block;
+    width: 64px;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--sl-raise);
+  }
+
+  .sl-bar > i {
+    display: block;
+    width: var(--value, 0%);
+    height: 100%;
+    border-radius: 2px;
+    background: var(--tone, var(--sl-ink-2));
+  }
+
+  /* A meter that can be picked, as a filter. */
+  .sl-meter-btn {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    text-align: left;
+    transition: opacity .15s ease;
+  }
+
+  .sl-meter-btn:hover .sl-meter,
+  .sl-meter-btn[aria-pressed="true"] .sl-meter {
+    box-shadow: inset 0 0 0 1px var(--sl-line-strong);
+  }
+
+  .sl-meter-btn[aria-pressed="true"] .sl-meter {
+    box-shadow: inset 0 0 0 1px var(--sl-ink-2);
+  }
+
+  /* A balance drawn either side of zero: owing to the left, owed to the right. */
+  .sl-diverge {
+    position: relative;
+    display: block;
+    width: 132px;
+    max-width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--sl-raise);
+  }
+
+  .sl-diverge::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: 50%;
+    width: 1px;
+    background: var(--sl-line-strong);
+  }
+
+  .sl-diverge > i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--value, 0%);
+    border-radius: 3px;
+    background: var(--tone);
+  }
+
+  .sl-diverge[data-side="owed"] > i { left: 50%; border-radius: 0 3px 3px 0; }
+  .sl-diverge[data-side="owes"] > i { right: 50%; border-radius: 3px 0 0 3px; }
+  .sl-diverge[data-side="even"] > i { display: none; }
+
+  .sl-key-line {
+    flex: none;
+    width: 14px;
+    border-top: 1.5px dashed var(--sl-faint);
+  }
+
+  @keyframes sl-grow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  @keyframes sl-rise {
+    from { opacity: 0; transform: translateY(3px) scale(.85); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* Buttons */
+
+  .sl-btn {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: var(--sl-ink-2);
+    background: transparent;
+    font-size: var(--sl-fs-body);
+    font-weight: 560;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease, opacity .15s ease;
+  }
+
+  .sl-btn:hover {
+    color: var(--sl-ink);
+    background: var(--sl-hover-strong);
+  }
+
+  .sl-btn:disabled {
+    cursor: default;
+    opacity: .45;
+  }
+
+  .sl-btn-primary {
+    color: var(--sl-on-ink);
+    background: var(--sl-ink);
+  }
+
+  .sl-btn-primary:hover {
+    color: var(--sl-on-ink);
+    background: color-mix(in srgb, var(--sl-ink) 86%, var(--sl-canvas));
+  }
+
+  .sl-btn-secondary {
+    border-color: var(--sl-line-strong);
+    color: var(--sl-ink);
+  }
+
+  .sl-btn-danger {
+    color: var(--sl-brick);
+    background: var(--sl-brick-soft);
+  }
+
+  .sl-btn-danger:hover {
+    color: var(--sl-brick);
+    background: var(--sl-brick-fill);
+  }
+
+  .sl-btn-sm {
+    height: 28px;
+    padding: 0 9px;
+    border-radius: 6px;
+    font-size: var(--sl-fs-meta);
+  }
+
+  .sl-icon-btn {
+    position: relative;
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 7px;
+    color: var(--sl-ink-2);
+    background: transparent;
+    transition: color .15s ease, background-color .15s ease;
+  }
+
+  .sl-icon-btn:hover,
+  .sl-icon-btn[aria-expanded="true"] {
+    color: var(--sl-ink);
+    background: var(--sl-hover-strong);
+  }
+
+  .sl-icon-btn:disabled {
+    cursor: default;
+    opacity: .4;
+  }
+
+  .sl-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    padding: 0;
+    color: var(--sl-ink-2);
+    background: none;
+    font-size: var(--sl-fs-meta);
+    font-weight: 560;
+    text-decoration: underline;
+    text-decoration-color: var(--sl-line-strong);
+    text-underline-offset: 3px;
+    transition: color .15s ease, text-decoration-color .15s ease;
+  }
+
+  .sl-link:hover {
+    color: var(--sl-ink);
+    text-decoration-color: currentColor;
+  }
+
+  @media (pointer: coarse) {
+    .sl-btn { height: 40px; padding: 0 14px; }
+    .sl-btn-sm { height: 34px; padding: 0 11px; }
+    .sl-icon-btn { width: 40px; height: 40px; }
+  }
+
+  /* Segmented control */
+
+  .sl-seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--sl-line);
+    border-radius: 8px;
+    background: var(--sl-well);
+  }
+
+  .sl-seg > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--sl-muted);
+    background: transparent;
+    font-size: var(--sl-fs-meta);
+    font-weight: 560;
+    white-space: nowrap;
+    transition: color .15s ease, background-color .15s ease;
+  }
+
+  .sl-seg > button:hover {
+    color: var(--sl-ink);
+  }
+
+  .sl-seg > button:is([aria-pressed="true"], [aria-selected="true"]) {
+    color: var(--sl-ink);
+    background: var(--sl-raise);
+    box-shadow: 0 0 0 1px var(--sl-line-strong);
+  }
+
+  @media (pointer: coarse) {
+    .sl-seg > button { height: 34px; padding: 0 12px; }
+  }
+
+  /* Switch */
+
+  .sl-switch {
+    position: relative;
+    flex: none;
+    width: 36px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: var(--sl-line-strong);
+    transition: background-color .18s ease;
+  }
+
+  .sl-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--sl-ink-2);
+    transition: translate .18s ease, background-color .18s ease;
+  }
+
+  .sl-switch[aria-checked="true"] {
+    background: var(--sl-ink);
+  }
+
+  .sl-switch[aria-checked="true"]::after {
+    background: var(--sl-on-ink);
+    translate: 16px 0;
+  }
+
+  .sl-switch:disabled {
+    cursor: default;
+    opacity: .5;
+  }
+
+  /* Popovers and menus */
+
+  .sl-pop {
+    position: absolute;
+    z-index: 50;
+    min-width: 210px;
+    padding: 5px;
+    border: 1px solid var(--sl-line-strong);
+    border-radius: 10px;
+    background: var(--sl-well);
+    box-shadow: var(--sl-shadow-pop);
+  }
+
+  .sl-pop-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 34px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--sl-ink);
+    background: transparent;
+    font-size: var(--sl-fs-body);
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .sl-pop-item:hover {
+    background: var(--sl-hover-strong);
+  }
+
+  .sl-pop-item > svg {
+    color: var(--sl-muted);
+  }
+
+  @media (pointer: coarse) {
+    .sl-pop-item { min-height: 42px; }
+  }
+
+  /* Tables */
+
+  .sl-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--sl-fs-body);
+  }
+
+  .sl-table th {
+    height: 32px;
+    padding: 0 12px;
+    color: var(--sl-muted);
+    background: var(--sl-well);
+    font-size: var(--sl-fs-micro);
+    font-weight: 450;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .sl-table td {
+    height: 54px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--sl-line);
+    vertical-align: middle;
+  }
+
+  .sl-table tbody tr:first-child td {
+    border-top: 0;
+  }
+
+  .sl-table :is(th, td):first-child {
+    padding-left: var(--sl-pad);
+  }
+
+  .sl-table :is(th, td):last-child {
+    padding-right: var(--sl-pad);
+  }
+
+  .sl-table :is(th, td).is-num {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .sl-table tr.is-link {
+    cursor: pointer;
+    transition: background-color .12s ease;
+  }
+
+  .sl-table tr.is-link:hover {
+    background: var(--sl-hover);
+  }
+
+  /* On a phone the first column gives way so the rest of the row stays on screen. */
+  @media (max-width: 640px) {
+    .sl-table td {
+      padding-right: 8px;
+      padding-left: 8px;
+    }
+
+    .sl-table td:first-child {
+      width: 100%;
+      max-width: 0;
+    }
+  }
+
+  .sl-cell-main {
+    display: block;
+    overflow: hidden;
+    color: var(--sl-ink);
+    font-weight: 540;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sl-cell-sub {
+    display: block;
+    overflow: hidden;
+    margin-top: 2px;
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-micro);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Rows: list items that are not tabular */
+
+  .sl-rows > * + * {
+    border-top: 1px solid var(--sl-line);
+  }
+
+  .sl-row {
+    display: grid;
+    align-items: center;
+    gap: 12px;
+    min-height: 54px;
+    padding: 9px var(--sl-pad);
+  }
+
+  a.sl-row,
+  button.sl-row {
+    width: 100%;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    color: inherit;
+    background: transparent;
+    text-align: left;
+    transition: background-color .12s ease;
+  }
+
+  a.sl-row:hover,
+  button.sl-row:hover {
+    background: var(--sl-hover);
+  }
+
+  .sl-tile {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: var(--tone, var(--sl-ink-2));
+    background: var(--tone-soft, var(--sl-hover-strong));
+  }
+
+  /* Something still ahead keeps the hatch, wherever it is drawn. */
+  .sl-tile-ahead {
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tone, var(--sl-ink-2)) 26%, transparent) 0 1px,
+      transparent 1px 5px
+    );
+  }
+
+  .sl-key {
+    flex: none;
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+    background-color: color-mix(in srgb, var(--tone, var(--sl-ink-2)) 78%, transparent);
+  }
+
+  .sl-key[data-fill="hatch"] {
+    background-color: var(--tone-soft, var(--sl-hover));
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tone, var(--sl-ink-2)) 80%, transparent) 0 1px,
+      transparent 1px 4px
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone, var(--sl-ink-2)) 42%, transparent);
+  }
+
+  .sl-face {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: var(--face, 26px);
+    height: var(--face, 26px);
+    overflow: hidden;
+    border-radius: 50%;
+    font-size: calc(var(--face, 26px) * .38);
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -.01em;
+    user-select: none;
+  }
+
+  .sl-face > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .sl-faces {
+    display: inline-flex;
+  }
+
+  .sl-faces > .sl-face + .sl-face {
+    margin-left: -6px;
+    box-shadow: 0 0 0 2px var(--sl-panel);
+  }
+
+  .sl-empty {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 28px var(--sl-pad);
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-meta);
+    text-align: center;
+  }
+
+  .sl-empty > strong {
+    color: var(--sl-ink);
+    font-size: var(--sl-fs-body);
+    font-weight: 560;
+  }
+
+  .sl-well {
+    border-radius: 8px;
+    background: var(--sl-well);
+  }
+
+  .sl-divider {
+    height: 1px;
+    border: 0;
+    margin: 0;
+    background: var(--sl-line);
+  }
+
+  /* Mobile tab bar */
+
+  .sl-tabbar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    display: none;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--sl-line);
+    background: color-mix(in srgb, var(--sl-canvas) 90%, transparent);
+    backdrop-filter: blur(16px) saturate(1.3);
+  }
+
+  .sl-tab {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 50px;
+    border-radius: 9px;
+    color: var(--sl-muted);
+    font-size: .65625rem;
+    font-weight: 520;
+    line-height: 1;
+  }
+
+  .sl-tab[aria-current="page"] {
+    color: var(--sl-ink);
+  }
+
+  .sl-tab[aria-current="page"]::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--sl-ink);
+    translate: -50% 0;
+  }
+
+  .sl-tab-icon {
+    position: relative;
+    display: grid;
+  }
+
+  .sl-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(380px, calc(100vw - 32px));
+    padding: 11px 12px 11px 14px;
+    border: 1px solid var(--sl-line-strong);
+    border-radius: 10px;
+    color: var(--sl-ink);
+    background: var(--sl-raise);
+    box-shadow: var(--sl-shadow-pop);
+    font-size: var(--sl-fs-body);
+    font-weight: 500;
+  }
+
+  @media (max-width: 1023px) {
+    .sl-app {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sl-rail {
+      display: none;
+    }
+
+    .sl-tabbar {
+      display: grid;
+    }
+
+    .sl-main {
+      padding-bottom: calc(var(--sl-tabbar-h) + env(safe-area-inset-bottom, 0px));
+    }
+
+    .sl-toast {
+      right: 16px;
+      bottom: calc(var(--sl-tabbar-h) + 14px + env(safe-area-inset-bottom, 0px));
+      left: 16px;
+      max-width: none;
+    }
+  }
+}
+
+/* ── Classic components, reskinned ───────────────────────────────────── */
+
+:root[data-design="slate"] .ui-btn {
+  white-space: nowrap;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  box-shadow: none;
+  font-size: var(--sl-fs-body);
+  font-weight: 560;
+  letter-spacing: 0;
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease, opacity .15s ease;
+}
+
+:root[data-design="slate"] .ui-btn-sm {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: var(--sl-fs-meta);
+}
+
+:root[data-design="slate"] .ui-btn-lg {
+  min-height: 42px;
+  padding: 0 18px;
+}
+
+:root[data-design="slate"] .ui-btn-primary {
+  color: var(--sl-on-ink);
+  background: var(--sl-ink);
+}
+
+:root[data-design="slate"] .ui-btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sl-ink) 86%, var(--sl-canvas));
+}
+
+:root[data-design="slate"] .ui-btn-secondary {
+  border-color: var(--sl-line-strong);
+  color: var(--sl-ink);
+  background: transparent;
+}
+
+:root[data-design="slate"] .ui-btn-secondary:hover:not(:disabled) {
+  background: var(--sl-hover-strong);
+}
+
+:root[data-design="slate"] .ui-btn-ghost {
+  color: var(--sl-ink-2);
+  background: transparent;
+}
+
+:root[data-design="slate"] .ui-btn-ghost:hover:not(:disabled) {
+  color: var(--sl-ink);
+  background: var(--sl-hover-strong);
+}
+
+:root[data-design="slate"] .ui-btn-danger {
+  border-color: transparent;
+  color: var(--sl-brick);
+  background: var(--sl-brick-soft);
+}
+
+:root[data-design="slate"] .ui-btn:disabled {
+  cursor: default;
+  opacity: .45;
+}
+
+@media (pointer: coarse) {
+  :root[data-design="slate"] .ui-btn { min-height: 42px; }
+  :root[data-design="slate"] .ui-btn-sm { min-height: 36px; }
+}
+
+:root[data-design="slate"] .ui-badge {
+  display: inline-block;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 5px;
+  color: var(--sl-ink-2);
+  background: var(--sl-hover-strong);
+  font-size: var(--sl-fs-micro);
+  font-weight: 560;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+:root[data-design="slate"] .ui-badge::first-letter {
+  text-transform: uppercase;
+}
+
+:root[data-design="slate"] .ui-badge-green { color: var(--sl-moss); }
+:root[data-design="slate"] .ui-badge-amber { color: var(--sl-brass); }
+:root[data-design="slate"] .ui-badge-red { color: var(--sl-brick); }
+:root[data-design="slate"] .ui-badge-blue { color: var(--sl-steel); }
+
+:root[data-design="slate"] .ui-switch {
+  width: 36px;
+  height: 20px;
+  padding: 2px;
+  background: var(--sl-line-strong);
+}
+
+:root[data-design="slate"] .ui-switch > span {
+  background: var(--sl-ink-2);
+}
+
+:root[data-design="slate"] .ui-switch[aria-checked="true"] {
+  background: var(--sl-ink);
+}
+
+:root[data-design="slate"] .ui-switch[aria-checked="true"] > span {
+  background: var(--sl-on-ink);
+  translate: 16px 0;
+}
+
+:root[data-design="slate"] .toggle-row {
+  min-height: 46px;
+  font-size: var(--sl-fs-body);
+}
+
+:root[data-design="slate"] .avatar {
+  border: 0;
+  box-shadow: none;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+
+:root[data-design="slate"] .avatar.w-8\.5 {
+  width: 28px;
+  height: 28px;
+  font-size: .65625rem;
+}
+
+:root[data-design="slate"] .avatar.w-10\.5 {
+  width: 34px;
+  height: 34px;
+  font-size: .71875rem;
+}
+
+:root[data-design="slate"] .section-header {
+  align-items: center;
+  min-height: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+:root[data-design="slate"] .section-header .eyebrow {
+  display: none;
+}
+
+:root[data-design="slate"] .section-header h2 {
+  font-size: .875rem;
+  font-weight: 560;
+  line-height: 1.25;
+  letter-spacing: -.005em;
+}
+
+:root[data-design="slate"] .section-header .muted {
+  max-width: 64ch;
+  color: var(--sl-muted);
+  font-size: var(--sl-fs-meta);
+  line-height: 1.45;
+}
+
+/* Modals */
+
+:root[data-design="slate"] .modal-backdrop {
+  padding: 16px;
+  background: rgba(5, 6, 7, .6);
+  backdrop-filter: blur(6px);
+}
+
+:root[data-design="slate"][data-theme="light"] .modal-backdrop {
+  background: rgba(20, 22, 26, .32);
+}
+
+:root[data-design="slate"] .modal {
+  padding: 22px;
+  border: 1px solid var(--sl-line-strong);
+  border-radius: 12px;
+  background: var(--sl-panel);
+  box-shadow: var(--sl-shadow-pop);
+}
+
+:root[data-design="slate"] .modal-header {
+  margin-bottom: 18px;
+}
+
+:root[data-design="slate"] .modal-header h2 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -.015em;
+}
+
+:root[data-design="slate"] .modal-header .muted {
+  margin-top: 2px;
+  color: var(--sl-muted);
+  font-size: var(--sl-fs-meta);
+}
+
+:root[data-design="slate"] .icon-button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--sl-muted);
+  background: transparent;
+}
+
+:root[data-design="slate"] .icon-button:hover {
+  color: var(--sl-ink);
+  background: var(--sl-hover-strong);
+}
+
+@media (max-width: 640px) {
+  /* On a phone a dialog is a sheet that rises from the thumb's side. */
+  :root[data-design="slate"] .modal-backdrop {
+    place-items: end center;
+    padding: 0;
+  }
+
+  :root[data-design="slate"] .modal {
+    width: 100%;
+    max-height: 92dvh;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    border-width: 1px 0 0;
+    border-radius: 16px 16px 0 0;
+  }
+}
+
+/* Classic panels embedded in a slate cell drop their own card. */
+
+:root[data-design="slate"] .sl-embed > section,
+:root[data-design="slate"] .sl-embed > div > section {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Slate labels are sentence case, including the ones classic components shout. */
+:root[data-design="slate"] [class~="uppercase"] {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Eyebrows above headings inside embedded classic panels. */
+:root[data-design="slate"] .sl-embed p[class*="tracking-[.08em]"][class*="text-(--gold)"] {
+  display: none;
+}
+
+:root[data-design="slate"] .sl-embed .section-header {
+  margin-bottom: 14px;
+}
+
+:root[data-design="slate"] .sl-embed > .grid.gap-12 {
+  gap: 28px;
+}
+
+:root[data-design="slate"] .sl-embed > .grid.gap-12 > section + section {
+  padding-top: 24px;
+  border-top: 1px solid var(--sl-line);
+}
+
+/* ── Before the app opens: sign in, profile, house setup ─────────────── */
+
+:root[data-design="slate"] .gate-page {
+  background: var(--sl-canvas);
+}
+
+:root[data-design="slate"] .gate-page :is(h1, h2) {
+  letter-spacing: -.03em;
+  line-height: 1.08;
+}
+
+:root[data-design="slate"] .gate-page h1 {
+  font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.5rem);
+}
+
+:root[data-design="slate"] .gate-page h2 {
+  font-size: clamp(1.25rem, 1rem + .9vw, 1.625rem);
+}
+
+:root[data-design="slate"] .gate-page .form-section > h2,
+:root[data-design="slate"] .gate-page legend {
+  font-size: 1rem;
+  font-weight: 560;
+  letter-spacing: -.012em;
+}
+
+:root[data-design="slate"] .eyebrow,
+:root[data-design="slate"] .gate-page p[class*="tracking-[.11em]"] {
+  display: none;
+}
+
+/* The brand tile is gold with a forest letter in classic. */
+:root[data-design="slate"] [class*="bg-[#f1d799]"] {
+  border-radius: 9px;
+  color: var(--sl-on-ink);
+  background: var(--sl-ink);
+  font-weight: 700;
+}
+
+:root[data-design="slate"] .profile-hero {
+  border-right: 1px solid var(--sl-line);
+  background: var(--sl-panel);
+}
+
+:root[data-design="slate"] .profile-hero [class*="text-[#cadac4]"] {
+  color: var(--sl-muted);
+}
+
+:root[data-design="slate"] .gate-card {
+  border: 1px solid var(--sl-line-strong);
+  border-radius: 12px;
+  background: var(--sl-panel);
+}
+
+:root[data-design="slate"] [class*="border-[#afc2a8]"] {
+  border-color: var(--sl-ink-2);
+  background: var(--sl-hover);
+}
+
+/* Titles inside embedded classic panels sit at slate's row size. */
+:root[data-design="slate"] .sl-embed :is([class*="text-[.9rem]"], [class*="text-[.92rem]"], [class*="text-[.94rem]"]) {
+  font-size: .875rem;
+}

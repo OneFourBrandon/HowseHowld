@@ -1,0 +1,538 @@
+/* Slate charts. Same scoping and layering as slate.css. */
+
+@layer components {
+  /* Day load: a column per day, a block per thing. */
+
+  .sl-load {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    height: 152px;
+    container-type: inline-size;
+  }
+
+  .sl-load-day {
+    position: relative;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) 24px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    color: var(--sl-muted);
+    background: transparent;
+    transition: background-color .12s ease, color .12s ease;
+  }
+
+  .sl-load-day:hover {
+    color: var(--sl-ink-2);
+    background: var(--sl-hover);
+  }
+
+  .sl-load-day[aria-pressed="true"] {
+    color: var(--sl-ink);
+    background: var(--sl-hover-strong);
+  }
+
+  .sl-load-stack {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 2px;
+    padding: 0 3px 5px;
+    border-bottom: 1px solid var(--sl-line-strong);
+  }
+
+  .sl-load-block {
+    flex: none;
+    height: var(--unit, 12px);
+    border-radius: 2px;
+    background-color: color-mix(in srgb, var(--tone) 78%, transparent);
+    animation: sl-rise .42s cubic-bezier(.2, .7, .2, 1) both;
+    animation-delay: calc(var(--i, 0) * 16ms);
+  }
+
+  .sl-load-block[data-fill="hatch"] {
+    background-color: var(--tone-soft);
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tone) 80%, transparent) 0 1px,
+      transparent 1px 4px
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 42%, transparent);
+  }
+
+  /* Today: a cursor through the column and a marker on the baseline. */
+  .sl-load-day[data-relation="today"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 24px;
+    left: 50%;
+    width: 1px;
+    background: var(--sl-line-strong);
+  }
+
+  .sl-load-day[data-relation="today"]::after {
+    content: '';
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    z-index: 2;
+    border: 5px solid transparent;
+    border-bottom-color: var(--sl-ink);
+    translate: -50% 0;
+  }
+
+  .sl-load-day[data-relation="today"] .sl-load-tick {
+    color: var(--sl-ink);
+    font-weight: 620;
+  }
+
+  .sl-load-tick {
+    display: grid;
+    place-items: center;
+    font-size: .65625rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 450;
+    white-space: nowrap;
+  }
+
+  @container (max-width: 640px) {
+    .sl-load-tick:not([data-key]) {
+      visibility: hidden;
+    }
+
+    .sl-load-stack {
+      padding-right: 1.5px;
+      padding-left: 1.5px;
+    }
+  }
+
+  /* Who did what */
+
+  .sl-heat {
+    display: grid;
+    gap: 4px;
+    container-type: inline-size;
+  }
+
+  .sl-heat-row {
+    display: grid;
+    grid-template-columns: minmax(96px, 150px) repeat(var(--days), minmax(0, 1fr));
+    align-items: center;
+    gap: 3px;
+  }
+
+  .sl-heat-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding-right: 10px;
+  }
+
+  .sl-heat-cell {
+    position: relative;
+    height: 20px;
+    border-radius: 3px;
+    background-color: var(--sl-hover-strong);
+  }
+
+  .sl-heat-cell[data-state="done"] {
+    background-color: color-mix(in srgb, var(--tone) 55%, transparent);
+  }
+
+  .sl-heat-cell[data-state="done"][data-many] {
+    background-color: color-mix(in srgb, var(--tone) 88%, transparent);
+  }
+
+  .sl-heat-cell[data-state="missed"] {
+    background-color: color-mix(in srgb, var(--tone) 82%, transparent);
+  }
+
+  .sl-heat-cell[data-state="open"] {
+    background-color: var(--tone-soft);
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tone) 80%, transparent) 0 1px,
+      transparent 1px 4px
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 42%, transparent);
+  }
+
+  .sl-heat-cell[data-today]::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border: 1px solid var(--sl-line-strong);
+    border-radius: 5px;
+  }
+
+  .sl-heat-axis > span {
+    color: var(--sl-muted);
+    font-size: .625rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .sl-heat-axis > span[data-today] {
+    color: var(--sl-ink);
+    font-weight: 620;
+  }
+
+  @container (max-width: 560px) {
+    .sl-heat-row {
+      grid-template-columns: 34px repeat(var(--days), minmax(0, 1fr));
+      gap: 2px;
+    }
+
+    .sl-heat-label > :not(.sl-face) {
+      display: none;
+    }
+
+    .sl-heat-cell {
+      height: 16px;
+      border-radius: 2px;
+    }
+  }
+
+  /* Running total */
+
+  .sl-chart {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) 20px;
+    column-gap: 10px;
+    height: 190px;
+  }
+
+  .sl-chart-plot {
+    position: relative;
+    min-height: 0;
+  }
+
+  .sl-chart-plot > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .sl-chart-grid {
+    stroke: var(--sl-line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .sl-chart-line {
+    fill: none;
+    stroke: var(--tone);
+    stroke-linejoin: round;
+    stroke-width: 1.6;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .sl-chart-line-ahead {
+    stroke-dasharray: 2 3;
+    opacity: .85;
+  }
+
+  /* The part of the period that is scheduled but has not happened yet. */
+  .sl-chart-ahead {
+    position: absolute;
+    inset: 0;
+    background-color: var(--tone-soft);
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tone) 55%, transparent) 0 1px,
+      transparent 1px 6px
+    );
+  }
+
+  .sl-chart-compare {
+    fill: none;
+    stroke: var(--sl-faint);
+    stroke-dasharray: 3 4;
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .sl-chart-cursor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--sl-line-strong);
+  }
+
+  .sl-chart-cursor::before {
+    content: '';
+    position: absolute;
+    top: var(--at);
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    border: 2px solid var(--sl-panel);
+    border-radius: 50%;
+    background: var(--tone);
+    box-sizing: content-box;
+    translate: -50% -50%;
+  }
+
+  .sl-chart-cursor::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    border: 5px solid transparent;
+    border-bottom-color: var(--sl-ink);
+    translate: -50% 0;
+  }
+
+  .sl-chart-y {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin: -7px 0;
+    color: var(--sl-muted);
+    font-size: .65625rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .sl-chart-x {
+    position: relative;
+    grid-column: 1;
+    color: var(--sl-muted);
+    font-size: .65625rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sl-chart-x > span {
+    position: absolute;
+    top: 7px;
+    white-space: nowrap;
+    translate: -50% 0;
+  }
+
+  .sl-chart-x > span:first-child { translate: 0 0; }
+  .sl-chart-x > span:last-child { translate: -100% 0; }
+
+  /* Period totals */
+
+  .sl-minibars {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: 6px;
+    height: 84px;
+  }
+
+  .sl-minibar {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 6px;
+    color: var(--sl-muted);
+    font-size: .625rem;
+    text-align: center;
+  }
+
+  .sl-minibar > i {
+    display: block;
+    border-radius: 3px 3px 1px 1px;
+    background: var(--sl-raise);
+  }
+
+  .sl-minibar[data-current] {
+    color: var(--sl-ink);
+    font-weight: 600;
+  }
+
+  .sl-minibar[data-current] > i {
+    background: var(--sl-ink-2);
+  }
+
+  /* Driveway in miniature */
+
+  .sl-lot {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 1), minmax(0, 40px));
+    grid-auto-rows: 26px;
+    gap: 3px;
+  }
+
+  .sl-lot-slot {
+    display: grid;
+    place-items: center;
+    border-radius: 4px;
+    color: var(--sl-ink);
+    background: color-mix(in srgb, var(--car, var(--sl-ink-2)) 42%, var(--sl-panel));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--car, var(--sl-ink-2)) 70%, transparent);
+    font-size: .59375rem;
+    font-weight: 650;
+    letter-spacing: -.01em;
+  }
+
+  .sl-lot-slot[data-empty] {
+    background-color: var(--sl-well);
+    background-image: repeating-linear-gradient(135deg, var(--sl-hatch) 0 1px, transparent 1px 5px);
+    box-shadow: inset 0 0 0 1px var(--sl-line);
+  }
+
+  .sl-lot-slot[data-highlight] {
+    outline: 1.5px solid var(--sl-brass);
+    outline-offset: 1px;
+  }
+}
+
+/* ── Month calendar ──────────────────────────────────────────────────── */
+
+@layer components {
+  /* A toggle for one kind of thing on the calendar. */
+  .sl-layer {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--sl-line-strong);
+    border-radius: 14px;
+    color: var(--sl-ink);
+    background: transparent;
+    font-size: var(--sl-fs-meta);
+    font-weight: 520;
+    transition: color .15s ease, border-color .15s ease, opacity .15s ease;
+  }
+
+  .sl-layer[aria-pressed="false"] {
+    border-color: var(--sl-line);
+    color: var(--sl-muted);
+  }
+
+  .sl-layer[aria-pressed="false"] > .sl-dot {
+    background: var(--sl-faint);
+    opacity: .5;
+  }
+
+  @media (pointer: coarse) {
+    .sl-layer { height: 34px; padding: 0 12px; border-radius: 17px; }
+  }
+
+  .sl-month-head {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-top: 1px solid var(--sl-line);
+    border-bottom: 1px solid var(--sl-line);
+    background: var(--sl-well);
+  }
+
+  .sl-month-head > span {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 9px;
+    color: var(--sl-muted);
+    font-size: var(--sl-fs-micro);
+  }
+
+  .sl-month {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--sl-line);
+  }
+
+  .sl-month-day {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    min-height: 86px;
+    padding: 7px 8px 8px;
+    border: 0;
+    color: var(--sl-ink-2);
+    background: var(--sl-panel);
+    text-align: left;
+    transition: background-color .12s ease;
+  }
+
+  .sl-month-day:hover {
+    background: color-mix(in srgb, var(--sl-ink) 5%, var(--sl-panel));
+  }
+
+  .sl-month-day[data-outside] {
+    color: var(--sl-faint);
+    background: color-mix(in srgb, var(--sl-canvas) 55%, var(--sl-panel));
+  }
+
+  .sl-month-day[aria-pressed="true"] {
+    color: var(--sl-ink);
+    background: var(--sl-raise);
+  }
+
+  .sl-month-day:focus-visible {
+    z-index: 1;
+    outline-offset: -2px;
+  }
+
+  .sl-month-date {
+    display: inline-grid;
+    place-items: center;
+    align-self: flex-start;
+    min-width: 22px;
+    height: 22px;
+    margin: -2px 0 0 -4px;
+    padding: 0 4px;
+    border-radius: 6px;
+    font-size: var(--sl-fs-meta);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  .sl-month-day[data-today] > .sl-month-date {
+    color: var(--sl-on-ink);
+    background: var(--sl-ink);
+    font-weight: 650;
+  }
+
+  .sl-month-mark {
+    display: block;
+    height: 5px;
+    border-radius: 2px;
+    background-color: color-mix(in srgb, var(--tone) 78%, transparent);
+  }
+
+  .sl-month-mark[data-fill="hatch"] {
+    background-color: var(--tone-soft);
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--tone) 85%, transparent) 0 1px,
+      transparent 1px 4px
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 45%, transparent);
+  }
+
+  @media (max-width: 640px) {
+    .sl-month-day {
+      min-height: 58px;
+      padding: 6px 4px;
+      gap: 3px;
+    }
+
+    .sl-month-date {
+      margin: -2px 0 0;
+    }
+
+    .sl-month-mark {
+      height: 4px;
+    }
+
+    .sl-month-head > span {
+      padding: 0 5px;
+    }
+  }
+}

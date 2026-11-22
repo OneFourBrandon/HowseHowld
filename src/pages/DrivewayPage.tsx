@@ -1,4 +1,6 @@
 import { cn } from '../lib/cn'
+import { useAppearance } from '../lib/appearance'
+import { useIntent } from '../lib/intent'
 import { useRef, useState } from 'react'
 import {
   BellRing,
@@ -12,6 +14,7 @@ import {
 import { useAppData } from '../state/AppDataContext'
 import { Badge, Button, Modal } from '../components/ui'
 import { DrivewayBoard } from '../components/DrivewayBoard'
+import { DrivewayView } from '../slate/DrivewayView'
 import { blockingVehicles, slotsFor } from '../lib/driveway'
 import { formatDateTime, timeUntil, toIso } from '../lib/utils'
 import type { Vehicle } from '../types'
@@ -62,6 +65,230 @@ export function DrivewayPage() {
     setVehicleEditorOpen(true)
   }
 
+  const slate = useAppearance().design === 'slate'
+  const openVehicles = () => {
+    resetVehicleEditor()
+    setVehicleModal(true)
+  }
+  useIntent('schedule-exit', () => openDeparture(false))
+
+  const dialogs = (
+    <>
+    <Modal
+      open={departureModal}
+      onClose={() => setDepartureModal(false)}
+      title={departureQuickMode ? 'Quick remove vehicle' : 'Schedule exit'}
+      description="Cars above your slot will be notified at the warning time you choose."
+    >
+      <form
+        className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
+        onSubmit={async (event) => {
+          event.preventDefault()
+          if (!vehicleId || !requiredAt) return
+          const reasonNote = label.trim()
+          const departureReason = reasonChoice && reasonChoice !== 'other'
+            ? reasonNote ? `${reasonChoice}: ${reasonNote}` : reasonChoice
+            : reasonNote
+          await addDeparture(
+            vehicleId,
+            toIso(new Date(requiredAt)),
+            departureReason || 'Manual departure',
+            warningMinutes,
+            repeat === 'once' ? undefined : { frequency: repeat, interval: 1 },
+          )
+          setDepartureModal(false)
+          setLabel('')
+          setReasonChoice('')
+          setRequiredAt('')
+        }}
+      >
+        <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Vehicle
+          <select value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
+            {data.vehicles.map((vehicle) => (
+              <option value={vehicle.id} key={vehicle.id}>{vehicle.label}</option>
+            ))}
+          </select>
+        </label>
+        {departureQuickMode && (
+          <fieldset className="field-span-2 col-span-full grid gap-2.5 border-0 p-0 max-[640px]:col-[1]">
+            <legend className="text-[.78rem] font-extrabold text-(--ink)">When should it be out?</legend>
+            <div className="grid gap-1.5">
+              <input
+                className="m-0 w-full accent-(--forest)"
+                type="range"
+                min="30"
+                max="360"
+                step="30"
+                value={quickDepartureMinutes ?? 60}
+                aria-label="Minutes until vehicle exit"
+                onChange={(event) => {
+                  const minutes = Number(event.target.value)
+                  setQuickDepartureMinutes(minutes)
+                  setRequiredAt(toLocalDateTimeValue(new Date(Date.now() + minutes * 60_000)))
+                }}
+              />
+              <div className="flex justify-between px-1" aria-hidden="true">
+                {Array.from({ length: 12 }, (_, index) => (
+                  <span className={cn('h-1.5 w-1.5 rounded-full bg-(--line-strong)', index === Math.round(((quickDepartureMinutes ?? 60) - 30) / 30) && 'bg-(--forest)!')} key={index} />
+                ))}
+              </div>
+              <div className="flex items-center justify-between text-[.7rem] text-(--muted)">
+                <span>30 min</span>
+                <strong className="text-(--forest)">{formatQuickOffset(quickDepartureMinutes ?? 60)}</strong>
+                <span>6 hours</span>
+              </div>
+            </div>
+          </fieldset>
+        )}
+        {departureQuickMode ? (
+          <div className="grid content-center gap-1 rounded-lg border border-(--line) bg-(--sage-2) p-3">
+            <span className="text-[.7rem] font-extrabold uppercase tracking-[.06em] text-(--muted)">Scheduled for</span>
+            <strong className="text-[.86rem]">{requiredAt ? formatDateTime(toIso(new Date(requiredAt))) : 'Choose a quick time'}</strong>
+          </div>
+        ) : (
+          <label>Needs out at
+            <input type="datetime-local" value={requiredAt} onChange={(event) => setRequiredAt(event.target.value)} required />
+          </label>
+        )}
+        <label>Common reason (optional)
+          <select value={reasonChoice} onChange={(event) => setReasonChoice(event.target.value)}>
+            <option value="">No reason selected</option>
+            <option value="Class">Class</option>
+            <option value="Work">Work</option>
+            <option value="Appointment">Appointment</option>
+            <option value="Errand">Errand</option>
+            <option value="Guest pickup">Guest pickup</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Reason note (optional)
+          <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Class, work, appointment…" />
+        </label>
+        <label>Warning
+          <select value={warningMinutes} onChange={(event) => setWarningMinutes(Number(event.target.value))}>
+            <option value={30}>30 minutes before</option>
+            <option value={60}>1 hour before</option>
+            <option value={120}>2 hours before</option>
+          </select>
+        </label>
+        <label>Repeat
+          <select value={repeat} onChange={(event) => setRepeat(event.target.value as typeof repeat)}>
+            <option value="once">One time</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </label>
+        <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <Button type="button" variant="ghost" onClick={() => setDepartureModal(false)}>Cancel</Button>
+          <Button type="submit">{departureQuickMode ? 'Schedule quick exit' : 'Schedule exit'}</Button>
+        </div>
+      </form>
+    </Modal>
+    <Modal
+      open={vehicleModal}
+      onClose={() => {
+        setVehicleModal(false)
+        resetVehicleEditor()
+      }}
+      title="Manage vehicles"
+      description="Add a vehicle or update the vehicles you own."
+    >
+      <div className="grid gap-5">
+        <div className="divide-y divide-(--line) border-y border-(--line)">
+          {data.vehicles.length ? data.vehicles.map((vehicle) => {
+            const owner = data.members.find((member) => member.id === vehicle.ownerMemberId)!
+            const canManage = vehicle.ownerMemberId === data.household.currentMemberId
+            return (
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3.5" key={vehicle.id}>
+                <div className="grid h-10 w-12 place-items-center rounded-lg text-white" style={{ backgroundColor: vehicle.color }}>
+                  <CarFront size={20} />
+                </div>
+                <div className="min-w-0">
+                  <strong className="block truncate text-[.9rem]">{vehicle.label}</strong>
+                  <span className="block truncate text-[.75rem] text-(--muted)">
+                    {[vehicle.plate, owner.displayName].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+                {canManage && (
+                  <div className="flex items-center gap-1.5">
+                    <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => openVehicleEditor(vehicle)} aria-label={`Edit ${vehicle.label}`}>
+                      <Pencil size={16} />
+                    </button>
+                    <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:border-[#d9aaa3] hover:bg-[#fff1ef] dark:bg-(--coral-soft) hover:text-[#a34135] dark:text-(--coral)" type="button" onClick={() => {
+                      if (window.confirm(`Delete ${vehicle.label}?`)) void removeVehicle(vehicle.id)
+                    }} aria-label={`Delete ${vehicle.label}`}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          }) : (
+            <p className="py-5 text-[.82rem] text-(--muted)">No vehicles have been added yet.</p>
+          )}
+        </div>
+        {!vehicleEditorOpen ? (
+          <Button type="button" onClick={() => openVehicleEditor()}>
+            <Plus size={17} /> Add vehicle
+          </Button>
+        ) : (
+          <form
+            className="form-grid grid grid-cols-2 gap-3.75 border-t border-(--line) pt-5 max-[640px]:grid-cols-1"
+            onSubmit={async (event) => {
+              event.preventDefault()
+              if (!vehicleLabel.trim() || vehicleSubmitLock.current) return
+              vehicleSubmitLock.current = true
+              setVehicleSubmitting(true)
+              try {
+                await saveVehicle({
+                  id: editingVehicleId || undefined,
+                  label: vehicleLabel.trim(),
+                  plate: vehiclePlate.trim() || undefined,
+                  color: vehicleColor,
+                })
+                resetVehicleEditor()
+              } finally {
+                vehicleSubmitLock.current = false
+                setVehicleSubmitting(false)
+              }
+            }}
+          >
+            <div className="col-span-full">
+              <strong className="text-[.92rem]">{editingVehicleId ? 'Edit vehicle' : 'Add a vehicle'}</strong>
+            </div>
+            <label>Vehicle name
+              <input value={vehicleLabel} onChange={(event) => setVehicleLabel(event.target.value)} placeholder="Blue Civic" required />
+            </label>
+            <label>Plate
+              <input value={vehiclePlate} onChange={(event) => setVehiclePlate(event.target.value)} placeholder="ABC 123" />
+            </label>
+            <label>Color
+              <input type="color" value={vehicleColor} onChange={(event) => setVehicleColor(event.target.value)} />
+            </label>
+            <div className="modal-actions col-span-full mt-1.5 flex justify-end gap-2.25 max-[640px]:col-[1]">
+              <Button type="button" variant="ghost" onClick={resetVehicleEditor}>Cancel</Button>
+              <Button type="submit" disabled={vehicleSubmitting}>{vehicleSubmitting ? 'Saving…' : editingVehicleId ? 'Save changes' : 'Add vehicle'}</Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </Modal>
+    </>
+  )
+
+  if (slate) {
+    return (
+      <>
+        <DrivewayView
+          onManageVehicles={openVehicles}
+          onQuickRemove={() => openDeparture(true)}
+          onScheduleExit={() => openDeparture(false)}
+        />
+        {dialogs}
+      </>
+    )
+  }
+
   return (
     <div className="grid gap-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -101,205 +328,7 @@ export function DrivewayPage() {
         </section>
       </div>
 
-      <Modal
-        open={departureModal}
-        onClose={() => setDepartureModal(false)}
-        title={departureQuickMode ? 'Quick remove vehicle' : 'Schedule exit'}
-        description="Cars above your slot will be notified at the warning time you choose."
-      >
-        <form
-          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
-          onSubmit={async (event) => {
-            event.preventDefault()
-            if (!vehicleId || !requiredAt) return
-            const reasonNote = label.trim()
-            const departureReason = reasonChoice && reasonChoice !== 'other'
-              ? reasonNote ? `${reasonChoice}: ${reasonNote}` : reasonChoice
-              : reasonNote
-            await addDeparture(
-              vehicleId,
-              toIso(new Date(requiredAt)),
-              departureReason || 'Manual departure',
-              warningMinutes,
-              repeat === 'once' ? undefined : { frequency: repeat, interval: 1 },
-            )
-            setDepartureModal(false)
-            setLabel('')
-            setReasonChoice('')
-            setRequiredAt('')
-          }}
-        >
-          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Vehicle
-            <select value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
-              {data.vehicles.map((vehicle) => (
-                <option value={vehicle.id} key={vehicle.id}>{vehicle.label}</option>
-              ))}
-            </select>
-          </label>
-          {departureQuickMode && (
-            <fieldset className="field-span-2 col-span-full grid gap-2.5 border-0 p-0 max-[640px]:col-[1]">
-              <legend className="text-[.78rem] font-extrabold text-(--ink)">When should it be out?</legend>
-              <div className="grid gap-1.5">
-                <input
-                  className="m-0 w-full accent-(--forest)"
-                  type="range"
-                  min="30"
-                  max="360"
-                  step="30"
-                  value={quickDepartureMinutes ?? 60}
-                  aria-label="Minutes until vehicle exit"
-                  onChange={(event) => {
-                    const minutes = Number(event.target.value)
-                    setQuickDepartureMinutes(minutes)
-                    setRequiredAt(toLocalDateTimeValue(new Date(Date.now() + minutes * 60_000)))
-                  }}
-                />
-                <div className="flex justify-between px-1" aria-hidden="true">
-                  {Array.from({ length: 12 }, (_, index) => (
-                    <span className={cn('h-1.5 w-1.5 rounded-full bg-(--line-strong)', index === Math.round(((quickDepartureMinutes ?? 60) - 30) / 30) && 'bg-(--forest)!')} key={index} />
-                  ))}
-                </div>
-                <div className="flex items-center justify-between text-[.7rem] text-(--muted)">
-                  <span>30 min</span>
-                  <strong className="text-(--forest)">{formatQuickOffset(quickDepartureMinutes ?? 60)}</strong>
-                  <span>6 hours</span>
-                </div>
-              </div>
-            </fieldset>
-          )}
-          {departureQuickMode ? (
-            <div className="grid content-center gap-1 rounded-lg border border-(--line) bg-(--sage-2) p-3">
-              <span className="text-[.7rem] font-extrabold uppercase tracking-[.06em] text-(--muted)">Scheduled for</span>
-              <strong className="text-[.86rem]">{requiredAt ? formatDateTime(toIso(new Date(requiredAt))) : 'Choose a quick time'}</strong>
-            </div>
-          ) : (
-            <label>Needs out at
-              <input type="datetime-local" value={requiredAt} onChange={(event) => setRequiredAt(event.target.value)} required />
-            </label>
-          )}
-          <label>Common reason (optional)
-            <select value={reasonChoice} onChange={(event) => setReasonChoice(event.target.value)}>
-              <option value="">No reason selected</option>
-              <option value="Class">Class</option>
-              <option value="Work">Work</option>
-              <option value="Appointment">Appointment</option>
-              <option value="Errand">Errand</option>
-              <option value="Guest pickup">Guest pickup</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label>Reason note (optional)
-            <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Class, work, appointment…" />
-          </label>
-          <label>Warning
-            <select value={warningMinutes} onChange={(event) => setWarningMinutes(Number(event.target.value))}>
-              <option value={30}>30 minutes before</option>
-              <option value={60}>1 hour before</option>
-              <option value={120}>2 hours before</option>
-            </select>
-          </label>
-          <label>Repeat
-            <select value={repeat} onChange={(event) => setRepeat(event.target.value as typeof repeat)}>
-              <option value="once">One time</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-          </label>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
-            <Button type="button" variant="ghost" onClick={() => setDepartureModal(false)}>Cancel</Button>
-            <Button type="submit">{departureQuickMode ? 'Schedule quick exit' : 'Schedule exit'}</Button>
-          </div>
-        </form>
-      </Modal>
-      <Modal
-        open={vehicleModal}
-        onClose={() => {
-          setVehicleModal(false)
-          resetVehicleEditor()
-        }}
-        title="Manage vehicles"
-        description="Add a vehicle or update the vehicles you own."
-      >
-        <div className="grid gap-5">
-          <div className="divide-y divide-(--line) border-y border-(--line)">
-            {data.vehicles.length ? data.vehicles.map((vehicle) => {
-              const owner = data.members.find((member) => member.id === vehicle.ownerMemberId)!
-              const canManage = vehicle.ownerMemberId === data.household.currentMemberId
-              return (
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3.5" key={vehicle.id}>
-                  <div className="grid h-10 w-12 place-items-center rounded-lg text-white" style={{ backgroundColor: vehicle.color }}>
-                    <CarFront size={20} />
-                  </div>
-                  <div className="min-w-0">
-                    <strong className="block truncate text-[.9rem]">{vehicle.label}</strong>
-                    <span className="block truncate text-[.75rem] text-(--muted)">
-                      {[vehicle.plate, owner.displayName].filter(Boolean).join(' · ')}
-                    </span>
-                  </div>
-                  {canManage && (
-                    <div className="flex items-center gap-1.5">
-                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:bg-(--sage-2) hover:text-(--forest)" type="button" onClick={() => openVehicleEditor(vehicle)} aria-label={`Edit ${vehicle.label}`}>
-                        <Pencil size={16} />
-                      </button>
-                      <button className="grid h-9 w-9 place-items-center rounded-lg border border-(--line) bg-transparent text-(--muted) transition-colors hover:border-[#d9aaa3] hover:bg-[#fff1ef] dark:bg-(--coral-soft) hover:text-[#a34135] dark:text-(--coral)" type="button" onClick={() => {
-                        if (window.confirm(`Delete ${vehicle.label}?`)) void removeVehicle(vehicle.id)
-                      }} aria-label={`Delete ${vehicle.label}`}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            }) : (
-              <p className="py-5 text-[.82rem] text-(--muted)">No vehicles have been added yet.</p>
-            )}
-          </div>
-          {!vehicleEditorOpen ? (
-            <Button type="button" onClick={() => openVehicleEditor()}>
-              <Plus size={17} /> Add vehicle
-            </Button>
-          ) : (
-            <form
-              className="form-grid grid grid-cols-2 gap-3.75 border-t border-(--line) pt-5 max-[640px]:grid-cols-1"
-              onSubmit={async (event) => {
-                event.preventDefault()
-                if (!vehicleLabel.trim() || vehicleSubmitLock.current) return
-                vehicleSubmitLock.current = true
-                setVehicleSubmitting(true)
-                try {
-                  await saveVehicle({
-                    id: editingVehicleId || undefined,
-                    label: vehicleLabel.trim(),
-                    plate: vehiclePlate.trim() || undefined,
-                    color: vehicleColor,
-                  })
-                  resetVehicleEditor()
-                } finally {
-                  vehicleSubmitLock.current = false
-                  setVehicleSubmitting(false)
-                }
-              }}
-            >
-              <div className="col-span-full">
-                <strong className="text-[.92rem]">{editingVehicleId ? 'Edit vehicle' : 'Add a vehicle'}</strong>
-              </div>
-              <label>Vehicle name
-                <input value={vehicleLabel} onChange={(event) => setVehicleLabel(event.target.value)} placeholder="Blue Civic" required />
-              </label>
-              <label>Plate
-                <input value={vehiclePlate} onChange={(event) => setVehiclePlate(event.target.value)} placeholder="ABC 123" />
-              </label>
-              <label>Color
-                <input type="color" value={vehicleColor} onChange={(event) => setVehicleColor(event.target.value)} />
-              </label>
-              <div className="modal-actions col-span-full mt-1.5 flex justify-end gap-2.25 max-[640px]:col-[1]">
-                <Button type="button" variant="ghost" onClick={resetVehicleEditor}>Cancel</Button>
-                <Button type="submit" disabled={vehicleSubmitting}>{vehicleSubmitting ? 'Saving…' : editingVehicleId ? 'Save changes' : 'Add vehicle'}</Button>
-              </div>
-            </form>
-          )}
-        </div>
-      </Modal>
+      {dialogs}
     </div>
   )
 }

@@ -3,9 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <script>
+      // Mirrors src/lib/appearance.ts so the chosen design and theme are set before first paint.
       try {
-        document.documentElement.dataset.theme = localStorage.getItem('howsehowld:theme') ||
-          (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        var root = document.documentElement;
+        var slate = localStorage.getItem('howsehowld:design') === 'slate';
+        root.dataset.design = slate ? 'slate' : 'classic';
+        root.dataset.theme = slate
+          ? localStorage.getItem('howsehowld:slate-theme') || 'dark'
+          : localStorage.getItem('howsehowld:theme') ||
+            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       } catch {}
     </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
