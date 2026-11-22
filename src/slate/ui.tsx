@@ -2,15 +2,18 @@ import {
   type CSSProperties,
   type ElementType,
   type HTMLAttributes,
+  type KeyboardEvent,
   type PropsWithChildren,
   type ReactNode,
   useCallback,
+  useEffect,
   useId,
   useRef,
   useState,
 } from 'react'
 import { cn } from '../lib/cn'
 import type { Member } from '../types'
+import { readableOn } from './color'
 import { useDismiss } from './hooks'
 import { type Tone, toneClass } from './tone'
 
@@ -59,7 +62,7 @@ export function Stats({
   children,
 }: PropsWithChildren<{ cols: number; colsSm?: 2 | 3; className?: string }>) {
   return (
-    <div className={cn('sl-stats', className)} style={{ '--cols': cols, '--cols-sm': colsSm } as CSSProperties}>
+    <div className={cn('sl-stats', className)} data-cols-sm={colsSm} style={{ '--cols': cols, '--cols-sm': colsSm } as CSSProperties}>
       {children}
     </div>
   )
@@ -148,13 +151,6 @@ export function Bar({ value, tone, className }: { value: number; tone?: Tone; cl
       <i />
     </span>
   )
-}
-
-function readableOn(color: string) {
-  const hex = color.replace('#', '')
-  if (!/^[\da-f]{6}$/i.test(hex)) return '#ffffff'
-  const [red, green, blue] = [0, 2, 4].map(offset => Number.parseInt(hex.slice(offset, offset + 2), 16))
-  return (red * 299 + green * 587 + blue * 114) / 1000 > 150 ? '#14161a' : '#ffffff'
 }
 
 /** A roommate's avatar, sized for dense rows. */
@@ -252,7 +248,11 @@ export function Empty({
   )
 }
 
-/** A button that opens a small popover anchored beneath it. */
+/**
+ * A button that opens a small popover anchored beneath it. Escape, or choosing
+ * something, hands focus back to the button. When the popover holds a menu,
+ * the menu takes focus as it opens and the arrow keys move through it.
+ */
 export function Popover({
   trigger,
   align = 'end',
@@ -268,14 +268,41 @@ export function Popover({
   children: (close: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const close = useCallback(() => setOpen(false), [])
-  useDismiss(ref, open, close)
+  const anchor = useRef<HTMLDivElement>(null)
+  const popover = useRef<HTMLDivElement>(null)
+  const dismiss = useCallback((reason: 'escape' | 'outside' | 'chosen') => {
+    setOpen(false)
+    // A press elsewhere takes focus with it; otherwise return it to the trigger.
+    if (reason !== 'outside') anchor.current?.querySelector<HTMLElement>('button, a')?.focus()
+  }, [])
+  const close = useCallback(() => dismiss('chosen'), [dismiss])
+  useDismiss(anchor, open, dismiss)
+
+  useEffect(() => {
+    if (open) popover.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+  }, [open])
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    const items = [...(popover.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)') ?? [])]
+    if (!items.length) return
+    event.preventDefault()
+    const index = items.indexOf(document.activeElement as HTMLElement)
+    const next = event.key === 'Home' ? 0
+      : event.key === 'End' ? items.length - 1
+        : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+    items[next].focus()
+  }
+
   return (
-    <div className={cn('relative', anchorClassName)} ref={ref}>
+    <div className={cn('relative', anchorClassName)} ref={anchor}>
       {trigger({ open, toggle: () => setOpen(shown => !shown) })}
       {open && (
-        <div className={cn('sl-pop top-[calc(100%+6px)]', align === 'end' ? 'right-0' : 'left-0', className)}>
+        <div
+          ref={popover}
+          className={cn('sl-pop top-[calc(100%+6px)]', align === 'end' ? 'right-0' : 'left-0', className)}
+          onKeyDown={onKeyDown}
+        >
           {children(close)}
         </div>
       )}

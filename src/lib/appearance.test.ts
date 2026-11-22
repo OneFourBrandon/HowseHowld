@@ -1,17 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CLASSIC_THEME_KEY,
   DESIGN_KEY,
   SLATE_THEME_KEY,
+  fallBackToClassic,
   getAppearance,
   resetAppearanceCache,
   setDesign,
   setTheme,
   storedDesign,
   storedTheme,
+  syncAppearance,
 } from './appearance'
 
 const root = document.documentElement
+const systemPrefersDark = (dark: boolean) =>
+  vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: dark }))
 
 describe('appearance', () => {
   beforeEach(() => {
@@ -20,6 +24,10 @@ describe('appearance', () => {
     delete root.dataset.theme
     document.head.innerHTML = '<meta name="theme-color" content="#203f36">'
     resetAppearanceCache()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
 
@@ -41,6 +49,7 @@ describe('appearance', () => {
 
   it('opens the new design dark, whatever the classic theme was', () => {
     localStorage.setItem(CLASSIC_THEME_KEY, 'light')
+    root.dataset.theme = 'light'
     setDesign('slate')
     expect(root.dataset.theme).toBe('dark')
     // Turning it on does not rewrite the classic choice.
@@ -49,6 +58,7 @@ describe('appearance', () => {
 
   it('remembers a theme for each design separately', () => {
     localStorage.setItem(CLASSIC_THEME_KEY, 'light')
+    root.dataset.theme = 'light'
     setDesign('slate')
     setTheme('light')
     expect(localStorage.getItem(SLATE_THEME_KEY)).toBe('light')
@@ -62,11 +72,11 @@ describe('appearance', () => {
     expect(root.dataset.theme).toBe('light')
   })
 
-  it('follows the system colour scheme for classic when nothing is stored', () => {
-    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+  it('opens classic on the system colour scheme when nothing is stored', () => {
+    systemPrefersDark(true)
     expect(storedTheme('classic')).toBe('dark')
     expect(storedTheme('slate')).toBe('dark')
-    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }))
+    systemPrefersDark(false)
     expect(storedTheme('classic')).toBe('light')
     expect(storedTheme('slate')).toBe('dark')
   })
@@ -75,6 +85,49 @@ describe('appearance', () => {
     root.dataset.design = 'slate'
     root.dataset.theme = 'light'
     expect(getAppearance()).toEqual({ design: 'slate', theme: 'light' })
+  })
+
+  it('never second-guesses what the document is showing', () => {
+    // index.html sets nothing when storage is blocked, and classic then shows light.
+    // A dark system setting must not flip it once the app starts.
+    systemPrefersDark(true)
+    expect(getAppearance()).toEqual({ design: 'classic', theme: 'light' })
+    syncAppearance()
+    expect(root.dataset.theme).toBe('light')
+    expect(root.dataset.design).toBe('classic')
+  })
+
+  it('treats an unusable theme on the document as the one being shown', () => {
+    root.dataset.theme = 'Dark'
+    expect(getAppearance().theme).toBe('light')
+
+    resetAppearanceCache()
+    root.dataset.design = 'slate'
+    root.dataset.theme = 'sepia'
+    expect(getAppearance()).toEqual({ design: 'slate', theme: 'dark' })
+  })
+
+  it('switches back to the theme a design was showing, even with storage blocked', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    systemPrefersDark(true)
+
+    expect(getAppearance()).toEqual({ design: 'classic', theme: 'light' })
+    setDesign('slate')
+    expect(getAppearance()).toEqual({ design: 'slate', theme: 'dark' })
+    setDesign('classic')
+    expect(getAppearance()).toEqual({ design: 'classic', theme: 'light' })
+  })
+
+  it('can show classic for one visit without forgetting the stored choice', () => {
+    setDesign('slate')
+    fallBackToClassic()
+    expect(root.dataset.design).toBe('classic')
+    expect(localStorage.getItem(DESIGN_KEY)).toBe('slate')
   })
 
   it('matches the browser chrome to the design', () => {

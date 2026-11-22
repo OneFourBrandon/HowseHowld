@@ -22,6 +22,8 @@ export const SLATE_THEME_KEY = 'howsehowld:slate-theme'
 const CLASSIC_CHROME = '#203f36'
 const SLATE_CHROME: Record<Theme, string> = { dark: '#101113', light: '#f1f2f3' }
 
+const isTheme = (value: unknown): value is Theme => value === 'light' || value === 'dark'
+
 function stored(key: string) {
   try {
     return localStorage.getItem(key)
@@ -46,24 +48,29 @@ export function storedDesign(): Design {
   return stored(DESIGN_KEY) === 'slate' ? 'slate' : 'classic'
 }
 
+/** The theme a design opens with on a fresh page load. */
 export function storedTheme(design: Design): Theme {
   const value = stored(design === 'slate' ? SLATE_THEME_KEY : CLASSIC_THEME_KEY)
-  if (value === 'light' || value === 'dark') return value
+  if (isTheme(value)) return value
   if (design === 'slate') return 'dark'
   return prefersDark() ? 'dark' : 'light'
 }
 
-/** index.html applies the stored choice before first paint, so the document is the source of truth. */
+/**
+ * index.html applies the stored choice before first paint, so the document is
+ * the source of truth and this never second-guesses it. A document without a
+ * usable theme is showing light in classic, whose dark styles need
+ * data-theme="dark", and dark in slate.
+ */
 function fromDocument(): Appearance {
   const { design, theme } = document.documentElement.dataset
-  const resolvedDesign: Design = design === 'slate' ? 'slate' : 'classic'
-  return {
-    design: resolvedDesign,
-    theme: theme === 'light' || theme === 'dark' ? theme : storedTheme(resolvedDesign),
-  }
+  const resolved: Design = design === 'slate' ? 'slate' : 'classic'
+  return { design: resolved, theme: isTheme(theme) ? theme : resolved === 'slate' ? 'dark' : 'light' }
 }
 
 let current: Appearance | null = null
+/** The theme each design last showed in this visit, so switching back restores it even without storage. */
+let shown: Partial<Record<Design, Theme>> = {}
 const listeners = new Set<() => void>()
 
 function apply(next: Appearance) {
@@ -74,17 +81,22 @@ function apply(next: Appearance) {
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute('content', next.design === 'slate' ? SLATE_CHROME[next.theme] : CLASSIC_CHROME)
   current = next
+  shown[next.design] = next.theme
   for (const listener of listeners) listener()
 }
 
 export function getAppearance(): Appearance {
-  current ??= fromDocument()
+  if (!current) {
+    current = fromDocument()
+    shown[current.design] = current.theme
+  }
   return current
 }
 
 export function setDesign(design: Design) {
+  getAppearance()
   store(DESIGN_KEY, design)
-  apply({ design, theme: storedTheme(design) })
+  apply({ design, theme: shown[design] ?? storedTheme(design) })
 }
 
 export function setTheme(theme: Theme) {
@@ -101,6 +113,11 @@ export function syncAppearance() {
   apply(fromDocument())
 }
 
+/** Show classic for the rest of this visit without changing what is stored. */
+export function fallBackToClassic() {
+  apply({ design: 'classic', theme: storedTheme('classic') })
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
   return () => {
@@ -108,11 +125,19 @@ function subscribe(listener: () => void) {
   }
 }
 
+const getDesign = () => getAppearance().design
+
 export function useAppearance(): Appearance {
   return useSyncExternalStore(subscribe, getAppearance, getAppearance)
+}
+
+/** The design alone, for components that should not re-render when only the theme changes. */
+export function useDesign(): Design {
+  return useSyncExternalStore(subscribe, getDesign, getDesign)
 }
 
 /** Test seam: forget the cached choice so the next read comes from the document. */
 export function resetAppearanceCache() {
   current = null
+  shown = {}
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { EmailRecovery } from '../components/EmailRecovery'
 import { addDateKeyDays, graceMinutesOf } from '../lib/chores'
 import { cn } from '../lib/cn'
 import { blockingVehicles, slotsFor } from '../lib/driveway'
@@ -85,7 +86,7 @@ export function OverviewPage() {
 
   const stats = useMemo(() => memberStats(data, now, balances), [balances, data, now])
   const myBalance = balances.get(me.id) ?? 0
-  const nextBill = agenda.find(entry => entry.kind === 'bill' && entry.mine && entry.sortAt >= now)
+  const nextBill = agenda.find(entry => entry.kind === 'bill' && entry.mine && entry.dateKey >= today)
 
   const slots = slotsFor(data)
   const nextExit = [...data.departures]
@@ -123,6 +124,8 @@ export function OverviewPage() {
           note={attention.length ? 'Most urgent first' : undefined}
           tools={actionCount > 0 ? <Chip tone="brass">{actionCount} to do</Chip> : undefined}
         >
+          {/* Prompts a device-only account to add a recovery email. Renders nothing once that is done. */}
+          <div className="sl-embed sl-embed-inline"><EmailRecovery reminder /></div>
           <div className="sl-rows mt-3 border-t border-(--sl-line)">
             {attention.map(item => <AttentionRow key={item.id} item={item} />)}
           </div>
@@ -161,15 +164,18 @@ export function OverviewPage() {
                 action={(() => {
                   const occurrence = entry.occurrence
                   if (!occurrence || !entry.mine || occurrence.status !== 'assigned') return undefined
-                  const available = taskCompletionAvailability(
+                  const availability = taskCompletionAvailability(
                     occurrence.scheduledDate, occurrence.dueAt, data.household.timezone, new Date(now), graceMinutes,
-                  ) === 'available'
+                  )
+                  const available = availability === 'available'
                   return (
                     <button
                       type="button"
                       className="sl-btn sl-btn-secondary sl-btn-sm"
                       disabled={!available || busy === `complete:${occurrence.id}`}
-                      title={available ? undefined : 'You can mark this done on its scheduled day'}
+                      title={available ? undefined
+                        : availability === 'expired' ? 'The time to finish this chore has passed'
+                          : 'You can mark this done on its scheduled day'}
                       aria-label={`Mark done: ${entry.title}`}
                       onClick={() => void completeOccurrence(occurrence.id).catch(() => {})}
                     >

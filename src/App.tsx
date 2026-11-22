@@ -7,7 +7,7 @@ import { HouseholdGate } from './components/HouseholdGate'
 import { ProfileGate } from './components/ProfileGate'
 import { AppDataProvider } from './state/AppDataContext'
 import { useAppData } from './state/AppDataContext'
-import { useAppearance } from './lib/appearance'
+import { useDesign } from './lib/appearance'
 import type { HouseholdFeature } from './types'
 
 const TodayPage = lazy(() =>
@@ -55,7 +55,7 @@ function FeatureRoute({
 }
 
 export default function App() {
-  const slate = useAppearance().design === 'slate'
+  const slate = useDesign() === 'slate'
   return (
     <AuthProvider><AuthGate>
       <ProfileGate>

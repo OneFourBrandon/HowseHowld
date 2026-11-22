@@ -141,11 +141,11 @@
   }
 
   .sl-heat-cell[data-state="done"] {
-    background-color: color-mix(in srgb, var(--tone) 55%, transparent);
+    background-color: color-mix(in srgb, var(--tone) 74%, transparent);
   }
 
   .sl-heat-cell[data-state="done"][data-many] {
-    background-color: color-mix(in srgb, var(--tone) 88%, transparent);
+    background-color: var(--tone);
   }
 
   .sl-heat-cell[data-state="missed"] {
@@ -465,7 +465,7 @@
   }
 
   .sl-month-day[data-outside] {
-    color: var(--sl-faint);
+    color: var(--sl-muted);
     background: color-mix(in srgb, var(--sl-canvas) 55%, var(--sl-panel));
   }
 

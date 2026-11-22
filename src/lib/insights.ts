@@ -211,10 +211,11 @@ export function buildAgenda(data: AppSnapshot, nowMs: number): AgendaEntry[] {
       const myShare = shares.find(share => share.memberId === me)?.amountCents
       const involved = bill.memberIds.includes(me) || payeeId === me
       const dueMs = new Date(period.dueAt).getTime()
+      const dueKey = dateKeyInTimeZone(new Date(period.dueAt), timeZone)
       entries.push({
         id: `bill-${period.id}`,
         kind: 'bill',
-        dateKey: dateKeyInTimeZone(new Date(period.dueAt), timeZone),
+        dateKey: dueKey,
         sortAt: dueMs,
         allDay: true,
         timeLabel: 'All day',
@@ -225,7 +226,8 @@ export function buildAgenda(data: AppSnapshot, nowMs: number): AgendaEntry[] {
               : `Owed to ${name(payeeId)}`,
         memberId: payeeId,
         mine: involved,
-        state: dueMs < nowMs ? 'done' : 'ahead',
+        // A bill is due all day, so it stays ahead until its due day is over.
+        state: dueKey < today ? 'done' : 'ahead',
         href: '/money',
         amountCents: period.amountCents == null ? undefined
           : payeeId === me ? period.amountCents : myShare ?? period.amountCents,
@@ -389,8 +391,12 @@ export interface GridCell {
 }
 
 /** Who did what, day by day: one row per roommate. */
-export function completionGrid(data: AppSnapshot, nowMs: number, daysBack = 27, daysAhead = 7) {
-  const today = todayKey(data, nowMs)
+export function completionGrid(
+  data: Pick<AppSnapshot, 'members' | 'occurrences'>,
+  today: string,
+  daysBack = 27,
+  daysAhead = 7,
+) {
   const days = Array.from({ length: daysBack + daysAhead + 1 }, (_, index) =>
     addDateKeyDays(today, index - daysBack))
   const index = new Map(days.map((day, position) => [day, position]))
@@ -511,6 +517,8 @@ export function attentionItems(
 
     if (live?.status === 'claimed' && live.claimerId === me) {
       const due = lastMinuteBefore(live.claimDeadline)
+      // Past the deadline the photo can no longer be added; the server lapses the claim shortly after.
+      if (new Date(live.claimDeadline).getTime() <= nowMs) continue
       items.push({
         id: `claim-photo:${live.id}`,
         section: 'chores',
@@ -529,6 +537,7 @@ export function attentionItems(
       const waitingOnMe = live.status === 'submitted'
         && claimVoterIds(data.members, live).includes(me)
         && !claimVoteOf(live, me)
+        && (!live.voteDeadline || new Date(live.voteDeadline).getTime() > nowMs)
       if (waitingOnMe) {
         items.push({
           id: `claim-vote:${live.id}`,
@@ -746,7 +755,7 @@ export function spendCurve(data: AppSnapshot, month: string, nowMs: number, memb
   ]))
   for (const entry of monthlySpending(data, month, memberId)) {
     const dated = dueDayByPeriod.get(entry.id) ?? entry.date
-    const day = dated.slice(0, 7) === month ? Number(dated.slice(8, 10)) : 1
+    const day = dated.slice(0, 7) === month ? Number(dated.slice(8, 10)) : dated.slice(0, 7) > month ? days : 1
     perDay[Math.min(days, Math.max(1, day)) - 1] += entry.amountCents
   }
   let running = 0

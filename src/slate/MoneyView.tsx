@@ -336,28 +336,25 @@ export function MoneyView({
                   const net = row.netCents
                   const open = () => setMemberDetailId(member.id)
                   return (
-                    <tr
-                      key={member.id}
-                      className="is-link"
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`View balance for ${member.displayName}`}
-                      onClick={open}
-                      onKeyDown={event => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault()
-                          open()
-                        }
-                      }}
-                    >
+                    // The row stays a table row so its figures are read out. The button is the keyboard way in;
+                    // clicking anywhere on the row is a shortcut for the mouse.
+                    <tr key={member.id} className="is-link" onClick={open}>
                       <td>
-                        <span className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          className="sl-plain-btn flex items-center gap-2.5"
+                          aria-label={`View balance for ${member.displayName}`}
+                          onClick={event => {
+                            event.stopPropagation()
+                            open()
+                          }}
+                        >
                           <Face member={member} size={28} />
                           <span className="min-w-0">
                             <span className="sl-cell-main">{member.displayName}</span>
                             <span className="sl-cell-sub">{member.id === me.id ? 'You' : net > 0 ? 'Is owed' : net < 0 ? 'Owes' : 'Settled'}</span>
                           </span>
-                        </span>
+                        </button>
                       </td>
                       <td className="is-num max-sm:hidden">{formatMoney(row.paidCents)}</td>
                       <td className="is-num max-sm:hidden">{formatMoney(row.usedCents)}</td>
@@ -638,8 +635,8 @@ export function MoneyView({
                     <span className="min-w-0 truncate">{member?.displayName ?? 'A roommate'} paid <span className="sl-num sl-strong">{formatMoney(payment.amountCents)}</span></span>
                     {canConfirm ? (
                       <span className="flex gap-1.5">
-                        <button type="button" className="sl-btn sl-btn-sm" onClick={() => void confirmFundPayment(payment.id, false).catch(() => {})}>Reject</button>
-                        <button type="button" className="sl-btn sl-btn-primary sl-btn-sm" onClick={() => void confirmFundPayment(payment.id, true).catch(() => {})}>Confirm</button>
+                        <button type="button" className="sl-btn sl-btn-sm" disabled={busy === `fund:${payment.id}`} onClick={() => void confirmFundPayment(payment.id, false).catch(() => {})}>Reject</button>
+                        <button type="button" className="sl-btn sl-btn-primary sl-btn-sm" disabled={busy === `fund:${payment.id}`} onClick={() => void confirmFundPayment(payment.id, true).catch(() => {})}>Confirm</button>
                       </span>
                     ) : (
                       <Chip tone={payment.status === 'confirmed' ? 'moss' : payment.status === 'rejected' ? 'brick' : 'brass'}>

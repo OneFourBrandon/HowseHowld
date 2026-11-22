@@ -4,6 +4,7 @@ import { listNames } from '../lib/chores'
 import { blockingVehicles, slotsFor } from '../lib/driveway'
 import { formatDateTime, timeUntil } from '../lib/utils'
 import { useAppData } from '../state/AppDataContext'
+import { readableOn } from './color'
 import { Chip, Empty, Face, Panel, Stat, Stats } from './ui'
 import { useHouse } from './useHouse'
 
@@ -134,7 +135,7 @@ export function DrivewayView({
                 const slot = slots[slotIndex]
                 return (
                   <div className="sl-row grid-cols-[auto_minmax(0,1fr)_auto]" key={vehicle.id}>
-                    <span className="sl-tile text-white" style={{ background: vehicle.color }} aria-hidden="true"><CarFront size={16} /></span>
+                    <span className="sl-tile" style={{ background: vehicle.color, color: readableOn(vehicle.color) }} aria-hidden="true"><CarFront size={16} /></span>
                     <div className="min-w-0">
                       <span className="sl-cell-main">{vehicle.label}</span>
                       <span className="sl-cell-sub">

@@ -1,3 +1,4 @@
+import './styles'
 import { Suspense, useEffect } from 'react'
 import {
   Bell,
@@ -23,7 +24,7 @@ import { useAppData } from '../state/AppDataContext'
 import type { HouseholdFeature } from '../types'
 import { AttentionRow } from './Attention'
 import { Face, Popover } from './ui'
-import { useHouse } from './useHouse'
+import { HouseContext, useHouseValue } from './useHouse'
 
 interface Destination {
   to: string
@@ -57,11 +58,14 @@ export function SlateShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { theme } = useAppearance()
-  const { me, today, attention, counts, actionCount } = useHouse()
+  const house = useHouseValue()
+  const { me, today, attention, counts, actionCount } = house
   const enabled = (feature?: HouseholdFeature | HouseholdFeature[]) =>
     !feature || [feature].flat().some(item => data.household.enabledFeatures.includes(item))
   const nav = destinations.filter(item => enabled(item.feature))
-  const adds = quickAdds.filter(item => enabled(item.feature))
+  // An exit needs a car to schedule it for.
+  const adds = quickAdds.filter(item =>
+    enabled(item.feature) && (item.intent !== 'schedule-exit' || data.vehicles.length > 0))
   const title = pathname === '/settings' ? 'Settings'
     : destinations.find(item => item.to !== '/' && pathname.startsWith(item.to))?.title ?? 'Overview'
 
@@ -72,19 +76,29 @@ export function SlateShell() {
   }, [clearToast, toast])
 
   return (
+    <HouseContext.Provider value={house}>
     <div className="sl-app">
       <aside className="sl-rail">
         <Link className="sl-mark" to="/" aria-label="HowseHowld overview">H</Link>
         <nav className="grid gap-0.5" aria-label="Primary">
-          {nav.map(({ to, label, icon: Icon, section }) => (
-            <NavLink className="sl-rail-link" key={to} to={to} end={to === '/'}>
-              <span className="sl-rail-icon">
-                <Icon size={19} strokeWidth={1.8} />
-                {section && counts[section] > 0 && <span className="sl-count" aria-label={`${counts[section]} waiting on you`}>{counts[section]}</span>}
-              </span>
-              {label}
-            </NavLink>
-          ))}
+          {nav.map(({ to, label, icon: Icon, section }) => {
+            const waiting = section ? counts[section] : 0
+            return (
+              <NavLink
+                className="sl-rail-link"
+                key={to}
+                to={to}
+                end={to === '/'}
+                aria-label={waiting ? `${label}, ${waiting} waiting on you` : undefined}
+              >
+                <span className="sl-rail-icon">
+                  <Icon size={19} strokeWidth={1.8} />
+                  {waiting > 0 && <span className="sl-count" aria-hidden="true">{waiting}</span>}
+                </span>
+                {label}
+              </NavLink>
+            )
+          })}
         </nav>
         <div className="mt-auto grid justify-items-center gap-1.5">
           <button
@@ -99,7 +113,6 @@ export function SlateShell() {
           <NavLink className="sl-rail-link min-h-11!" to="/settings" aria-label="Settings">
             <span className="sl-rail-icon">
               <Settings size={19} strokeWidth={1.8} />
-              {counts.settings > 0 && <span className="sl-count">{counts.settings}</span>}
             </span>
           </NavLink>
           <Link className="mt-1 rounded-full" to="/settings" aria-label={`${me.displayName}, open settings`}>
@@ -211,25 +224,35 @@ export function SlateShell() {
       </div>
 
       <nav className="sl-tabbar" aria-label="Primary">
-        {nav.map(({ to, label, icon: Icon, section }) => (
-          <NavLink className="sl-tab" key={to} to={to} end={to === '/'}>
-            <span className="sl-tab-icon">
-              <Icon size={20} strokeWidth={1.8} />
-              {section && counts[section] > 0 && <span className="sl-count">{counts[section]}</span>}
-            </span>
-            <span className="max-w-full truncate">{label}</span>
-          </NavLink>
-        ))}
+        {nav.map(({ to, label, icon: Icon, section }) => {
+          const waiting = section ? counts[section] : 0
+          return (
+            <NavLink
+              className="sl-tab"
+              key={to}
+              to={to}
+              end={to === '/'}
+              aria-label={waiting ? `${label}, ${waiting} waiting on you` : undefined}
+            >
+              <span className="sl-tab-icon">
+                <Icon size={20} strokeWidth={1.8} />
+                {waiting > 0 && <span className="sl-count" aria-hidden="true">{waiting}</span>}
+              </span>
+              <span className="max-w-full truncate">{label}</span>
+            </NavLink>
+          )
+        })}
       </nav>
 
       {toast && (
         <div className="sl-toast" role="status">
           <span className="min-w-0 flex-1">{toast}</span>
-          <button type="button" className="sl-icon-btn size-7!" onClick={clearToast} aria-label="Dismiss">
+          <button type="button" className="sl-icon-btn" onClick={clearToast} aria-label="Dismiss">
             <X size={15} />
           </button>
         </div>
       )}
     </div>
+    </HouseContext.Provider>
   )
 }

@@ -118,6 +118,27 @@ describe('dates', () => {
     expect(todayKey(house(), Date.parse('2026-03-12T01:30:00Z'))).toBe('2026-03-11')
   })
 
+  it('uses the household zone even when the device is somewhere else', () => {
+    // The tests run in Toronto. At 3 PM there on the 11th it is already 4 AM on the 12th in Tokyo.
+    const tokyo = house({ household: { ...house().household, timezone: 'Asia/Tokyo' } })
+    expect(todayKey(tokyo, NOW)).toBe('2026-03-12')
+    const lateEvent = {
+      id: 'late',
+      title: 'Late call',
+      startAt: iso('2026-03-11T23:30:00-04:00'),
+      endAt: iso('2026-03-12T00:30:00-04:00'),
+      allDay: false,
+      creatorId: ME,
+      audience: 'everyone' as const,
+      audienceMemberIds: [],
+      kind: 'household' as const,
+      reminderOffsets: [],
+    }
+    // 11:30 PM on the 11th in Toronto is 12:30 PM on the 12th in Tokyo.
+    expect(buildAgenda({ ...tokyo, events: [lateEvent] }, NOW)[0].dateKey).toBe('2026-03-12')
+    expect(buildAgenda(house({ events: [lateEvent] }), NOW)[0].dateKey).toBe('2026-03-11')
+  })
+
   it('runs a week from Monday to Sunday', () => {
     expect(weekRange('2026-03-11')).toEqual({ start: '2026-03-09', end: '2026-03-15' })
     expect(weekRange('2026-03-15')).toEqual({ start: '2026-03-09', end: '2026-03-15' })
@@ -167,7 +188,7 @@ describe('chores', () => {
   })
 
   it('lays chores out by roommate and day', () => {
-    const grid = completionGrid(data, NOW, 2, 1)
+    const grid = completionGrid(data, '2026-03-11', 2, 1)
     expect(grid.days).toEqual(['2026-03-09', '2026-03-10', '2026-03-11', '2026-03-12'])
     const mine = grid.rows.find(row => row.member.id === ME)!
     expect(mine.cells.map(cell => [cell.done, cell.missed, cell.open])).toEqual([[1, 0, 0], [0, 0, 0], [0, 0, 1], [0, 0, 0]])
@@ -220,6 +241,20 @@ describe('agenda', () => {
     const bill = asMaya.find(entry => entry.id === 'bill-period-rent')!
     expect(bill.amountCents).toBe(50_000)
     expect(bill.detail).toBe('Your share, owed to Brandon')
+  })
+
+  it('keeps a bill ahead for the whole of its due day', () => {
+    // Bill periods are due at 9:00 AM. At noon that day the bill is still today's business.
+    const noonOnDueDay = Date.parse('2026-03-20T12:00:00-04:00')
+    const dueToday = buildAgenda(data, noonOnDueDay).find(entry => entry.id === 'bill-period-rent')!
+    expect(dueToday).toMatchObject({ dateKey: '2026-03-20', state: 'ahead' })
+    const dayAfter = buildAgenda(data, Date.parse('2026-03-21T00:30:00-04:00')).find(entry => entry.id === 'bill-period-rent')!
+    expect(dayAfter.state).toBe('done')
+  })
+
+  it('skips a bill period whose bill no longer exists', () => {
+    const orphan = { ...data, bills: [] }
+    expect(buildAgenda(orphan, NOW).some(entry => entry.kind === 'bill')).toBe(false)
   })
 
   it('marks whose a private class is', () => {
@@ -275,6 +310,78 @@ describe('needs you', () => {
     expect(items[0]).toMatchObject({ tone: 'brick', quick: { type: 'complete', occurrenceId: 'grace' } })
     expect(items[3].quick).toEqual({ type: 'confirm-settlement', settlementId: 'to-me', label: 'Confirm' })
     expect(attentionCounts(items)).toEqual({ chores: 3, money: 1, driveway: 0, settings: 0 })
+  })
+
+  it('covers claims, penalty payments and what the member owes the account', () => {
+    const claim = {
+      id: 'claim',
+      occurrenceId: 'occ-theirs',
+      infractionId: 'theirs',
+      claimerId: 'member-maya',
+      assigneeId: 'member-liam',
+      status: 'submitted' as const,
+      rewardCents: cents(1_000),
+      beforePhotoPath: 'before.jpg',
+      afterPhotoPath: 'after.jpg',
+      claimDeadline: iso('2026-03-13T00:00:00-04:00'),
+      voteDeadline: iso('2026-03-13T09:00:00-04:00'),
+      createdAt: iso('2026-03-11T08:00:00-04:00'),
+      voterIds: [ME, 'member-noah'],
+      approveVotes: [],
+      rejectVotes: [],
+    }
+    const base = house({
+      infractions: [infraction('theirs', {}), infraction('covering', { memberId: 'member-noah' })],
+      choreClaims: [
+        claim,
+        { ...claim, id: 'mine', infractionId: 'covering', claimerId: ME, assigneeId: 'member-noah', status: 'claimed' as const, afterPhotoPath: undefined, voteDeadline: undefined, voterIds: undefined },
+      ],
+      fundPayments: [
+        { id: 'liam-paid', memberId: 'member-liam', amountCents: cents(1_500), status: 'pending', createdAt: iso('2026-03-11T10:00:00-04:00') },
+        { id: 'i-paid', memberId: ME, amountCents: cents(500), status: 'pending', createdAt: iso('2026-03-11T10:00:00-04:00') },
+      ],
+    })
+    base.balances = base.balances.map(balance => balance.memberId === ME ? { ...balance, fundOwedCents: cents(1_000) } : balance)
+
+    const items = attentionItems(base, NOW)
+    expect(items.map(item => item.id)).toEqual(['claim-photo:mine', 'claim-vote:claim', 'fund:liam-paid', 'owe-fund'])
+    expect(items[2].quick).toEqual({ type: 'confirm-fund', paymentId: 'liam-paid', label: 'Confirm' })
+    // A claim under review replaces the ordinary vote on that miss.
+    expect(items.some(item => item.id === 'vote:theirs')).toBe(false)
+
+    // Once I have voted on the claim, it stops asking.
+    const voted = { ...base, choreClaims: [{ ...claim, approveVotes: [ME] }, base.choreClaims[1]] }
+    expect(attentionItems(voted, NOW).some(item => item.id === 'claim-vote:claim')).toBe(false)
+  })
+
+  it('stops asking about a claim once its deadline has passed', () => {
+    const afterDeadlines = Date.parse('2026-03-13T09:30:00-04:00')
+    const claim = {
+      id: 'claim',
+      occurrenceId: 'occ-theirs',
+      infractionId: 'theirs',
+      claimerId: 'member-maya',
+      assigneeId: 'member-liam',
+      status: 'submitted' as const,
+      rewardCents: cents(1_000),
+      beforePhotoPath: 'before.jpg',
+      afterPhotoPath: 'after.jpg',
+      claimDeadline: iso('2026-03-13T00:00:00-04:00'),
+      voteDeadline: iso('2026-03-13T09:00:00-04:00'),
+      createdAt: iso('2026-03-11T08:00:00-04:00'),
+      voterIds: [ME, 'member-noah'],
+      approveVotes: [],
+      rejectVotes: [],
+    }
+    const data = house({
+      infractions: [infraction('theirs', {}), infraction('covering', { memberId: 'member-noah' })],
+      choreClaims: [
+        claim,
+        { ...claim, id: 'mine', infractionId: 'covering', claimerId: ME, assigneeId: 'member-noah', status: 'claimed' as const, afterPhotoPath: undefined, voteDeadline: undefined, voterIds: undefined },
+      ],
+    })
+    expect(attentionItems(data, NOW).map(item => item.id)).toEqual(['claim-photo:mine', 'claim-vote:claim'])
+    expect(attentionItems(data, afterDeadlines)).toEqual([])
   })
 
   it('asks the admin for a missing monthly price', () => {
@@ -350,6 +457,20 @@ describe('money', () => {
     for (const [memberId, net] of netBalances(data, true, NOW)) expect(net).toBe(adjustments.get(memberId) ?? 0)
   })
 
+  it('uses the shares stored on a period and leaves future months out', () => {
+    const uneven = {
+      ...data,
+      billPeriods: [
+        { ...rent.billPeriods[0], shares: [{ memberId: ME, amountCents: cents(110_000) }, { memberId: 'member-maya', amountCents: cents(90_000) }] },
+        { ...rent.billPeriods[0], id: 'period-april', periodMonth: '2026-04-01', dueAt: iso('2026-04-20T09:00:00-04:00') },
+      ],
+    }
+    const money = moneyByMember(uneven, true, NOW)
+    expect(money.get(ME)).toMatchObject({ paidCents: 90_000, netCents: 90_000 })
+    expect(money.get('member-maya')).toMatchObject({ usedCents: 90_000, netCents: -90_000 })
+    expect(money.get('member-liam')).toMatchObject({ usedCents: 0, netCents: 0 })
+  })
+
   it('trusts the database view for live data', () => {
     expect(moneyByMember(data, false, NOW).get(ME)).toEqual({ paidCents: 0, usedCents: 0, netCents: 0, fundOwedCents: 0 })
   })
@@ -371,6 +492,14 @@ describe('money', () => {
     expect(curve.cumulative[18]).toBe(8_000)
     expect(curve.cumulative[19]).toBe(208_000)
     expect(curve.totalCents).toBe(monthlySpending(data, '2026-03').reduce((sum, entry) => sum + entry.amountCents, 0))
+  })
+
+  it('puts a bill that falls due after its month on the last day, not the first', () => {
+    const late = { ...data, billPeriods: [{ ...rent.billPeriods[0], dueAt: iso('2026-04-02T09:00:00-04:00') }] }
+    const curve = spendCurve(late, '2026-03', NOW)
+    expect(curve.cumulative[0]).toBe(0)
+    expect(curve.cumulative[29]).toBe(8_000)
+    expect(curve.cumulative[30]).toBe(208_000)
   })
 
   it('draws a past month whole and a future month not at all', () => {

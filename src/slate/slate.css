@@ -1,20 +1,32 @@
 /*
  * Slate — the optional redesign, switched on from Settings.
  *
- * Everything here is scoped to :root[data-design="slate"], so the classic
- * design is untouched while it is off.
+ * This file is only fetched once someone turns the design on (see
+ * src/slate/styles.ts), and every rule that could reach classic markup is
+ * scoped to :root[data-design="slate"] as well. The .sl-* classes are left
+ * unscoped because only slate markup uses them.
  *
  * Cascade notes, because this file sits beside Tailwind and index.css:
- *   - index.css styles bare elements (h1, input, label) outside any layer, and
- *     unlayered rules beat every Tailwind utility. Slate's element defaults are
- *     therefore unlayered too, behind :where() so any class can still win.
+ *   - index.css styles bare elements (h1, p, a, button, input, label) outside
+ *     any layer, and a rule outside the layers beats every layered rule,
+ *     whatever its specificity. That includes Tailwind utilities and the
+ *     .sl-* classes below.
+ *   - Where slate wants the layers back in charge of something index.css set
+ *     (margins, link colour, the font of an .sl-* button or heading), an
+ *     unlayered rule hands it back with `revert-layer`. Tailwind's preflight
+ *     then supplies the default and utilities and .sl-* classes apply as usual.
+ *   - Where slate wants one look for every field or heading, including the
+ *     ones inside reused classic components, the rule is unlayered and so
+ *     also beats the utilities those components carry. Those rules sit behind
+ *     :where() only so that index.css is beaten by order, not specificity.
  *   - Slate's own primitives (.sl-*) live in @layer components, so utilities on
  *     the same element can adjust them.
  *   - Shared components from the classic design (buttons, badges, modals) are
  *     reskinned by unlayered rules, which is what lets them override the
  *     utilities those components are written with.
  *   - A few classic utilities are !important. Only an !important rule in an
- *     earlier layer outranks those, which is what the @layer base block is for.
+ *     earlier layer outranks those, which is what the first @layer base block
+ *     is for.
  */
 @import '@fontsource-variable/instrument-sans/standard.css';
 
@@ -39,7 +51,7 @@
 
   --sl-ink: #edeef0;
   --sl-ink-2: #babdc4;
-  --sl-muted: #8b8e97;
+  --sl-muted: #9194a0;
   --sl-faint: #5f626b;
   --sl-on-ink: #101113;
   --sl-on-tone: #101113;
@@ -132,13 +144,13 @@
   --sl-on-ink: #fbfbfc;
   --sl-on-tone: #ffffff;
 
-  --sl-moss: #2c7847;
+  --sl-moss: #276d40;
   --sl-moss-fill: rgba(44, 120, 71, .2);
   --sl-moss-soft: rgba(44, 120, 71, .1);
-  --sl-brass: #93640d;
+  --sl-brass: #855a0b;
   --sl-brass-fill: rgba(170, 118, 18, .22);
   --sl-brass-soft: rgba(170, 118, 18, .11);
-  --sl-brick: #b8423a;
+  --sl-brick: #a93a33;
   --sl-brick-fill: rgba(184, 66, 58, .2);
   --sl-brick-soft: rgba(184, 66, 58, .1);
   --sl-steel: #2c63a4;
@@ -148,7 +160,7 @@
   --sl-iris-fill: rgba(95, 79, 179, .2);
   --sl-iris-soft: rgba(95, 79, 179, .1);
 
-  --sl-focus: #93640d;
+  --sl-focus: #855a0b;
   --sl-shadow-pop: 0 18px 50px rgba(20, 22, 26, .16), 0 2px 8px rgba(20, 22, 26, .08);
 }
 
@@ -194,10 +206,6 @@
   letter-spacing: -.005em;
 }
 
-:where(:root[data-design="slate"]) :is(strong, b) {
-  font-weight: 600;
-}
-
 :root[data-design="slate"] :is([class*="font-[7"], [class*="font-[8"]) {
   font-weight: 620;
 }
@@ -222,6 +230,13 @@
   font-weight: revert-layer;
   line-height: revert-layer;
   letter-spacing: revert-layer;
+}
+
+/* index.css puts `font: inherit` on every button, which would flatten the size and
+   weight of each .sl-* button. Preflight supplies the same default from inside the layers. */
+:where(:root[data-design="slate"]) button:is([class^="sl-"], [class*=" sl-"]),
+:where(:root[data-design="slate"]) .sl-seg > button {
+  font: revert-layer;
 }
 
 :where(:root[data-design="slate"]) .page-title {
@@ -265,7 +280,8 @@
 }
 
 :where(:root[data-design="slate"]) :is(input, select, textarea)::placeholder {
-  color: var(--sl-faint);
+  color: var(--sl-muted);
+  opacity: 1;
 }
 
 :where(:root[data-design="slate"]) :is(input, select, textarea):focus {
@@ -284,16 +300,23 @@
   }
 }
 
-:where(:root[data-design="slate"]) :focus-visible:not(input, select, textarea) {
-  outline: 2px solid var(--sl-focus);
-  outline-offset: 2px;
-}
-
 :where(:root[data-design="slate"]) ::selection {
   background: color-mix(in srgb, var(--sl-brass) 34%, transparent);
 }
 
 /* ── Classic utilities that are !important ───────────────────────────── */
+
+/* Defaults index.css has no opinion on. Layered, so any class or utility can adjust them. */
+@layer base {
+  :where(:root[data-design="slate"]) :is(strong, b) {
+    font-weight: 600;
+  }
+
+  :where(:root[data-design="slate"]) :focus-visible:not(input, select, textarea) {
+    outline: 2px solid var(--sl-focus);
+    outline-offset: 2px;
+  }
+}
 
 @layer base {
   /* Classic "selected" states are a forest fill with white text. In slate the
@@ -717,9 +740,8 @@
       row-gap: 16px;
     }
 
-    .sl-stats[style*="--cols-sm: 2"] > .sl-stat:nth-child(2n + 1),
-    .sl-stats:not([style*="--cols-sm"]) > .sl-stat:nth-child(2n + 1),
-    .sl-stats[style*="--cols-sm: 3"] > .sl-stat:nth-child(3n + 1) {
+    .sl-stats[data-cols-sm="2"] > .sl-stat:nth-child(2n + 1),
+    .sl-stats[data-cols-sm="3"] > .sl-stat:nth-child(3n + 1) {
       padding-left: 0;
       border-left: 0;
     }
@@ -935,7 +957,7 @@
 
   .sl-btn-danger:hover {
     color: var(--sl-brick);
-    background: var(--sl-brick-fill);
+    background: color-mix(in srgb, var(--sl-brick) 20%, transparent);
   }
 
   .sl-btn-sm {
@@ -970,6 +992,15 @@
     opacity: .4;
   }
 
+  .sl-plain-btn {
+    border: 0;
+    border-radius: 6px;
+    padding: 0;
+    color: inherit;
+    background: none;
+    text-align: left;
+  }
+
   .sl-link {
     display: inline-flex;
     align-items: center;
@@ -995,6 +1026,7 @@
     .sl-btn { height: 40px; padding: 0 14px; }
     .sl-btn-sm { height: 34px; padding: 0 11px; }
     .sl-icon-btn { width: 40px; height: 40px; }
+    button.sl-link { min-height: 36px; }
   }
 
   /* Segmented control */
@@ -1079,11 +1111,18 @@
     opacity: .5;
   }
 
+  @media (pointer: coarse) {
+    .sl-switch { width: 46px; height: 28px; border-radius: 14px; }
+    .sl-switch::after { top: 3px; left: 3px; width: 22px; height: 22px; }
+    .sl-switch[aria-checked="true"]::after { translate: 18px 0; }
+  }
+
   /* Popovers and menus */
 
   .sl-pop {
     position: absolute;
-    z-index: 50;
+    /* Above the page, below the sticky top bar (30). Popovers inside the top bar stack within it. */
+    z-index: 20;
     min-width: 210px;
     padding: 5px;
     border: 1px solid var(--sl-line-strong);
@@ -1553,8 +1592,6 @@
 :root[data-design="slate"] .avatar {
   border: 0;
   box-shadow: none;
-  font-weight: 650;
-  letter-spacing: -.01em;
 }
 
 :root[data-design="slate"] .avatar.w-8\.5 {
@@ -1643,6 +1680,28 @@
 :root[data-design="slate"] .icon-button:hover {
   color: var(--sl-ink);
   background: var(--sl-hover-strong);
+}
+
+@media (pointer: coarse) {
+  :root[data-design="slate"] .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  :root[data-design="slate"] .ui-switch {
+    width: 46px;
+    height: 28px;
+    padding: 3px;
+  }
+
+  :root[data-design="slate"] .ui-switch > span {
+    width: 22px;
+    height: 22px;
+  }
+
+  :root[data-design="slate"] .ui-switch[aria-checked="true"] > span {
+    translate: 18px 0;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1758,4 +1817,13 @@
 /* Titles inside embedded classic panels sit at slate's row size. */
 :root[data-design="slate"] .sl-embed :is([class*="text-[.9rem]"], [class*="text-[.92rem]"], [class*="text-[.94rem]"]) {
   font-size: .875rem;
+}
+
+/* A classic prompt shown inline in a slate panel. It takes no room when the prompt has nothing to say. */
+:root[data-design="slate"] .sl-embed-inline {
+  padding: 0 var(--sl-pad) 14px;
+}
+
+:root[data-design="slate"] .sl-embed-inline:empty {
+  display: none;
 }

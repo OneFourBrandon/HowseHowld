@@ -68,7 +68,8 @@ export function ChoresView({
   const openReviews = data.infractions.filter(infraction =>
     isInfractionReviewOpen(infraction, now, claimForInfraction(data.choreClaims, infraction.id))).length
   const activeRoutines = data.tasks.filter(task => task.active).length
-  const grid = useMemo(() => completionGrid(data, now, 20, 7), [data, now])
+  // Keyed on the day, not the clock, so it is not rebuilt every second.
+  const grid = useMemo(() => completionGrid(data, today, 20, 7), [data, today])
   const gridRows = scope === 'mine' ? grid.rows.filter(row => row.member.id === me.id) : grid.rows
   const grabs = choresUpForGrabs(data, now, me.id).length
 

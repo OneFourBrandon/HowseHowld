@@ -53,7 +53,13 @@ export function AttentionRow({ item, onNavigate }: { item: AttentionItem; onNavi
         <span className="sl-cell-sub whitespace-normal">{item.detail}</span>
       </Link>
       {quick ? (
-        <button type="button" className="sl-btn sl-btn-secondary sl-btn-sm" disabled={working} onClick={runQuick}>
+        <button
+          type="button"
+          className="sl-btn sl-btn-secondary sl-btn-sm"
+          aria-label={`${quick.label}: ${item.title}`}
+          disabled={working}
+          onClick={runQuick}
+        >
           {quick.label}
         </button>
       ) : (

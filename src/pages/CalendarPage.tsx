@@ -1,8 +1,8 @@
 import { cn } from '../lib/cn'
-import { useAppearance } from '../lib/appearance'
+import { useDesign } from '../lib/appearance'
 import { useIntent } from '../lib/intent'
 import './two-tone.css'
-import { useMemo, useState } from 'react'
+import { lazy, useMemo, useState } from 'react'
 import {
   BookOpen,
   CalendarDays,
@@ -32,8 +32,12 @@ import { useAppData } from '../state/AppDataContext'
 import { importIcs } from '../lib/api'
 import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components/ui'
 import { SharedCourseSchedule } from '../components/SharedCourseSchedule'
-import { CalendarView } from '../slate/CalendarView'
 import { formatShortTime, toIso } from '../lib/utils'
+
+// The slate layout is fetched only when the slate design is on.
+const CalendarView = lazy(() =>
+  import('../slate/CalendarView').then((module) => ({ default: module.CalendarView })),
+)
 
 export function CalendarPage() {
   const {
@@ -98,7 +102,7 @@ export function CalendarPage() {
     setVisibleMonth(startOfMonth(date))
   }
 
-  const slate = useAppearance().design === 'slate'
+  const slate = useDesign() === 'slate'
   useIntent('new-event', () => setEventModal(true))
 
   const dialogs = (

@@ -2,21 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      // Mirrors src/lib/appearance.ts so the chosen design and theme are set before first paint.
-      try {
-        var root = document.documentElement;
-        var slate = localStorage.getItem('howsehowld:design') === 'slate';
-        root.dataset.design = slate ? 'slate' : 'classic';
-        root.dataset.theme = slate
-          ? localStorage.getItem('howsehowld:slate-theme') || 'dark'
-          : localStorage.getItem('howsehowld:theme') ||
-            (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      } catch {}
-    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#203f36" />
+    <script>
+      // Mirrors src/lib/appearance.ts so the chosen design and theme are set before first paint.
+      // Classic is resolved exactly as it always was, including setting nothing when storage is blocked.
+      (function () {
+        try {
+          var root = document.documentElement;
+          if (localStorage.getItem('howsehowld:design') === 'slate') {
+            var theme = localStorage.getItem('howsehowld:slate-theme') === 'light' ? 'light' : 'dark';
+            root.dataset.design = 'slate';
+            root.dataset.theme = theme;
+            document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#f1f2f3' : '#101113';
+          } else {
+            root.dataset.theme = localStorage.getItem('howsehowld:theme') ||
+              (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            root.dataset.design = 'classic';
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta name="description" content="A calmer way to run the house together." />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="HowseHowld" />

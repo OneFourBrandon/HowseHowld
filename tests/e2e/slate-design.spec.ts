@@ -7,7 +7,8 @@ const useSlate = (page: Page) => page.addInitScript(() => {
 test('the classic design stays the default', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('html')).toHaveAttribute('data-design', 'classic')
-  await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)/ })).toBeVisible()
+  // This can be the first page a cold dev server compiles, so allow for that.
+  await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)/ })).toBeVisible({ timeout: 15_000 })
 })
 
 test('the new design is switched on and off from Settings and survives a reload', async ({ page }) => {

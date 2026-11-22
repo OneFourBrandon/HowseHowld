@@ -1,8 +1,8 @@
 import { cn } from '../lib/cn'
-import { useAppearance } from '../lib/appearance'
+import { useDesign } from '../lib/appearance'
 import { useIntent } from '../lib/intent'
 import { isInfractionReviewOpen } from '../lib/infractions'
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -24,7 +24,6 @@ import { Avatar, Badge, Button, Card, Modal, SectionHeader } from '../components
 import { ChoreOccurrenceIcon } from '../components/ChoreOccurrenceIcon'
 import { InfractionsPanel } from '../components/InfractionsPanel'
 import { UpForGrabs } from '../components/UpForGrabs'
-import { ChoresView } from '../slate/ChoresView'
 import { claimForInfraction, formatGracePeriod, graceEndsAt, graceMinutesOf, isInGracePeriod } from '../lib/chores'
 import {
   formatDateTime,
@@ -33,6 +32,11 @@ import {
   nextOpenOccurrencePerTask,
   taskCompletionAvailability,
 } from '../lib/utils'
+
+// The slate layout is fetched only when the slate design is on.
+const ChoresView = lazy(() =>
+  import('../slate/ChoresView').then((module) => ({ default: module.ChoresView })),
+)
 
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Give the chore a name.'),
@@ -203,7 +207,7 @@ export function ChoresPage() {
     setEditingTaskId(null)
     setTaskModal(true)
   }
-  const slate = useAppearance().design === 'slate'
+  const slate = useDesign() === 'slate'
   useIntent('new-chore', openNewTask)
   const completedThisMonth = data.occurrences.filter((occurrence) => {
     if (occurrence.status !== 'completed' || !occurrence.completedAt) return false

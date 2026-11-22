@@ -52,7 +52,8 @@ export function CalendarView({ onAddEvent, onImport }: { onAddEvent: () => void;
   const features = data.household.enabledFeatures
   const available = useMemo(() => ([
     features.includes('calendar') && 'event',
-    features.includes('courses') && 'class',
+    // Imported classes and exams are calendar events too, so either feature shows them.
+    (features.includes('calendar') || features.includes('courses')) && 'class',
     features.includes('chores') && 'chore',
     features.includes('money') && 'bill',
     features.includes('driveway') && 'exit',
@@ -255,7 +256,7 @@ export function CalendarView({ onAddEvent, onImport }: { onAddEvent: () => void;
                   {mineToClassify && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <select
-                        className="mt-0! h-8 w-auto! py-0! pr-7! text-(length:--sl-fs-meta)!"
+                        className="mt-0! h-8 w-auto! py-0! pr-7!"
                         value={event.kind}
                         aria-label={`Classify ${event.title}`}
                         onChange={change => void updateScheduleItemKind(event.scheduleItemId!, change.target.value as 'class' | 'exam' | 'other')}
@@ -296,7 +297,7 @@ export function CalendarView({ onAddEvent, onImport }: { onAddEvent: () => void;
 
         {features.includes('courses') && (
           <>
-            <Panel className="sl-embed sl-embed-courses col-span-12">
+            <Panel className="sl-embed col-span-12">
               <SharedCourseSchedule />
             </Panel>
 

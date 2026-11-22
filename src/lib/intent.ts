@@ -17,11 +17,14 @@ export function useIntent(intent: Intent, run: () => void) {
   useEffect(() => {
     runRef.current = run
   })
+  // Each navigation has its own key, so an intent runs once even when React replays effects.
+  const handledKey = useRef<string | null>(null)
   const requested = (location.state as { intent?: Intent } | null)?.intent === intent
 
   useEffect(() => {
-    if (!requested) return
+    if (!requested || handledKey.current === location.key) return
+    handledKey.current = location.key
     runRef.current()
     navigate(location.pathname, { replace: true, state: null })
-  }, [location.pathname, navigate, requested])
+  }, [location.key, location.pathname, navigate, requested])
 }

@@ -1,7 +1,7 @@
 import { cn } from '../lib/cn'
-import { useAppearance } from '../lib/appearance'
+import { useDesign } from '../lib/appearance'
 import { useIntent } from '../lib/intent'
-import { useRef, useState } from 'react'
+import { lazy, useRef, useState } from 'react'
 import {
   BellRing,
   CarFront,
@@ -14,10 +14,14 @@ import {
 import { useAppData } from '../state/AppDataContext'
 import { Badge, Button, Modal } from '../components/ui'
 import { DrivewayBoard } from '../components/DrivewayBoard'
-import { DrivewayView } from '../slate/DrivewayView'
 import { blockingVehicles, slotsFor } from '../lib/driveway'
 import { formatDateTime, timeUntil, toIso } from '../lib/utils'
 import type { Vehicle } from '../types'
+
+// The slate layout is fetched only when the slate design is on.
+const DrivewayView = lazy(() =>
+  import('../slate/DrivewayView').then((module) => ({ default: module.DrivewayView })),
+)
 
 export function DrivewayPage() {
   const { data, addDeparture, saveVehicle, removeVehicle } = useAppData()
@@ -65,7 +69,7 @@ export function DrivewayPage() {
     setVehicleEditorOpen(true)
   }
 
-  const slate = useAppearance().design === 'slate'
+  const slate = useDesign() === 'slate'
   const openVehicles = () => {
     resetVehicleEditor()
     setVehicleModal(true)

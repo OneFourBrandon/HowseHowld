@@ -24,8 +24,9 @@ import { PenaltySettings } from '../components/PenaltySettings'
 import { Avatar } from '../components/ui'
 import { signOut } from '../lib/api'
 import { cn } from '../lib/cn'
-import { setDesign, setTheme, useAppearance } from '../lib/appearance'
+import { setTheme, useAppearance } from '../lib/appearance'
 import { hasSupabaseConfig } from '../lib/supabase'
+import { switchDesign } from '../lib/switchDesign'
 import { formatDateTime } from '../lib/utils'
 import { useAppData } from '../state/AppDataContext'
 import { AskDialog } from './AskDialog'
@@ -103,6 +104,7 @@ export function SettingsPage() {
   const [myRecoveryCode, setMyRecoveryCode] = useState('')
   const [recoveryCodes, setRecoveryCodes] = useState<Record<string, string>>({})
   const [removing, setRemoving] = useState<string | null>(null)
+  const [switchFailed, setSwitchFailed] = useState(false)
   const removingMember = data.members.find(member => member.id === removing)
 
   const installed = useMemo(
@@ -170,8 +172,20 @@ export function SettingsPage() {
               title="New design"
               hint="The layout you are looking at now. Turn it off to go back to the classic design."
             >
-              <Switch label="New design" checked onChange={on => setDesign(on ? 'slate' : 'classic')} />
+              <Switch
+                label="New design"
+                checked
+                onChange={on => {
+                  setSwitchFailed(false)
+                  void switchDesign(on ? 'slate' : 'classic').catch(() => setSwitchFailed(true))
+                }}
+              />
             </SettingRow>
+            {switchFailed && (
+              <p className="py-3 text-(--sl-brick)" role="alert">
+                The classic design could not be loaded. Check your connection and try again.
+              </p>
+            )}
             <SettingRow title="Theme" hint="The new design was drawn dark first. Light is there for bright rooms.">
               <Segmented
                 label="Theme"
@@ -285,7 +299,7 @@ export function SettingsPage() {
           </form>
         </Panel>
 
-        <Panel className="sl-embed sl-embed-recovery col-span-12 lg:col-span-6" title="Sign in on another device" note="A device-based account cannot be recovered unless you add an email or save a code.">
+        <Panel className="sl-embed col-span-12 lg:col-span-6" title="Sign in on another device" note="A device-based account cannot be recovered unless you add an email or save a code.">
           {!isOwner && (
             <>
               <SettingRow title="One-time recovery code" hint="Enter it in the house code box on your other device. Asking for a new one cancels the last.">
