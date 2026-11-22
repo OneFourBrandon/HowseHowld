@@ -1,6 +1,8 @@
 import { cn } from '../lib/cn'
+import { useDesign } from '../lib/appearance'
+import { useIntent } from '../lib/intent'
 import { isInfractionReviewOpen } from '../lib/infractions'
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -30,6 +32,11 @@ import {
   nextOpenOccurrencePerTask,
   taskCompletionAvailability,
 } from '../lib/utils'
+
+// The slate layout is fetched only when the slate design is on.
+const ChoresView = lazy(() =>
+  import('../slate/ChoresView').then((module) => ({ default: module.ChoresView })),
+)
 
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Give the chore a name.'),
@@ -200,12 +207,253 @@ export function ChoresPage() {
     setEditingTaskId(null)
     setTaskModal(true)
   }
+  const slate = useDesign() === 'slate'
+  useIntent('new-chore', openNewTask)
   const completedThisMonth = data.occurrences.filter((occurrence) => {
     if (occurrence.status !== 'completed' || !occurrence.completedAt) return false
     const completed = new Date(occurrence.completedAt)
     const now = new Date()
     return completed.getMonth() === now.getMonth() && completed.getFullYear() === now.getFullYear()
   }).length
+
+  const dialogs = (
+    <>
+    <Modal
+      open={taskModal}
+      onClose={() => setTaskModal(false)}
+      title={editingTaskId ? 'Edit chore' : 'Create a chore'}
+      description={editingTaskId ? 'Changes to the schedule update upcoming assignments.' : 'Set the routine once. The server handles every turn.'}
+    >
+      <form className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"} onSubmit={submitTask}>
+        <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Chore name
+          <input {...register('title')} placeholder="Clean the bathroom" />
+          {errors.title && <span className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{errors.title.message}</span>}
+        </label>
+        <label className="field-span-2 col-span-full max-[640px]:col-[1]">Details
+          <textarea {...register('description')} rows={3} placeholder="What needs to be done?" />
+        </label>
+        <label>Area
+          <input {...register('area')} placeholder="e.g. Bathroom" />
+          {errors.area && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.area.message}</span>}
+        </label>
+        <label>Assignment
+          <select {...register('assignmentMode')} disabled={frequency === 'rolling_queue'}>
+            <option value="rotation">Fair rotation</option>
+            <option value="fixed">Fixed roommate</option>
+            <option value="manual">Assign manually</option>
+            <option value="one_off">One-time task</option>
+          </select>
+        </label>
+        <label>Repeats
+          <select {...register('frequency')}>
+            <option value="daily">Daily</option>
+            <option value="weekly">Selected weekdays</option>
+            <option value="monthly">Monthly</option>
+            <option value="once">Once</option>
+            <option value="rolling_queue">Rolling queue · one per day</option>
+          </select>
+        </label>
+        {frequency === 'rolling_queue' ? (
+          <p className="self-end rounded-lg border border-(--line) bg-(--sage-2) p-3 text-[.74rem] leading-normal text-(--muted)">
+            This chore joins the household queue. One queued chore is selected each day, with assignees advancing through the selected rotation.
+          </p>
+        ) : (
+          <label>Every
+            <div className="input-with-suffix grid grid-cols-[minmax(70px,1fr)_auto] items-center gap-2.5">
+              <input type="number" min="1" max="30" {...register('interval', { valueAsNumber: true })} />
+              <span>{frequency === 'daily' ? 'days' : frequency === 'weekly' ? 'weeks' : frequency === 'monthly' ? 'months' : 'time'}</span>
+            </div>
+          </label>
+        )}
+        {frequency === 'weekly' && (
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+            <legend>Weekdays</legend>
+            <div className="weekday-picker grid grid-cols-7 gap-2 max-[560px]:gap-1">
+              {[
+                { label: 'Su', day: 7 },
+                { label: 'M', day: 1 },
+                { label: 'T', day: 2 },
+                { label: 'W', day: 3 },
+                { label: 'Th', day: 4 },
+                { label: 'F', day: 5 },
+                { label: 'Sa', day: 6 },
+              ].map(({ label, day }) => {
+                return (
+                  <button
+                    type="button"
+                    key={`${label}-${day}`}
+                    aria-pressed={weekdays.includes(day)}
+                    className={cn(
+                      'min-h-10 rounded-full border border-(--line) bg-transparent font-[inherit] font-bold text-(--muted) transition-[background-color,color,border-color,box-shadow] duration-150 hover:border-(--forest-2) hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--forest)',
+                      weekdays.includes(day) && 'is-selected border-(--forest)! bg-(--forest)! text-white! shadow-[0_5px_14px_rgba(43,75,31,.18)] hover:border-(--forest)! hover:bg-(--forest-2)!',
+                    )}
+                    onClick={() => setWeekdays((current) =>
+                      current.includes(day)
+                        ? current.filter((item) => item !== day)
+                        : [...current, day].sort(),
+                    )}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            {errors.frequency && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.frequency.message}</span>}
+          </fieldset>
+        )}
+        <label>Starts on
+          <input type="date" {...register('startsOn')} />
+        </label>
+        <label>Due time
+          <input type="time" {...register('dueTime')} />
+        </label>
+        {assignmentMode !== 'rotation' && (
+          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Assigned roommate
+            <select value={fixedMemberId} onChange={(event) => setFixedMemberId(event.target.value)}>
+              {data.members.filter((member) => member.active).map((member) => (
+                <option key={member.id} value={member.id}>{member.displayName}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        {assignmentMode === 'rotation' && (
+          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+            <legend>Rotation order and eligibility</legend>
+            <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
+              {data.members.filter((member) => member.active).map((member) => (
+                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={member.id}>
+                  <input
+                    type="checkbox"
+                    checked={rotationIds.includes(member.id)}
+                    onChange={(event) => setRotationIds((current) =>
+                      event.target.checked
+                        ? [...current, member.id]
+                        : current.filter((id) => id !== member.id),
+                    )}
+                  />
+                  <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
+                  {member.displayName}
+                </label>
+              ))}
+            </div>
+            {errors.assignmentMode && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.assignmentMode.message}</span>}
+          </fieldset>
+        )}
+        <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
+          <legend>Task reminders</legend>
+          <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
+            {[
+              ['09:00', 'Morning'],
+              ['18:00', '6:00 PM'],
+              ['22:00', '10:00 PM'],
+              ['23:30', '11:30 PM'],
+            ].map(([time, label]) => (
+              <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={time}>
+                <input
+                  type="checkbox"
+                  checked={reminderTimes.includes(time)}
+                  onChange={(event) => setReminderTimes((current) =>
+                    event.target.checked
+                      ? [...current, time].sort()
+                      : current.filter((item) => item !== time),
+                  )}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <p className="field-span-2 col-span-full flex items-start gap-1.5 text-[.75rem] leading-normal text-(--muted) max-[640px]:col-[1]">
+          <Clock3 className="mt-px shrink-0" size={15} />
+          Every chore carries the house penalty. {graceSummary}
+        </p>
+        <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <Button type="button" variant="ghost" onClick={() => setTaskModal(false)}>Cancel</Button>
+          <Button type="submit" disabled={busy === (editingTaskId ? `task:update:${editingTaskId}` : 'task:new')}>
+            {editingTaskId ? 'Save changes' : 'Create chore'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal
+      open={Boolean(disputeId)}
+      onClose={() => setDisputeId(null)}
+      title="Dispute the infraction"
+      description="Your reason will be visible to the other roommates."
+    >
+      <form
+        onSubmit={async (event) => {
+          event.preventDefault()
+          if (!disputeId || disputeReason.trim().length < 5) return
+          await disputeInfraction(disputeId, disputeReason.trim())
+          setDisputeId(null)
+          setDisputeReason('')
+        }}
+      >
+        <label>What happened?
+          <textarea
+            value={disputeReason}
+            onChange={(event) => setDisputeReason(event.target.value)}
+            placeholder="Give enough context for a fair vote."
+            rows={4}
+          />
+        </label>
+        <div className={"modal-actions flex justify-end gap-2.25 mt-1.5"}>
+          <Button type="button" variant="ghost" onClick={() => setDisputeId(null)}>Cancel</Button>
+          <Button type="submit" disabled={disputeReason.trim().length < 5}>Open dispute</Button>
+        </div>
+      </form>
+    </Modal>
+
+    <Modal
+      open={Boolean(assignTaskId)}
+      onClose={() => setAssignTaskId('')}
+      title="Assign this chore"
+      description="Manual chores appear only when someone explicitly assigns them."
+    >
+      <form
+        className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
+        onSubmit={async (event) => {
+          event.preventDefault()
+          await assignManualTask(assignTaskId, assignMemberId, assignDate)
+          setAssignTaskId('')
+        }}
+      >
+        <label>Roommate
+          <select value={assignMemberId} onChange={(event) => setAssignMemberId(event.target.value)}>
+            {data.members.filter((member) => member.active).map((member) => (
+              <option value={member.id} key={member.id}>{member.displayName}</option>
+            ))}
+          </select>
+        </label>
+        <label>Due date
+          <input type="date" value={assignDate} onChange={(event) => setAssignDate(event.target.value)} />
+        </label>
+        <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
+          <Button type="button" variant="ghost" onClick={() => setAssignTaskId('')}>Cancel</Button>
+          <Button type="submit">Assign chore</Button>
+        </div>
+      </form>
+    </Modal>
+    </>
+  )
+
+  if (slate) {
+    return (
+      <>
+        <ChoresView
+          now={reviewNow}
+          upcoming={upcoming}
+          onNewTask={openNewTask}
+          onEditTask={openTaskEditor}
+          onAssignTask={setAssignTaskId}
+          onDispute={setDisputeId}
+        />
+        {dialogs}
+      </>
+    )
+  }
 
   return (
     <div className="page-stack grid gap-8 max-[980px]:gap-9 max-[640px]:gap-8">
@@ -404,224 +652,7 @@ export function ChoresPage() {
         <InfractionsPanel now={reviewNow} onDispute={setDisputeId} />
       </div>
 
-      <Modal
-        open={taskModal}
-        onClose={() => setTaskModal(false)}
-        title={editingTaskId ? 'Edit chore' : 'Create a chore'}
-        description={editingTaskId ? 'Changes to the schedule update upcoming assignments.' : 'Set the routine once. The server handles every turn.'}
-      >
-        <form className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"} onSubmit={submitTask}>
-          <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Chore name
-            <input {...register('title')} placeholder="Clean the bathroom" />
-            {errors.title && <span className={"form-error mt-1.25 text-(--coral) text-[.75rem]"}>{errors.title.message}</span>}
-          </label>
-          <label className="field-span-2 col-span-full max-[640px]:col-[1]">Details
-            <textarea {...register('description')} rows={3} placeholder="What needs to be done?" />
-          </label>
-          <label>Area
-            <input {...register('area')} placeholder="e.g. Bathroom" />
-            {errors.area && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.area.message}</span>}
-          </label>
-          <label>Assignment
-            <select {...register('assignmentMode')} disabled={frequency === 'rolling_queue'}>
-              <option value="rotation">Fair rotation</option>
-              <option value="fixed">Fixed roommate</option>
-              <option value="manual">Assign manually</option>
-              <option value="one_off">One-time task</option>
-            </select>
-          </label>
-          <label>Repeats
-            <select {...register('frequency')}>
-              <option value="daily">Daily</option>
-              <option value="weekly">Selected weekdays</option>
-              <option value="monthly">Monthly</option>
-              <option value="once">Once</option>
-              <option value="rolling_queue">Rolling queue · one per day</option>
-            </select>
-          </label>
-          {frequency === 'rolling_queue' ? (
-            <p className="self-end rounded-lg border border-(--line) bg-(--sage-2) p-3 text-[.74rem] leading-normal text-(--muted)">
-              This chore joins the household queue. One queued chore is selected each day, with assignees advancing through the selected rotation.
-            </p>
-          ) : (
-            <label>Every
-              <div className="input-with-suffix grid grid-cols-[minmax(70px,1fr)_auto] items-center gap-2.5">
-                <input type="number" min="1" max="30" {...register('interval', { valueAsNumber: true })} />
-                <span>{frequency === 'daily' ? 'days' : frequency === 'weekly' ? 'weeks' : frequency === 'monthly' ? 'months' : 'time'}</span>
-              </div>
-            </label>
-          )}
-          {frequency === 'weekly' && (
-            <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
-              <legend>Weekdays</legend>
-              <div className="weekday-picker grid grid-cols-7 gap-2 max-[560px]:gap-1">
-                {[
-                  { label: 'Su', day: 7 },
-                  { label: 'M', day: 1 },
-                  { label: 'T', day: 2 },
-                  { label: 'W', day: 3 },
-                  { label: 'Th', day: 4 },
-                  { label: 'F', day: 5 },
-                  { label: 'Sa', day: 6 },
-                ].map(({ label, day }) => {
-                  return (
-                    <button
-                      type="button"
-                      key={`${label}-${day}`}
-                      aria-pressed={weekdays.includes(day)}
-                      className={cn(
-                        'min-h-10 rounded-full border border-(--line) bg-transparent font-[inherit] font-bold text-(--muted) transition-[background-color,color,border-color,box-shadow] duration-150 hover:border-(--forest-2) hover:bg-(--sage-2) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--forest)',
-                        weekdays.includes(day) && 'is-selected border-(--forest)! bg-(--forest)! text-white! shadow-[0_5px_14px_rgba(43,75,31,.18)] hover:border-(--forest)! hover:bg-(--forest-2)!',
-                      )}
-                      onClick={() => setWeekdays((current) =>
-                        current.includes(day)
-                          ? current.filter((item) => item !== day)
-                          : [...current, day].sort(),
-                      )}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-              {errors.frequency && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.frequency.message}</span>}
-            </fieldset>
-          )}
-          <label>Starts on
-            <input type="date" {...register('startsOn')} />
-          </label>
-          <label>Due time
-            <input type="time" {...register('dueTime')} />
-          </label>
-          {assignmentMode !== 'rotation' && (
-            <label className={"field-span-2 col-span-full max-[640px]:col-[1]"}>Assigned roommate
-              <select value={fixedMemberId} onChange={(event) => setFixedMemberId(event.target.value)}>
-                {data.members.filter((member) => member.active).map((member) => (
-                  <option key={member.id} value={member.id}>{member.displayName}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          {assignmentMode === 'rotation' && (
-            <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
-              <legend>Rotation order and eligibility</legend>
-              <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
-                {data.members.filter((member) => member.active).map((member) => (
-                  <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={member.id}>
-                    <input
-                      type="checkbox"
-                      checked={rotationIds.includes(member.id)}
-                      onChange={(event) => setRotationIds((current) =>
-                        event.target.checked
-                          ? [...current, member.id]
-                          : current.filter((id) => id !== member.id),
-                      )}
-                    />
-                    <Avatar initials={member.initials} color={member.color} imageUrl={member.avatarUrl} size="sm" />
-                    {member.displayName}
-                  </label>
-                ))}
-              </div>
-              {errors.assignmentMode && <span className="form-error mt-1.25 text-[.75rem] text-(--coral)">{errors.assignmentMode.message}</span>}
-            </fieldset>
-          )}
-          <fieldset className={"field-span-2 col-span-full max-[640px]:col-[1] compact-options py-[8px_14px] border-0 border-b border-b-(--line)"}>
-            <legend>Task reminders</legend>
-            <div className={"member-check-grid grid grid-cols-2 gap-2 max-[640px]:grid-cols-1"}>
-              {[
-                ['09:00', 'Morning'],
-                ['18:00', '6:00 PM'],
-                ['22:00', '10:00 PM'],
-                ['23:30', '11:30 PM'],
-              ].map(([time, label]) => (
-                <label className="member-check flex items-center gap-1.75 rounded-[10px] border border-(--line) bg-(--surface-strong) p-2.25" key={time}>
-                  <input
-                    type="checkbox"
-                    checked={reminderTimes.includes(time)}
-                    onChange={(event) => setReminderTimes((current) =>
-                      event.target.checked
-                        ? [...current, time].sort()
-                        : current.filter((item) => item !== time),
-                    )}
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <p className="field-span-2 col-span-full flex items-start gap-1.5 text-[.75rem] leading-normal text-(--muted) max-[640px]:col-[1]">
-            <Clock3 className="mt-px shrink-0" size={15} />
-            Every chore carries the house penalty. {graceSummary}
-          </p>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
-            <Button type="button" variant="ghost" onClick={() => setTaskModal(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy === (editingTaskId ? `task:update:${editingTaskId}` : 'task:new')}>
-              {editingTaskId ? 'Save changes' : 'Create chore'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={Boolean(disputeId)}
-        onClose={() => setDisputeId(null)}
-        title="Dispute the infraction"
-        description="Your reason will be visible to the other roommates."
-      >
-        <form
-          onSubmit={async (event) => {
-            event.preventDefault()
-            if (!disputeId || disputeReason.trim().length < 5) return
-            await disputeInfraction(disputeId, disputeReason.trim())
-            setDisputeId(null)
-            setDisputeReason('')
-          }}
-        >
-          <label>What happened?
-            <textarea
-              value={disputeReason}
-              onChange={(event) => setDisputeReason(event.target.value)}
-              placeholder="Give enough context for a fair vote."
-              rows={4}
-            />
-          </label>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5"}>
-            <Button type="button" variant="ghost" onClick={() => setDisputeId(null)}>Cancel</Button>
-            <Button type="submit" disabled={disputeReason.trim().length < 5}>Open dispute</Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={Boolean(assignTaskId)}
-        onClose={() => setAssignTaskId('')}
-        title="Assign this chore"
-        description="Manual chores appear only when someone explicitly assigns them."
-      >
-        <form
-          className={"form-grid grid grid-cols-2 gap-3.75 max-[640px]:grid-cols-1"}
-          onSubmit={async (event) => {
-            event.preventDefault()
-            await assignManualTask(assignTaskId, assignMemberId, assignDate)
-            setAssignTaskId('')
-          }}
-        >
-          <label>Roommate
-            <select value={assignMemberId} onChange={(event) => setAssignMemberId(event.target.value)}>
-              {data.members.filter((member) => member.active).map((member) => (
-                <option value={member.id} key={member.id}>{member.displayName}</option>
-              ))}
-            </select>
-          </label>
-          <label>Due date
-            <input type="date" value={assignDate} onChange={(event) => setAssignDate(event.target.value)} />
-          </label>
-          <div className={"modal-actions flex justify-end gap-2.25 mt-1.5 field-span-2 col-span-full max-[640px]:col-[1]"}>
-            <Button type="button" variant="ghost" onClick={() => setAssignTaskId('')}>Cancel</Button>
-            <Button type="submit">Assign chore</Button>
-          </div>
-        </form>
-      </Modal>
+      {dialogs}
     </div>
   )
 }

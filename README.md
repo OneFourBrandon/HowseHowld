@@ -15,6 +15,24 @@ server-authoritative deadlines.
 - Versioned drag-and-drop driveway lineup, manual/course departures, blocker calculation, and targeted warnings
 - Installable offline app shell, Web Push subscriptions, test delivery, dead-subscription cleanup, notification outbox, Cron processing, audit history, and demo mode
 
+## Two designs
+
+The app has two designs. **Classic** is the default and is what everyone sees
+until they choose otherwise. The newer design, called **Slate** in the code, is
+switched on per device under Settings → Appearance → New design, and switched
+off in the same place.
+
+- The choice is stored in `localStorage` (`howsehowld:design`) and applied to
+  `<html data-design>` before first paint. `src/lib/appearance.ts` owns it.
+- Slate lives in `src/slate`. It has its own shell, overview and settings.
+  Chores, Money, Calendar and Driveway keep their page logic and dialogs and
+  swap only their layout.
+- A page loads Slate's stylesheet, shell and layouts only once the design is
+  switched on, and its styles are scoped to `:root[data-design="slate"]` in
+  `src/slate/slate.css`. Classic is unaffected while it is off. (The service
+  worker still precaches Slate's files along with the rest of the build.)
+- Slate keeps its own theme, dark by default, separate from the Classic theme.
+
 ## Local development
 
 Requirements: Node 24+, pnpm 11+, Docker Desktop.

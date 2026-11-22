@@ -7,6 +7,8 @@ import { HouseholdGate } from './components/HouseholdGate'
 import { ProfileGate } from './components/ProfileGate'
 import { AppDataProvider } from './state/AppDataContext'
 import { useAppData } from './state/AppDataContext'
+import { useDesign } from './lib/appearance'
+import { ClassicSettingsPage, SlateOverviewPage, SlateSettingsPage, SlateShell } from './lib/switchDesign'
 import type { HouseholdFeature } from './types'
 
 const TodayPage = lazy(() =>
@@ -24,10 +26,6 @@ const CalendarPage = lazy(() =>
 const DrivewayPage = lazy(() =>
   import('./pages/DrivewayPage').then((module) => ({ default: module.DrivewayPage })),
 )
-const SettingsPage = lazy(() =>
-  import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })),
-)
-
 function FeatureRoute({
   feature,
   children,
@@ -43,6 +41,7 @@ function FeatureRoute({
 }
 
 export default function App() {
+  const slate = useDesign() === 'slate'
   return (
     <AuthProvider><AuthGate>
       <ProfileGate>
@@ -50,13 +49,13 @@ export default function App() {
           <HouseholdGate>
           <Suspense fallback={<div className={"route-loading min-h-dvh grid place-items-center text-(--muted)"}>Opening your house…</div>}>
             <Routes>
-              <Route element={<AppShell />}>
-                <Route index element={<TodayPage />} />
+              <Route element={slate ? <SlateShell /> : <AppShell />}>
+                <Route index element={slate ? <SlateOverviewPage /> : <TodayPage />} />
                 <Route path="chores" element={<FeatureRoute feature="chores"><ChoresPage /></FeatureRoute>} />
                 <Route path="money" element={<FeatureRoute feature="money"><MoneyPage /></FeatureRoute>} />
                 <Route path="calendar" element={<FeatureRoute feature={['calendar', 'courses']}><CalendarPage /></FeatureRoute>} />
                 <Route path="driveway" element={<FeatureRoute feature="driveway"><DrivewayPage /></FeatureRoute>} />
-                <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings" element={slate ? <SlateSettingsPage /> : <ClassicSettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

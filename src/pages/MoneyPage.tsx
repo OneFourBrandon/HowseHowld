@@ -1,11 +1,18 @@
-import { useState } from 'react'
+import { lazy, useState } from 'react'
 import { Avatar, Button, Modal } from '../components/ui'
 import { MoneyDashboard } from '../components/MoneyDashboard'
 import { SharedPurchaseModal } from '../components/SharedPurchaseModal'
+import { useDesign } from '../lib/appearance'
+import { useIntent } from '../lib/intent'
 import { cents } from '../lib/utils'
 import { allocateBillShares } from '../lib/shares'
 import { useAppData } from '../state/AppDataContext'
 import type { HouseholdBillCategory, Member } from '../types'
+
+// The slate layout is fetched only when the slate design is on.
+const MoneyView = lazy(() =>
+  import('../slate/MoneyView').then((module) => ({ default: module.MoneyView })),
+)
 
 const monthValue = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -112,10 +119,14 @@ export function MoneyPage() {
   )
   const [settleAmount, setSettleAmount] = useState('')
   const currentMemberId = data.household.currentMemberId
+  // The slate design swaps the layout and keeps every dialog below.
+  const Dashboard = useDesign() === 'slate' ? MoneyView : MoneyDashboard
+  useIntent('new-purchase', () => setExpenseModal(true))
+  useIntent('settle-up', () => setSettleModal(true))
 
   return (
     <div className="page-stack">
-      <MoneyDashboard
+      <Dashboard
         selectedMonth={selectedMonth}
         onMonthChange={setSelectedMonth}
         onSettle={() => setSettleModal(true)}

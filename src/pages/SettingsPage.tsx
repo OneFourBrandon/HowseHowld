@@ -28,6 +28,7 @@ import { FeatureChecklist } from '../components/FeatureChecklist'
 import { PenaltySettings } from '../components/PenaltySettings'
 import { GracePeriodSettings } from '../components/GracePeriodSettings'
 import { EmailRecovery } from '../components/EmailRecovery'
+import { AppearanceSettings } from '../components/AppearanceSettings'
 import { formatDateTime } from '../lib/utils'
 
 export function SettingsPage() {
@@ -103,6 +104,8 @@ export function SettingsPage() {
 
       <div className={"settings-layout grid items-start grid-cols-[minmax(0,1.3fr)_minmax(300px,.7fr)] max-[980px]:grid-cols-1 gap-14.5 max-[980px]:gap-12.5"}>
         <div className={"settings-main grid max-[980px]:gap-6.25 gap-14.5"}>
+          <AppearanceSettings />
+
           <section>
             <SectionHeader eyebrow="YOUR ACCOUNT" title="Profile" />
             <form
