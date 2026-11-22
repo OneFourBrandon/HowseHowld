@@ -60,6 +60,10 @@ export function useDialogFocus() {
       const target = event.target instanceof Element ? event.target : null
       if (target && !target.closest(OPEN_DIALOG)) lastOutside = target.closest<HTMLElement>(FOCUSABLE)
     }
+    // A press that turned into a scroll opened nothing, so it is not a place to return to.
+    const onPointerCancel = () => {
+      lastOutside = null
+    }
     const sync = () => {
       // With more than one open, the newest is the last in the page.
       const dialog = [...document.querySelectorAll<HTMLElement>(OPEN_DIALOG)].at(-1) ?? null
@@ -80,12 +84,14 @@ export function useDialogFocus() {
 
     document.addEventListener('focusin', onFocusIn)
     document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('pointercancel', onPointerCancel, true)
     const observer = new MutationObserver(sync)
     observer.observe(document.body, { childList: true, subtree: true })
     sync()
     return () => {
       document.removeEventListener('focusin', onFocusIn)
       document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('pointercancel', onPointerCancel, true)
       observer.disconnect()
     }
   }, [])
